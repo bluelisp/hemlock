@@ -1,7 +1,6 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
-(ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/dabbrev.lisp,v 1.1 2004-07-09 13:39:10 gbaumann Exp $")
+
 
 ;;; **********************************************************************
 ;;; Dynamic abbreviation (dabbrev) command, knocked off from GNU Emacs.
