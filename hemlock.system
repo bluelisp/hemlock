@@ -1,0 +1,183 @@
+;; -*- Mode: Lisp; -*-
+
+(proclaim '(optimize (safety 3) (speed 0) (debug 3)))
+
+(defpackage #:hemlock-system
+  (:use #:cl)
+  (:export #:*hemlock-base-directory*))
+
+(in-package #:hemlock-system)
+
+(pushnew :command-bits *features*)
+(pushnew :buffered-lines *features*)
+
+(defparameter *hemlock-base-directory*
+  (make-pathname :name nil :type nil :version nil
+                 :defaults (parse-namestring *load-truename*)))
+
+(defparameter *binary-pathname*
+  (make-pathname :directory
+                 (append (pathname-directory *hemlock-base-directory*)
+                         (list "bin"
+                               #+CLISP "clisp"
+                               #+CMU   "cmu"
+                               #+EXCL  "acl"
+                               #+SBCL  "sbcl"
+                               #-(or CLISP CMU EXCL SBCL)
+                               (string-downcase (lisp-implementation-type))))
+                 :defaults *hemlock-base-directory*))
+       
+(mk:defsystem :hemlock
+    :source-pathname #.(make-pathname :directory
+                                      (append (pathname-directory *hemlock-base-directory*)
+                                              (list "src"))
+                                      :defaults *hemlock-base-directory*)
+    :source-extension "lisp"
+    :binary-pathname #.*binary-pathname*
+    :depends-on (:clim-clx #+NIL :mcclim-freetype)
+    ;; ehem ..
+    :initially-do
+    (progn
+      ;; try to load clx
+      (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
+        (ignore-errors (require :clx))
+        (ignore-errors (require :cmucl-clx)))
+      (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
+        (error "Please provide me with CLX."))
+      ;; Create binary pathnames
+      (ensure-directories-exist *binary-pathname*)
+      (dolist (subdir '("tty" "wire" "user" "core" "clim"))
+        (ensure-directories-exist (merge-pathnames (make-pathname :directory (list :relative subdir))
+                                                   *binary-pathname*)
+                                  :verbose t))
+      ;; Gray Streams
+      #+CMU
+      (require :gray-streams)
+      #+CMU
+      (setf *EFFICIENCY-NOTE-COST-THRESHOLD* 1000000)
+      #+CMU
+      (setf *EFFICIENCY-NOTE-LIMIT* 0)
+      #+CMU
+      (setf C:*RECORD-XREF-INFO* t)
+      )
+    :components
+    ("core/package"
+
+     ;; Lisp implementation specific stuff goes into one of the next
+     ;; two files.
+     "core/lispdep"
+     "core/hemlock-ext"                     
+
+     "core/decls"                            ;early declarations of functions and stuff
+     
+     "core/struct"
+     ;; "struct-ed"
+     "core/charmacs"
+     "core/key-event" 
+     "bitmap/keysym-defs"               ;hmm.
+     "core/rompsite"
+     "core/input"
+     "core/macros"
+     "core/line"
+     "core/ring"
+     "core/vars"
+     "core/interp"
+     "core/syntax"
+     "core/htext1"
+     "core/buffer"  
+     "core/htext2"
+     "core/htext3"
+     "core/htext4"
+     "core/files"
+     "core/search1"
+     "core/search2"
+     "core/table"
+     
+     
+     "core/window"
+     "core/screen"
+     "core/winimage"
+     "core/linimage"
+     "core/cursor"
+     "core/display"
+
+
+     "tty/termcap"
+     ;"tty-disp-rt"
+     ;"tty-display"
+     "pop-up-stream"
+     "tty/tty-screen"
+
+     "font"
+     "streams"
+;     "hacks"
+     "main"
+     "echo"
+     "user/echocoms"
+
+     "user/command"
+     "user/kbdmac"
+     "user/undo"
+     "user/killcoms"
+     "user/indent"
+     "user/searchcoms"
+     "user/filecoms"
+     "user/morecoms"
+     "user/doccoms"
+     "user/srccom"
+     "user/group"
+     "user/fill"
+     "user/text"
+
+     "user/lispmode"
+;;     "user/ts-buf"
+;;     "user/ts-stream"
+;;     "user/eval-server"
+     "user/lispbuf"
+;;     "user/lispeval"
+;;     "user/spell-rt"
+;;     "user/spell-corr"
+;;     "user/spell-aug"
+;;     "user/spellcoms"
+
+     "user/comments"
+     "user/overwrite"
+     "user/abbrev"
+     "user/icom"
+     "user/defsyn"
+     "user/scribe"
+     "user/pascal"
+     "user/dylan"
+
+     "user/edit-defs"
+     "user/auto-save"
+     "user/register"
+     "user/xcoms"
+;;     "user/unixcoms"
+;;     "user/mh"
+     "user/highlight"
+;;     "user/dired"
+;;     "user/diredcoms"
+     "user/bufed"
+;;   "user/lisp-lib"
+     "user/completion"
+;;     "user/shell"
+;;     "user/debug"
+;;     "user/netnews"
+;;     "user/rcs"
+     "user/dabbrev"
+     "user/bindings"
+     "user/bindings-gb"
+
+
+     "bitmap/rompsite"
+     "bitmap/input"
+     "bitmap/bit-stuff"
+     "bitmap/hunk-draw"
+     "bitmap/bit-display"
+     "bitmap/bit-screen"
+     "bitmap/pop-up-stream"
+
+     "clim/patch"
+     "clim/foo"
+     ))
