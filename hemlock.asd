@@ -67,7 +67,8 @@
     ((:module core-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "core")))
+                            :directory '(:relative "src" "core"))
+                           *hemlock-base-directory*)
               :components
               ((:file "package")
                ;; Lisp implementation specific stuff goes into one of the next
@@ -83,7 +84,8 @@
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "bitmap")))
+                            :directory '(:relative "src" "bitmap"))
+                           *hemlock-base-directory*)
               :depends-on (core-1)
               :components
               ((:file "keysym-defs") ; hmm.
@@ -92,7 +94,8 @@
      (:module core-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "core")))
+                            :directory '(:relative "src" "core"))
+                           *hemlock-base-directory*)
               :depends-on (bitmap-1)
               :components
               ((:file "rompsite")
@@ -122,7 +125,8 @@
      (:module tty-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "tty")))
+                            :directory '(:relative "tty"))
+                           *hemlock-base-directory*)
               :components
               (#+port-tty-termcap (:file "termcap")
                #+port-tty-tty-disp-rt (:file "tty-disp-rt")
@@ -130,20 +134,23 @@
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src")))
+                            :directory '(:relative "src"))
+                           *hemlock-base-directory*)
               :depends-on (core-2)
               :components
               ((:file "pop-up-stream")))
      (:module tty-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "tty")))
+                            :directory '(:relative "tty"))
+                           *hemlock-base-directory*)
               :components
               (#+port-tty-tty-screen (:file "tty-screen")))
      (:module root-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src")))
+                            :directory '(:relative "src"))
+                           *hemlock-base-directory*)
               :depends-on (root-1)
               :components
               ((:file "font")
@@ -154,7 +161,8 @@
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "user")))
+                            :directory '(:relative "src" "user"))
+                           *hemlock-base-directory*)
               :depends-on (root-2)
               :components
               ((:file "echocoms")
@@ -215,7 +223,8 @@
      (:module bitmap-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "bitmap")))
+                            :directory '(:relative "src" "bitmap"))
+                           *hemlock-base-directory*)
               :depends-on (user-1)
               :components
               ((:file "rompsite")
@@ -226,7 +235,8 @@
      (:module clim-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "clim")))
+                            :directory '(:relative "src" "clim"))
+                           *hemlock-base-directory*)
               :depends-on (bitmap-2)
               :components
               ((:file "patch")

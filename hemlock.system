@@ -211,5 +211,5 @@
 	      :depends-on (bitmap-2)
 	      :components
 	      ((:file "patch")
-	       (:file "foo")
+	       #+port-clim-foo (:file "foo")
 	       (:file "exp-syntax")))))

@@ -5,21 +5,21 @@ file hemlock.asd has been added, supporting SBCL for now. So when you
 are lucky you just can fire up your Lisp and say
 
 CMUCL/MK:
-    ; (require 'defsystem)
-    (mk:load-system :hemlock)
+    ; (require '#:defsystem)
+    ; (load "../McCLIM/system.lisp")
+    (mk:load-system :hemlock) ; or (mk:compile-system :hemlock)
 
 SBCL/ASDF:
     ; (require 'asdf)
     ; (require 'sb-bsd-sockets)
     ; (asdf:oos 'asdf:load-op :clx)
+    ; (load "../McCLIM/system.lisp")
     (asdf:oos 'adsf:load-op :hemlock)
 
     (cl-user::hemlock)
 
 If you want to try the CLIM backend, which not yet is fully operational, try:
 
-    ; (load "../McCLIM/system.lisp")
-    ; (mk:load-system :clim-clx) ; CMUCL/MK, might already be a dependency
     ; (asdf:oos 'asdf:load-op :clim-clx) ; SBCL/ASDF
 
     (clim-hemlock::clim-hemlock)
