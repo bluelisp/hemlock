@@ -5,7 +5,12 @@ lucky you just can fire up your Lisp and say
 
     (oos :hemlock :load)
 
-    (hemlock)
+    (cl-user::hemlock)
+
+If you want to try the CLIM backend, which not yet is fully operational, try:
+
+    (clim-hemlock::clim-hemlock)
+
 
 This was tested with:
 
