@@ -180,4 +180,5 @@
 
      "clim/patch"
      "clim/foo"
+     "clim/exp-syntax"
      ))
