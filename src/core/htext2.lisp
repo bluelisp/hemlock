@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext2.lisp,v 1.3 2004-08-10 12:47:07 rstrandh Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext2.lisp,v 1.4 2004-12-15 12:13:26 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -371,47 +371,49 @@
 
 (defun %print-before-mark (mark stream)
   (if (mark-line mark)
-      (let* ((line (mark-line mark))
-             (chars (line-chars line))
-             (charpos (mark-charpos mark))
-             (length (line-length line)))
-        (declare (simple-string chars))
-        (cond ((or (> charpos length) (< charpos 0))
-               (write-string "{bad mark}" stream))
-              ((eq line open-line)
-               (cond ((< charpos left-open-pos)
-                      (write-string open-chars stream :end charpos))
-                     (t
-                      (write-string open-chars stream :end left-open-pos)
-                      (let ((p (+ charpos (- right-open-pos left-open-pos))))
-                        (write-string open-chars stream  :start right-open-pos
-                                      :end p)))))
-              (t
-               (write-string chars stream :end charpos))))
+      (let ((line (mark-line mark))
+            (charpos (mark-charpos mark)))
+        (cond
+         ((eq line open-line)
+          (cond ((< charpos left-open-pos)
+                 (write-string open-chars stream :end charpos))
+                (t
+                 (write-string open-chars stream :end left-open-pos)
+                 (let ((p (+ charpos (- right-open-pos left-open-pos))))
+                   (write-string open-chars stream  :start right-open-pos
+                                 :end p)))))
+         (t (let ((chars (line-chars line))
+                  (length (line-length line)))
+              (declare (simple-string chars))
+              (cond ((or (> charpos length) (< charpos 0))
+                     (write-string "{bad mark}" stream))
+                    (t
+                     (write-string chars stream :end charpos)))))))
       (write-string "{deleted mark}" stream)))
 
 
 (defun %print-after-mark (mark stream)
   (if (mark-line mark)
-      (let* ((line (mark-line mark))
-             (chars (line-chars line))
-             (charpos (mark-charpos mark))
-             (length (line-length line)))
-        (declare (simple-string chars))
-        (cond ((or (> charpos length) (< charpos 0))
-               (write-string "{bad mark}" stream))
-              ((eq line open-line)
-               (cond ((< charpos left-open-pos)
-                      (write-string open-chars stream  :start charpos
-                                    :end left-open-pos)
-                      (write-string open-chars stream  :start right-open-pos
-                                    :end line-cache-length))
-                     (t
-                      (let ((p (+ charpos (- right-open-pos left-open-pos))))
-                        (write-string open-chars stream :start p
-                                      :end line-cache-length)))))
-              (t
-               (write-string chars stream  :start charpos  :end length))))
+      (let ((line (mark-line mark))
+            (charpos (mark-charpos mark)))
+        (cond
+         ((eq line open-line)
+          (cond ((< charpos left-open-pos)
+                 (write-string open-chars stream  :start charpos
+                               :end left-open-pos)
+                 (write-string open-chars stream  :start right-open-pos
+                               :end line-cache-length))
+                (t
+                 (let ((p (+ charpos (- right-open-pos left-open-pos))))
+                   (write-string open-chars stream :start p
+                                 :end line-cache-length)))))
+         (t (let ((chars (line-chars line))
+                  (length (line-length line)))
+              (declare (simple-string chars))
+              (cond ((or (> charpos length) (< charpos 0))
+                     (write-string "{bad mark}" stream))
+                    (t
+                     (write-string chars stream :start charpos :end length)))))))
       (write-string "{deleted mark}" stream)))
 
 (defmethod print-object ((structure line) stream)
