@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.3 2004-08-10 06:34:42 rstrandh Exp $")
+       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.4 2004-10-16 19:28:23 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -321,25 +321,30 @@
 
 
 ;;;; Typescript.
-;; (bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
+#+port-user-ts-buf
+(progn
+(bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
 ;; (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
 ;; (bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
 ;; (bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
 ;; (bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
 ;; (bind-key "Next Interactive Input" #k"meta-n" :mode "Typescript")
 ;; (bind-key "Reenter Interactive Input" #k"control-return" :mode "Typescript")
-;; (bind-key "Typescript Slave Break" #k"hyper-b" :mode "Typescript")
-;; (bind-key "Typescript Slave to Top Level" #k"hyper-g" :mode "Typescript")
-;; (bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
-;; (bind-key "Select Slave" #k"control-meta-\c")
-;; (bind-key "Select Background" #k"control-meta-C")
+(bind-key "Typescript Slave Break" #k"hyper-b" :mode "Typescript")
+(bind-key "Typescript Slave to Top Level" #k"hyper-g" :mode "Typescript")
+(bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
+(bind-key "Select Slave" #k"control-meta-\c")
+(bind-key "Select Background" #k"control-meta-C")
+)
 
-;; (bind-key "Abort Operations" #k"hyper-a")
-;; (bind-key "List Operations" #k"hyper-l")
+#+port-user-lispeval
+(progn
+(bind-key "Abort Operations" #k"hyper-a")
+(bind-key "List Operations" #k"hyper-l")
 
-;; (bind-key "Next Compiler Error" #k"hyper-n")
-;; (bind-key "Previous Compiler Error" #k"hyper-p")
-
+(bind-key "Next Compiler Error" #k"hyper-n")
+(bind-key "Previous Compiler Error" #k"hyper-p")
+)
 
 ;;;; Lisp (some).
 
@@ -371,6 +376,8 @@
 (bind-key "Delete Previous Character Expanding Tabs" #k"backspace" :mode "Lisp")
 (bind-key "Delete Previous Character Expanding Tabs" #k"delete" :mode "Lisp")
 
+#+port-user-lispeval
+(progn
 (bind-key "Evaluate Expression" #k"meta-escape")
 (bind-key "Evaluate Defun" #k"control-x control-e")
 (bind-key "Compile Defun" #k"control-x control-c")
@@ -379,9 +386,11 @@
 
 (bind-key "Describe Function Call" #k"control-meta-A")
 (bind-key "Describe Symbol" #k"control-meta-S")
-
+)
 (bind-key "Goto Definition" #k"control-meta-F")
 
+#+port-user-debug
+(progn
 (bind-key "Debug Up" #k"control-meta-hyper-u")
 (bind-key "Debug Down" #k"control-meta-hyper-d")
 (bind-key "Debug Top" #k"control-meta-hyper-t")
@@ -400,7 +409,7 @@
 (bind-key "Debug Source" #k"control-meta-hyper-s")
 (bind-key "Debug Edit Source" #k"control-meta-hyper-S")
 (bind-key "Debug Flush Errors" #k"control-meta-hyper-F")
-
+)
 
 
 ;;;; More Miscellaneous bindings.
@@ -474,21 +483,23 @@
 
 ;;;; Spell bindings.
 
-;; (bind-key "Check Word Spelling" #k"meta-$")
-;; (bind-key "Add Word to Spelling Dictionary" #k"control-x $")
+#+port-user-spellcoms
+(progn
+(bind-key "Check Word Spelling" #k"meta-$")
+(bind-key "Add Word to Spelling Dictionary" #k"control-x $")
 
-;; (dolist (info (command-bindings (getstring "Self Insert" *command-names*)))
-;;   (let* ((key (car info))
-;;          (key-event (svref key 0))
-;;          (character (key-event-char key-event)))
-;;     (unless (or (alpha-char-p character) (eq key-event #k"'"))
-;;       (bind-key "Auto Check Word Spelling" key :mode "Spell"))))
-;; (bind-key "Auto Check Word Spelling" #k"return" :mode "Spell")
-;; (bind-key "Auto Check Word Spelling" #k"tab" :mode "Spell")
-;; (bind-key "Auto Check Word Spelling" #k"linefeed" :mode "Spell")
-;; (bind-key "Correct Last Misspelled Word" #k"meta-:")
-;; (bind-key "Undo Last Spelling Correction" #k"control-x a")
-
+(dolist (info (command-bindings (getstring "Self Insert" *command-names*)))
+  (let* ((key (car info))
+         (key-event (svref key 0))
+         (character (key-event-char key-event)))
+    (unless (or (alpha-char-p character) (eq key-event #k"'"))
+      (bind-key "Auto Check Word Spelling" key :mode "Spell"))))
+(bind-key "Auto Check Word Spelling" #k"return" :mode "Spell")
+(bind-key "Auto Check Word Spelling" #k"tab" :mode "Spell")
+(bind-key "Auto Check Word Spelling" #k"linefeed" :mode "Spell")
+(bind-key "Correct Last Misspelled Word" #k"meta-:")
+(bind-key "Undo Last Spelling Correction" #k"control-x a")
+)
 
 ;;;; Overwrite Mode.
 
@@ -540,7 +551,8 @@
 (dolist (key (list #k"]" #k")" #k"}" #k"\>"))
   (bind-key "Scribe Insert Bracket" key :mode "Scribe"))
 
-;;GB (bind-key "Scribe Buffer File" #k"control-x c" :mode "Scribe")
+#+port-user-unixcoms
+(bind-key "Scribe Buffer File" #k"control-x c" :mode "Scribe")
 (bind-key "Select Scribe Warnings" #k"control-meta-C" :mode "Scribe")
 
 (bind-key "Insert Scribe Directive" #k"hyper-i" :mode "Scribe")
@@ -557,6 +569,8 @@
 ;;; Clear everything user might hit to avoid getting the internal error
 ;;; message about modifying read-only buffers.
 ;;;
+#+port-user-mh
+(progn
 (hemlock-ext:do-alpha-key-events (key-event :both)
                                  (bind-key "Illegal" key-event :mode "Headers")
                                  (bind-key "Illegal" key-event :mode "Message"))
@@ -640,7 +654,7 @@
 (bind-key "Delete Draft and Buffer" #k"hyper-q" :mode "Draft")
 (bind-key "List Mail Buffers" #k"hyper-l" :mode "Draft")
 (bind-key "Draft Help" #k"hyper-?" :mode "Draft")
-
+)
 
 
 ;;;; Netnews.
@@ -648,6 +662,8 @@
 ;;; Clear everything user might hit to avoid getting the internal error
 ;;; message about modifying read-only buffers.
 ;;;
+#+port-user-netnews
+(progn
 (hemlock-ext:do-alpha-key-events (key-event :both)
                                  (bind-key "Illegal" key-event :mode "News-Headers")
                                  (bind-key "Illegal" key-event :mode "News-Message"))
@@ -700,11 +716,14 @@
 (bind-key "Netnews Previous Line" #k"Uparrow" :mode "News-Headers")
 (bind-key "Netnews Select Message Buffer" #k"hyper-m" :mode "News-Headers")
 (bind-key "Netnews Show Article" #k"space" :mode "News-Headers")
-
+)
 
 ;;; News-Message.
 ;;;
+#+port-user-mh
 (bind-key "Insert Message Region" #k"Hyper-y" :mode "News-Message")
+#+port-user-netnews
+(progn
 (bind-key "Netnews Message File Message" #k"o" :mode "News-Message")
 (bind-key "Netnews Message Keep Buffer" #k"k" :mode "News-Message")
 (bind-key "Netnews Message Quit" #k"q" :mode "News-Message")
@@ -721,20 +740,26 @@
 (bind-key "Netnews Select Message Buffer" #k"hyper-m" :mode "Post")
 (bind-key "Netnews Deliver Post" #k"hyper-s" :mode "Post")
 (bind-key "Netnews Abort Post" #k"hyper-q" :mode "Post")
+)
+#+port-user-mh
 (bind-key "Insert Message Buffer" #k"Hyper-y" :mode "Post")
 
 
 ;;; News-Browse.
 
+#+port-user-netnews
+(progn
 (bind-key "Netnews Quit Browse" #k"q" :mode "News-Browse")
 (bind-key "Netnews Browse Add Group To File" #k"a" :mode "News-Browse")
 (bind-key "Netnews Browse Read Group" #k"space" :mode "News-Browse")
 (bind-key "Next Line" #k"n" :mode "News-Browse")
 (bind-key "Previous Line" #k"p" :mode "News-Browse")
-
+)
 
 ;;;; Process (Shell).
 
+#+port-user-shell
+(progn
 (bind-key "Shell" #k"control-meta-s")
 (bind-key "Confirm Process Input" #k"return" :mode "Process")
 (bind-key "Shell Complete Filename" #k"M-escape" :mode "Process")
@@ -749,7 +774,7 @@
 (bind-key "Kill Interactive Input" #k"meta-i" :mode "Process")
 (bind-key "Next Interactive Input" #k"meta-n" :mode "Process")
 (bind-key "Reenter Interactive Input" #k"control-return" :mode "Process")
-
+)
 
 ;;;; Bufed.
 
@@ -772,6 +797,8 @@
 
 ;;;; Dired.
 
+#+port-user-diredcoms
+(progn
 (bind-key "Dired" #k"control-x control-meta-d")
 
 (bind-key "Dired Delete File and Down Line" #k"d" :mode "Dired")
@@ -811,17 +838,19 @@
 (bind-key "View Help" #k"?" :mode "View")
 (bind-key "Beginning of Buffer" #k"\<" :mode "View")
 (bind-key "End of Buffer" #k"\>" :mode "View")
-
+)
 
 ;;;; Lisp Library.
 
+#+port-user-lisp-lib
+(progn
 (bind-key "Describe Pointer Library Entry" #k"leftdown" :mode "Lisp-Lib")
 (bind-key "Load Pointer Library Entry" #k"rightdown" :mode "Lisp-Lib")
 (bind-key "Describe Library Entry" #k"space" :mode "Lisp-Lib")
 (bind-key "Load Library Entry" #k"l" :mode "Lisp-Lib")
 (bind-key "Exit Lisp Library" #k"q" :mode "Lisp-Lib")
 (bind-key "Lisp Library Help" #k"?" :mode "Lisp-Lib")
-
+)
 
 ;;;; Completion mode.
 

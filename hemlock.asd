@@ -79,7 +79,7 @@
 
                (:file "decls") ; early declarations of functions and stuff
                (:file "struct")
-               ;; "struct-ed"
+               #+port-core-struct-ed (:file "struct-ed")
                (:file "charmacs")
                (:file "key-event")))
      (:module bitmap-1
@@ -121,13 +121,14 @@
                (:file "linimage")
                (:file "cursor")
                (:file "display")))
-;;;      (:module tty-1
-;;;           :source-pathname "tty"
-;;;           :components
-;;;           ("termcap"
-;;;            ;; "tty-disp-rt"
-;;;            ;; "tty-display"
-;;;            ))
+     (:module tty-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "tty")))
+              :components
+              (#+port-tty-termcap (:file "termcap")
+               #+port-tty-tty-disp-rt (:file "tty-disp-rt")
+               #+port-tty-tty-display (:file "tty-display")))
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -135,10 +136,12 @@
               :depends-on (core-2)
               :components
               ((:file "pop-up-stream")))
-;;;     (:module tty-2
-;;;           :source-pathname "tty"
-;;;           :components
-;;;           ("tty-screen"))
+     (:module tty-2
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "tty")))
+              :components
+              (#+port-tty-tty-screen (:file "tty-screen")))
      (:module root-2
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -147,7 +150,7 @@
               :components
               ((:file "font")
                (:file "streams")
-               ;; "hacks"
+               #+port-root-hacks (:file "hacks")
                (:file "main")
                (:file "echo")))
      (:module user-1
@@ -173,15 +176,15 @@
                (:file "text")
 
                (:file "lispmode")
-               ;; "ts-buf"
-               ;; "ts-stream"
-               ;; "eval-server"
+               #+port-user-ts-buf (:file "ts-buf")
+               #+port-user-ts-stream (:file "ts-stream")
+               #+port-user-eval-server (:file "eval-server")
                (:file "lispbuf")
-               ;; "lispeval"
-               ;; "spell-rt"
-               ;; "spell-corr"
-               ;; "spell-aug"
-               ;; "spellcoms"
+               #+port-user-lispeval (:file "lispeval")
+               #+port-user-spell-rt (:file "spell-rt")
+               #+port-user-spell-corr (:file "spell-corr")
+               #+port-user-spell-aug (:file "spell-aug")
+               #+port-user-spellcoms (:file "spellcoms")
 
                (:file "comments")
                (:file "overwrite")
@@ -196,18 +199,18 @@
                (:file "auto-save")
                (:file "register")
                (:file "xcoms")
-               ;; "unixcoms"
-               ;; "mh"
+               #+port-user-unixcoms (:file "unixcoms")
+               #+port-user-mh (:file "mh")
                (:file "highlight")
-               ;; "dired"
-               ;; "diredcoms"
+               #+port-user-dired (:file "dired")
+               #+port-user-diredcoms (:file "diredcoms")
                (:file "bufed")
-               ;;"lisp-lib"
+               #+port-user-lisp-lib (:file "lisp-lib")
                (:file "completion")
-               ;; "shell"
-               ;; "debug"
-               ;; "netnews"
-               ;; "rcs"
+               #+port-user-shell (:file "shell")
+               #+port-user-debug (:file "debug")
+               #+port-user-netnews (:file "netnews")
+               #+port-user-rcs (:file "rcs")
                (:file "dabbrev")
                (:file "bindings")
                (:file "bindings-gb")))
@@ -230,4 +233,4 @@
               :components
               ((:file "patch")
                (:file "foo")
-               #+nilamb(:file "exp-syntax")))))
+               #+port-clim-exp-syntax (:file "exp-syntax")))))
