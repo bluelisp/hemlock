@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext3.lisp,v 1.2 2004-12-23 23:58:28 abakic Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext3.lisp,v 1.3 2004-12-27 18:53:27 gbaumann Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -164,7 +164,7 @@
                     (+ last-charpos (- this-charpos charpos)))))
             (setf (line-next previous) new-line  previous new-line))))))))
 
-(defun ninsert-region (mark region)
+(defmethod ninsert-region (mark region)
   "Inserts the given Region at the Mark, possibly destroying the Region.
   Region may not be a part of any buffer's region."
   (let* ((start (region-start region))

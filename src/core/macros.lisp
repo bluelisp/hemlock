@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/macros.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/macros.lisp,v 1.3 2004-12-27 18:53:27 gbaumann Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -541,6 +541,44 @@
    displaying any current output after each line."
   (when (and (numberp height) (zerop height))
     (editor-error "I doubt that you really want a window with no height"))
+  `(invoke-with-pop-up-display (lambda (,var)
+                                 ,@body)
+    ,buffer-name ,height))
+
+(defun invoke-with-pop-up-display (cont buffer-name height)
+  (let ((cleanup-p nil)
+        (stream (get-random-typeout-info buffer-name height)))
+    (unwind-protect
+         (progn
+           (catch 'more-punt
+             (when height
+               ;; Test height since it may be supplied, but evaluate
+               ;; to nil.
+               (when height
+                 (prepare-for-random-typeout stream height)
+                 (setf cleanup-p t)))
+             (multiple-value-prog1
+                 (funcall cont stream)
+               (unless height
+                 (prepare-for-random-typeout stream nil)
+                 (setf cleanup-p t)
+                 (device-random-typeout-full-more (device-hunk-device
+                                                   (window-hunk
+                                                    (random-typeout-stream-window stream)))
+                                                  stream))
+               (end-random-typeout stream)))
+           (setf cleanup-p nil))
+      (when cleanup-p (random-typeout-cleanup stream)))))
+
+#||
+(defmacro with-pop-up-display ((var &key height (buffer-name "Random Typeout"))
+                               &body body)
+  "Execute body in a context with var bound to a stream.  Output to the stream
+   appears in the buffer named buffer-name.  The pop-up display appears after
+   the body completes, but if you supply :height, the output is line buffered,
+   displaying any current output after each line."
+  (when (and (numberp height) (zerop height))
+    (editor-error "I doubt that you really want a window with no height"))
   (let ((cleanup-p (gensym))
         (stream (gensym)))
     `(let ((,cleanup-p nil)
@@ -568,6 +606,7 @@
                    (end-random-typeout ,var))))
              (setf ,cleanup-p nil))
          (when ,cleanup-p (random-typeout-cleanup ,stream))))))
+||#
 
 (declaim (special *random-typeout-ml-fields* *buffer-names*))
 

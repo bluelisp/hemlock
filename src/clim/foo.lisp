@@ -8,41 +8,99 @@
 
 (in-package :clim-hemlock)
 
-;;;; RANDOM NOTES
+;;;; ------------------------------------------------------------------------------------------
+;;;;  RANDOM NOTES
+;;;;
+
+;; Hemlock has this funny notion of "hunks" which are just device-specific
+;; descriptions of a (hemlock) window. A hunk then points to some real
+;; window system window or somesuch. I really thing that these days thanks
+;; to multiple inheritance we should conflate hunks, [hemlock] windows and
+;; [window system] windows. This is not how that is currently done though,
+;; as i am not 100% certain about the implications.
 
 ;; Perhaps Hemlock should function as a frame manager too, so that you can
-;; embed say a listen into Hemlocks main application frame. Or goodies
-;; written by third parties like a side bar. Event processing then becomes
-;; tricky and keyboard events are about to under focus control and mouse
-;; event are about to be under pointer control. And: CLIM won't cope with a
-;; single application frame been displayed more than once like Emacs can
-;; display a buffer more than once. But: This is perhaps even possible
-;; thru' some glorious kludges.
+;; embed say a lister pane into Hemlock's main application frame. Or
+;; goodies written by third parties like a side bar. Event processing then
+;; becomes tricky and keyboard events are about to be under focus control
+;; and mouse events are about to be under pointer control. And: CLIM won't
+;; cope with a single application frame been displayed more than once like
+;; Emacs can display a buffer more than once. But: This is perhaps even
+;; possible thru' some glorious kludges.
 
-;; How exactly Hemlock can be integrated as the McCLIM line editor is still
-;; an open question. Also: If Hemlock functions as a line editor or as a
-;; text-field gadget, we surely want to operate in some restricted mode
-;; where we can't switch buffers. And line editing buffers and text-field
-;; buffers should be hidden. => Notion of a session.
+;; INTEGRATION OF HEMLOCK AS A GADGET. When we want to have Hemlock as a
+;; CLIM gadget as a substitute for the text-field gadget we need to tackle
+;; the following problems:
+
+;;  - CLIM has an event loop which just passes single events to
+;;    HANDLE-EVENT [in case of gadgets] and expects the event handler to
+;;    return after done with the event. But Hemlock really has a kind of
+;;    recursive event, where one event can trigger going down into another
+;;    event loop. The easiest solution to solve this, is to have two
+;;    threads, the CLIM thread and for each text-field gadget another
+;;    Hemlock process.
+
+;;  - In a single line text entry field there really is no room for a
+;;    modeline or the echo buffer. The modeline isn't that important here,
+;;    but you'd still want to be able to enter stuff to the echo buffer.
+;;    The solution perhaps is an echo buffer, which pops up on demand and
+;;    is placed near the cursor and goes away after you are finished
+;;    providing some arguments.
+
+;;  - When using Hemlock as a text-field gadget, you'd really want to avoid
+;;    creating windows or switching buffers.
+
+;; HEMLOCK AS THE LINE EDITOR. Not really much thought about that one yet
+;; besides that all the restriction of above apply too.
+
+;; MULTIPLE HEMLOCKS. There is the question about how much state should be
+;; shared between mutiple instances of Hemlock.
 
 ;; - DEVICE-HUNKS doesn't seem to be used anywhere beyond device
 ;;   implementations.
+
 ;; - DEVICE-BOTTOM-WINDOW-BASE seems to be only used from
 ;;   tty-screen.lisp.
 
-;;;; HEMLOCK AS GADGET
+;;;; ------------------------------------------------------------------------------------------
+;;;;  TODO / BUGS
+;;;;
 
-;; - creating new windows can easily been forbidden by just making
-;;   DEVICE-MAKE-WINDOW fail.
-;; - How can switching buffers be forbidden?
+;; - fix this random CLIM bug with :y-align in draw-text*.
+
+;; - where is the modeline?
+;;   well, there now is a modeline, but it isn't up to date :(
+;;   also the echo area now has one.
+
+;; - new need a new composite pane.
+;;   Or we use a different strategy.
+
+;; - c-x 0, c-x 3, c-x 5.
+
+;; - c-up and c-down
+
+;; - something steals c-g
+
+;; - pop up streams.
+
+;; - BABA needs a real name.
+
+;; - can't we merge a hunk with its stream thanks to multiple inheritance?
+
+;; - we really need to get input working. I can't type umlauts and these
+;;   dead keys aren't working either.
+
+;;;; ------------------------------------------------------------------------------------------
+
+(defparameter *gutter* 10
+  "The gutter to place between between the matter in a hemlock pane and its
+   margin to improve legibility (sp?, damn i miss ispell).")
 
 (defclass clim-device (device)
-  (;; cursor
-   (cursor-hunk :initform nil
-                :documentation "The hunk that has the cursor.")
-   (windows :initform nil
-            )
-   ))
+  ;; cursor
+  ((cursor-hunk
+    :initform nil :documentation "The hunk that has the cursor.")
+   (windows :initform nil) ))
 
 (defclass clim-hunk-pane (CLIM:APPLICATION-PANE)
   ((hunk)
@@ -54,6 +112,7 @@
 (defmethod device-exit ((device clim-device)))
 
 (defmethod device-smart-redisplay ((device clim-device) window)
+  ;; We aren't smart by any margin.
   (device-dumb-redisplay device window))
 
 (defmethod device-after-redisplay ((device clim-device))
@@ -109,70 +168,60 @@
     (setf (slot-value device 'windows)
           (remove window (slot-value device 'windows)))
     (let ((buffer (window-buffer window)))
-      (setf (buffer-windows buffer) (delete window (buffer-windows buffer))))
-    )
-  )
+      (setf (buffer-windows buffer) (delete window (buffer-windows buffer)))) ) )
+
+(defclass clim-hunk-pane (CLIM:APPLICATION-PANE)
+  ((hunk)
+   ))
 
 (defmethod device-make-window ((device clim-device) start modelinep window font-family
                                ask-user x y width-arg height-arg proportion
                                &aux res)
-  (print (list start modelinep window font-family ask-user x y width-arg height-arg proportion)
-         *trace-output*)
-  (finish-output *trace-output*)
   (let* ((hunk (window-hunk *current-window*))
          (stream (clim-hunk-stream hunk))
          (parent (clim:sheet-parent stream)))
-    (print parent *trace-output*)
-    (print (clim:sheet-children parent) *trace-output*)
-    (clim:with-look-and-feel-realization ((clim:frame-manager clim:*application-frame*)
-                                          clim:*application-frame*)
-      (let ((new (clim:make-pane 'clim-hunk-pane
-                                 :incremental-redisplay t
-                                 :width 100 :height 200 #|:min-height 200|# :background clim:+white+)))
-        (let* ((window (hi::internal-make-window))
-               (hunk (make-instance 'clim-hunk :stream new)))
-          (setf res window)
-          (baba-aux device window hunk *current-buffer*)
-          (let ((p (position *current-window* (slot-value device 'windows))))
-            (setf (slot-value device 'windows)
-                  (append (subseq (slot-value device 'windows) 0 p)
-                          (list window)
-                          (subseq (slot-value device 'windows) p))))
-          )
-        ;; since we still can't draw on ungrafted windows ...
-        (clim:sheet-adopt-child parent new)
-        ;; Put it just before current window, only that this has no
-        ;; effect with a vbox pane.
-        (let* ((q (remove new (clim:sheet-children parent)))
-               (p (position stream q)))
-          (clim:reorder-sheets parent
-                               (append (subseq q 0 (1+ p))
-                                       (list new)
-                                       (subseq q (1+ p))))
-          (print (clim:sheet-children parent) *trace-output*)
-          (print (append (subseq q 0 p)
-                         (list new)
-                         (subseq q p))
-                 *trace-output*)
-          (setf (clim:sheet-enabled-p new) t)
-          ))
-      )
+    (clim:with-look-and-feel-realization
+     ((clim:frame-manager clim:*application-frame*)
+      clim:*application-frame*)
+     (let ((new (clim:make-pane 'clim-hunk-pane
+                                :incremental-redisplay t
+                                :width 100 :height 200 #|:min-height 200|# :background clim:+white+)))
+       (let* ((window (hi::internal-make-window))
+              (hunk (make-instance 'clim-hunk :stream new)))
+         (setf res window)
+         (baba-aux device window hunk *current-buffer*)
+         (let ((p (position *current-window* (slot-value device 'windows))))
+           (setf (slot-value device 'windows)
+                 (append (subseq (slot-value device 'windows) 0 p)
+                         (list window)
+                         (subseq (slot-value device 'windows) p)))) )
+       ;; since we still can't draw on ungrafted windows ...
+       (clim:sheet-adopt-child parent new)
+       ;; Put it just before current window, only that this has no
+       ;; effect with a vbox pane.
+       (let* ((q (remove new (clim:sheet-children parent)))
+              (p (position stream q)))
+         (clim:reorder-sheets parent
+                              (append (subseq q 0 (1+ p))
+                                      (list new)
+                                      (subseq q (1+ p))))
+         (setf (clim:sheet-enabled-p new) t))))
     (finish-output *trace-output*))
   res)
 
 (defmethod clim:handle-repaint :around ((pane clim-hunk-pane) region)
-  (let ((device (device-hunk-device (slot-value pane 'hunk))))
-    (with-slots (cursor-hunk) device
-      (when cursor-hunk
-        (clim-drop-cursor cursor-hunk)))
-    (call-next-method)
-    (with-slots (cursor-hunk) device
-      (when cursor-hunk
-        (clim-put-cursor cursor-hunk))))
-  (clim:draw-line* (clim:sheet-medium pane)
-                   0 (- (clim:bounding-rectangle-height pane) 1)
-                   (clim:bounding-rectangle-width pane)
-                   (- (clim:bounding-rectangle-height pane) 1)) )
+  (let ((w (clim:bounding-rectangle-width pane))
+        (h (clim:bounding-rectangle-height pane)))
+    (let ((device (device-hunk-device (slot-value pane 'hunk))))
+      (with-slots (cursor-hunk) device
+        (when cursor-hunk
+          (clim-drop-cursor cursor-hunk)))
+      (call-next-method)
+      (with-slots (cursor-hunk) device
+        (when cursor-hunk
+          (clim-put-cursor cursor-hunk))))
+    '(clim:draw-rectangle* (clim:sheet-medium pane)
+                          3 3 (- w 3) (- h 20) :filled nil) ))
 
 
 ;;;;
@@ -250,18 +299,32 @@
 (defmethod clim:change-space-requirements :around
     ((pane clim-hunk-pane)
      &key (max-height nil) (height nil)
-     (max-width nil) (width nil) &allow-other-keys)
+          (max-width nil) (width nil) &allow-other-keys)
   nil)
+
+#||
+(clim:make-command-table 'hemlock-menu
+                         :errorp nil
+                         :menu '(("File" :menu hemlock-file-menu)))
+(clim:make-command-table 'hemlock-file-menu
+                         :errorp nil
+                         :menu '(("Open" :command com-open-file)
+                                 ("Open in another window" :command com-open-file-other-window)
+                                 ("" :divider t)
+                                 ("Exit Hemlock" :command com-exit-hemlock)
+                                 ))
+||#
 
 (clim:define-application-frame hemlock ()
     ()
   (:pointer-documentation t)
-  (:menu-bar nil)
+  #||(:menu-bar hemlock-menu)||#
   (:panes
    (main clim-hunk-pane :display-function nil :scroll-bars nil
     ;; :background (clim:make-rgb-color 0 0 1/10)
     ;; :foregounrd clim:+white+
     :incremental-redisplay t
+    ;; :background (clim:make-rgb-color 1 1 9/10)
     :min-height 30
     :min-width 30)
    (another clim-hunk-pane :display-function nil :scroll-bars nil
@@ -281,7 +344,7 @@
          ;; (clim:make-pane 'CLIM-EXTENSIONS:BOX-ADJUSTER-GADGET)
          ;; (1/2 another)
          (50 echo))))
-  (:geometry :width 600 :height 800))
+  (:geometry :width 600 :height 600))
 
 (defvar *clim-hemlock-process* nil)
 
@@ -412,11 +475,12 @@
     ;; reallocate the dis-line-chars.
     (let* ((res (window-spare-lines window))
            (new-width (max 5 (floor (- (clim:bounding-rectangle-width (clim-hunk-stream hunk))
-                                       10)
+                                       (* 2 *gutter*))
                                     (slot-value hunk 'cw))))
-           (new-height (max 2 (floor (- (clim:bounding-rectangle-height (clim-hunk-stream hunk))
-                                        10)
-                                     (slot-value hunk 'ch))))
+           (new-height (max 2 (1-
+                               (floor (- (clim:bounding-rectangle-height (clim-hunk-stream hunk))
+                                         (* 2 *gutter*))
+                                      (slot-value hunk 'ch)))))
            (width (length (the simple-string (dis-line-chars (car res))))))
       (declare (list res))
       (when (> new-width width)
@@ -472,13 +536,14 @@
         (push window (slot-value device 'windows))
         (push hunk (device-hunks device))))
     ;;
-    (let ((echo-window (hi::internal-make-window))
-          (echo-hunk (make-instance 'clim-hunk :stream echo-stream)))
-      (baba-aux device echo-window echo-hunk *echo-area-buffer*)
-      (setf *echo-area-window* echo-window)
-      ;; why isn't this on the list of hunks?
-      ;; List of hunks isn't used at all.
-      )
+    (when echo-stream                   ;hmm
+      (let ((echo-window (hi::internal-make-window))
+            (echo-hunk (make-instance 'clim-hunk :stream echo-stream)))
+        (baba-aux device echo-window echo-hunk *echo-area-buffer*)
+        (setf *echo-area-window* echo-window)
+        ;; why isn't this on the list of hunks?
+        ;; List of hunks isn't used at all.
+        ))
     ;;
     ))
 
@@ -489,15 +554,16 @@
          (first (cons dummy-line the-sentinel))
          width height)
     (setf
-     (slot-value hunk 'ts) (clim:make-text-style :fix :roman 12)
-     (slot-value hunk 'cw) (clim:text-style-width (slot-value hunk 'ts) (clim-hunk-stream hunk))
+     (slot-value hunk 'ts) (clim:make-text-style :fix :roman 11.5)
+     (slot-value hunk 'cw) (+ 0 (clim:text-size (clim-hunk-stream hunk) "m"
+                                                    :text-style (slot-value hunk 'ts)))
      (slot-value hunk 'ch) (+ 2 (clim:text-style-height (slot-value hunk 'ts)
                                                         (clim-hunk-stream hunk)))
      width (max 5 (floor (- (clim:bounding-rectangle-width (clim-hunk-stream hunk))
-                            10)
+                            (* 2 *gutter*))
                          (slot-value hunk 'cw)))
      height (max 2 (floor (- (clim:bounding-rectangle-height (clim-hunk-stream hunk))
-                             10)
+                             (* 2 *gutter*))
                           (slot-value hunk 'ch)))
      (device-hunk-window hunk) window
      (device-hunk-position hunk) 0
@@ -532,7 +598,21 @@
      (window-display-recentering window) nil ;
      )
 
+    (loop for i from 32 below 126 do
+          (let ((s (string (code-char i))))
+            (let ((w (clim:text-size (clim-hunk-stream hunk) s
+                                         :text-style (slot-value hunk 'ts))))
+              (unless (= w 7)
+                (print s *trace-output*)))))
+    (finish-output *trace-output*)
+
     (baba-make-dis-lines window width height)
+
+    (when t ;;modelinep
+        (setup-modeline-image buffer window)
+        #+NIL
+        (setf (bitmap-hunk-modeline-dis-line hunk)
+              (window-modeline-dis-line window)))
 
     (push window (buffer-windows buffer))
     (push window *window-list*)
@@ -552,6 +632,14 @@
 (defmethod device-dumb-redisplay ((device clim-device) window)
   (clim-drop-cursor (window-hunk window))
   (let ((*standard-output* (clim-hunk-stream (window-hunk window))))
+    (let ((w (clim:bounding-rectangle-width *standard-output*))
+          (h (clim:bounding-rectangle-height *standard-output*)))
+      (clim:updating-output (t :unique-id :static :cache-value h)
+        (clim:draw-rectangle* *standard-output*
+                              1 1
+                              (- w 2) (- h 2)
+                              :ink clim:+black+
+                              :filled nil) ))
     (clim:with-text-style (*standard-output* (slot-value (window-hunk window) 'ts))
       (clim:updating-output (*standard-output*)
         (let* ((hunk (window-hunk window))
@@ -564,59 +652,68 @@
             (clim-dumb-line-redisplay hunk (car dl)))
           (setf (window-first-changed window) the-sentinel
                 (window-last-changed window) first)
-          #+NIL
+          #+NIL                         ;###
           (when (window-modeline-buffer window)
-            (hunk-replace-modeline hunk)
+            ;;(hunk-replace-modeline hunk)
+            (clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
+              (clim-dumb-line-redisplay hunk
+                                        (window-modeline-dis-line window)
+                                        t))
             (setf (dis-line-flags (window-modeline-dis-line window))
                   unaltered-bits))
           #+NIL
           (setf (bitmap-hunk-start hunk) (cdr (window-first-line window))))))
-    (clim:redisplay-frame-pane clim:*application-frame* *standard-output*))
-  (clim-put-cursor (window-hunk window))
-  (force-output *standard-output*) )
+    (clim:redisplay-frame-pane clim:*application-frame* *standard-output*)
+    (clim-put-cursor (window-hunk window))
+    ;;(force-output *standard-output*)
+    (clim:medium-finish-output (clim:sheet-medium *standard-output*))
+    ))
 
-(defun clim-dumb-line-redisplay (hunk dl)
+(defun clim-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((stream (clim-hunk-stream hunk))
          (h (slot-value hunk 'ch))
          (w (slot-value hunk 'cw))
-         (xo 5)
-         (yo 5))
+         (xo *gutter*)
+         (yo *gutter*))
     (declare (ignorable stream))
     ;; (print dl *trace-output*)(finish-output *trace-output*)
     (unless (zerop (dis-line-flags dl))
       (setf (hi::dis-line-tick dl) (incf *tick*)))
     (let ((chrs (dis-line-chars dl)))
       (clim:updating-output (*standard-output* ;###
-                             :unique-id (dis-line-position dl)
+                             :unique-id (if modelinep :modeline (dis-line-position dl))
+                             :id-test #'eq ;###
                              :cache-value (hi::dis-line-tick dl)
                              :cache-test #'eql)
-        (clim:draw-rectangle*
-         *standard-output*
-         (+ xo 0)
-         (+ yo (* (dis-line-position dl) h))
-         (+ xo 800)
-         (+ yo (* (1+ (dis-line-position dl)) h))
-         :ink clim:+white+)
-        ;; font changes
-        (let ((font 0)                 ;###
-              (start 0)
-              (end (dis-line-length dl))
-              (changes (dis-line-font-changes dl)))
-          (loop
-              (cond ((null changes)
-                     (clim-draw-text *standard-output* chrs
-                                     (+ xo (* w start))
-                                     (+ yo 1 (* (dis-line-position dl) h))
-                                     start end font)
-                     (return))
-                    (t
-                     (clim-draw-text *standard-output* chrs
-                                     (+ xo (* w start))
-                                     (+ yo 1 (* (dis-line-position dl) h))
-                                     start (font-change-x changes) font)
-                     (setf font (font-change-font changes)
-                           start (font-change-x changes)
-                           changes (font-change-next changes)))))) )))
+        (let ((y (+ yo (* (dis-line-position dl) h))))
+          (when modelinep
+            (setf y (- (clim:bounding-rectangle-height *standard-output*)
+                       h
+                       2)))
+          (clim:draw-rectangle* *standard-output*
+                                (+ xo 0) y
+                                (clim:bounding-rectangle-width *standard-output*) (+ y h)
+                                :ink clim:+white+)
+          ;; font changes
+          (let ((font 0)                ;###
+                (start 0)
+                (end (dis-line-length dl))
+                (changes (dis-line-font-changes dl)))
+            (loop
+                (cond ((null changes)
+                       (clim-draw-text *standard-output* chrs
+                                       (+ xo (* w start))
+                                       (+ 1 y)
+                                       start end font)
+                       (return))
+                      (t
+                       (clim-draw-text *standard-output* chrs
+                                       (+ xo (* w start))
+                                       (+ 1 y)
+                                       start (font-change-x changes) font)
+                       (setf font (font-change-font changes)
+                             start (font-change-x changes)
+                             changes (font-change-next changes)))))) ))))
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
 
 (defun clim-draw-text (stream string x y start end font)
@@ -626,9 +723,10 @@
     (clim:draw-rectangle* stream
                           x (1- y)
                           (+ x dx) (+ y ch 1) :ink (hemlock-font-background font)))
-  (clim:draw-text* stream string x y
+  (clim:draw-text* stream string x (+ y (clim:text-style-ascent (clim:medium-text-style stream)
+                                                                stream))
                    :start start :end end
-                   :align-y :top
+                   ;; :align-y :top ### :align-y is borken.
                    :ink (hemlock-font-foreground font))
   (when (= font 5)
     (let ((ch (clim:text-style-height (clim:medium-text-style stream)
@@ -640,21 +738,22 @@
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
       (clim:draw-rectangle* (clim:sheet-medium (clim-hunk-stream hunk))
-                            (+ 5 (* cx cw))
-                            (+ 5 (* cy ch))
-                            (+ 5 (* (1+ cx) cw))
-                            (+ 5 (* (1+ cy) ch))
+                            (+ *gutter* (* cx cw))
+                            (+ *gutter* (* cy ch))
+                            (+ *gutter* (* (1+ cx) cw))
+                            (+ *gutter* (* (1+ cy) ch))
                             :ink clim:+flipping-ink+))))
 
 (defun clim-put-cursor (hunk)
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
       (clim:draw-rectangle* (clim:sheet-medium (clim-hunk-stream hunk))
-                            (+ 5 (* cx cw))
-                            (+ 5 (* cy ch))
-                            (+ 5 (* (1+ cx) cw))
-                            (+ 5 (* (1+ cy) ch))
+                            (+ *gutter* (* cx cw))
+                            (+ *gutter* (* cy ch))
+                            (+ *gutter* (* (1+ cx) cw))
+                            (+ *gutter* (* (1+ cy) ch))
                             :ink clim:+flipping-ink+))))
+
 (defun hi::editor-sleep (time)
   "Sleep for approximately Time seconds."
   (setf time 0)                         ;CLIM event processing still is messy.
@@ -693,8 +792,103 @@
     (3 (clim:make-rgb-color 1 .9 .8))
     (otherwise clim:+white+)))
 
+(defun hi::invoke-with-pop-up-display (cont buffer-name height)
+  (funcall cont *trace-output*)
+  (finish-output *trace-output*))
+
+;;;;
+
+(clim:define-application-frame layout-test ()
+    ()
+  (:panes
+   (foo :application)
+   (bar :application)
+   (baz :interactor))
+  (:layouts
+   (default
+       (clim:vertically ()
+         foo
+         bar
+         baz))
+   (dada
+    (clim:vertically ()
+      (10 foo)
+      (10 bar)
+      baz))))
+
+#+NIL
+(define-layout-test-command (com-foo :name t) ()
+  (let* ((foo (CLIM-INTERNALS::FIND-PANE-FOR-LAYOUT 'foo clim:*application-frame*))
+         (bar (CLIM-INTERNALS::FIND-PANE-FOR-LAYOUT 'bar clim:*application-frame*))
+         (baz (CLIM-INTERNALS::FIND-PANE-FOR-LAYOUT 'baz clim:*application-frame*))
+         (vbox (clim:sheet-parent foo))
+         (vbox.parent (clim:sheet-parent vbox)))
+    (clim:sheet-disown-child vbox.parent vbox)
+    (clim:sheet-disown-child vbox foo)
+    (clim:sheet-disown-child vbox bar)
+    (clim:sheet-disown-child vbox baz)
+    (clim:with-look-and-feel-realization
+        ((clim:frame-manager clim:*application-frame*)
+         clim:*application-frame*)
+      (let ((vb (clim:make-pane 'clim:vrack-pane
+                                :contents (list (list 100 foo)
+                                                (list 100 bar)
+                                                baz))))
+
+        (clim:sheet-adopt-child vbox.parent vb)
+        (setf (clim:sheet-enabled-p vb) t)
+        (setf (clim:sheet-region vb)
+              (clim:sheet-region vbox))
+        (clim:allocate-space vb
+                             (1- (clim:bounding-rectangle-width vb))
+                             (clim:bounding-rectangle-height vb))
+        (eval '(trace clim:allocate-space))
+        (clim:layout-frame clim:*application-frame*
+                           (clim:bounding-rectangle-width (clim:frame-top-level-sheet clim:*application-frame*))
+                           (clim:bounding-rectangle-height (clim:frame-top-level-sheet clim:*application-frame*)))
+        (eval '(untrace clim:allocate-space))
+        ))))
+
+(defparameter *app-process-hash* (make-hash-table))
+
+(defun run (app)
+  (when (gethash app *app-process-hash*)
+    (clim-sys:destroy-process (gethash app *app-process-hash*)))
+  (setf (gethash app *app-process-hash*)
+        (clim-sys:make-process (lambda ()
+                                 (clim:run-frame-top-level
+                                  (clim:make-application-frame app))))))
+
+
+#+NIL
+(defparameter mcclim-freetype::*families/faces*
+  '(;; ((:fix :roman) . "/var/lib/defoma/fontconfig.d/B/Bitstream-Vera-Serif.ttf")
+    ((:fix :roman) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMono.ttf")
+    ((:fix :italic) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMoIt.ttf")
+    ((:fix :bold-italic) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMoBI.ttf")
+    ((:fix :italic-bold) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMoBI.ttf")
+    ((:fix :bold) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMoBd.ttf")
+
+    ((:serif :roman) . "/usr/share/fonts/truetype/freefont/FreeSerif.ttf")
+    ((:serif :italic) . "/usr/share/fonts/truetype/freefont/FreeSerifItalic.ttf")
+    ((:serif :bold-italic) . "/usr/share/fonts/truetype/freefont/FreeSerifBoldItalic.ttf")
+    ((:serif :italic-bold) . "/usr/share/fonts/truetype/freefont/FreeSerifBoldItalic.ttf")
+    ((:serif :bold) . "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf")
+
+    ((:sans-serif :roman) . "/usr/share/fonts/truetype/ttf-bitstream-vera/Vera.ttf")
+    ((:sans-serif :italic) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraIt.ttf")
+    ((:sans-serif :bold-italic) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraBI.ttf")
+    ((:sans-serif :italic-bold) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraBI.ttf")
+    ((:sans-serif :bold) . "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraBd.ttf")
+    ))
+
+
+
 ;; $Log: foo.lisp,v $
-;; Revision 1.5  2004-12-15 12:16:43  crhodes
+;; Revision 1.6  2004-12-27 18:53:20  gbaumann
+;; half-way working undo
+;;
+;; Revision 1.5  2004/12/15 12:16:43  crhodes
 ;; Make clim-hemlock basically work on sbcl -- mostly build fixes from Hannu
 ;; Koivisto.
 ;;
@@ -705,4 +899,6 @@
 ;; Revision 1.4  2004/11/21 01:03:51  gbaumann
 ;; Basic support for c-x 1 and c-x 2.
 ;;
+
+
 

@@ -137,7 +137,8 @@
 	       (:file "streams")
 	       #+port-root-hacks (:file "hacks")
 	       (:file "main")
-	       (:file "echo")))
+	       (:file "echo")
+	       (:file "new-undo")))
      (:module user-1
 	      :source-pathname "user"
 	      :depends-on (root-2)
@@ -211,5 +212,4 @@
 	      :depends-on (bitmap-2)
 	      :components
 	      ((:file "patch")
-	       #+port-clim-foo (:file "foo")
-	       (:file "exp-syntax")))))
+	       (:file "foo") ))))

@@ -1,30 +1,78 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;; ---------------------------------------------------------------------------
+;;;     Title: Prelimiary Undo
+;;;   Created: 2004-12-26
+;;;    Author: Gilbert Baumann <gilbert@base-engineering.com>
+;;;   License: MIT style (see below)
+;;; ---------------------------------------------------------------------------
+;;;  (c) copyright 2004 by Gilbert Baumann
+
+;;;  Permission is hereby granted, free of charge, to any person obtaining
+;;;  a copy of this software and associated documentation files (the
+;;;  "Software"), to deal in the Software without restriction, including
+;;;  without limitation the rights to use, copy, modify, merge, publish,
+;;;  distribute, sublicense, and/or sell copies of the Software, and to
+;;;  permit persons to whom the Software is furnished to do so, subject to
+;;;  the following conditions:
+;;;
+;;;  The above copyright notice and this permission notice shall be
+;;;  included in all copies or substantial portions of the Software.
+;;;
+;;;  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+;;;  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+;;;  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+;;;  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+;;;  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+;;;  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+;;;  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+;;;; TODO
+
+;; - Undo information must be per buffer. And don't record information
+;;   on anonymous buffers.
+;; - Record the position of the point too.
+;; - Some form of consolidation
+;; - Redo
+;; - Ensure that what we indentified as a protocol of functions
+;;   modifying a buffer is not violated. Both by runtime and compile
+;;   time measures.
+;; - Hook into the command processor so that the Undo command undoes
+;;   exactly one [user] command.
+;; - Look and Feel:
+;;   Find out what different variants of undo are implemented both
+;;   with gnu emacs and xemacs, try to simulate those.
+;; - Q: Are there any commands that modify more than one buffer?
+;;   (Besides the kill ring and stuff)
+;; - FILTER-REGION (function region) is missing
+;; - (SETF NEXT-CHARACTER) (character mark) is missing
+;; - Don't record undo information of functions that don't modify the
+;;   buffer at all.
+
+;; There is this MODIFYING-BUFFER which should enable access to
+;; LINE-NEXT and LINE-PREVIOUS.
+
+;; Instead of putting :command entires onto an undo list, do
+;; undo-chunks directly.
+
+;; Q: Do we need a separate Redo command or should we go the route
+;;    that XEmacs follows and make any other command than undo change
+;;    the current undo sequence and let subsequent undos really redo
+;;    stuff? This is useful but awkward.
+
+;; Also: I really want the self-insert-commands be grouped by words
+;; and not just by 20 characters as the [documented] behaviour of
+;; XEmacs. This also is the observed behavior.
+
+;; Find a better place for buffer-undo-list and also provide for
+;; buffers that don't record undo information.
 
 (in-package :hemlock-internals)
 
-(defvar *log* nil)
-
-;;; Ouch! this all isn't _that_ easy.
-
-;; (defmacro add-logging (attr)
-;;   `(defmethod (setf ,attr) :around (new-value line)
-;;     (let ((old (,attr line)))
-;;       (push `(,',attr ,line ,old ,new-value) *log*))
-;;     (call-next-method)))
-
-;; (add-logging line-previous)
-;; (add-logging line-next)
-;; (add-logging mark-line)
-
-;; (defun dada ()
-;;   (let ((log *log*)
-;;         (*log* nil))
-;;     (dolist (k log)
-;;       (destructuring-bind (slot object old new) k
-;;         (funcall (fdefinition `(setf ,slot)) old object)))))
-;;;;
-
-(defvar *performing-undo* nil)
+;; Unfortunately we need numeric buffer positions. (Hmm, maybe after
+;; all RMS has a point?) Anyhow to graft this onto hemlock we define
+;; two functions MARK-POSITION and POSTION-MARK to convert and back
+;; and fro. Further these new kind of buffer positions are passed
+;; around as (buffer line-number character-position) triples.
 
 (defun mark-position (mark)
   (let ((line-no 0)
@@ -36,105 +84,135 @@
     (list (line-buffer (mark-line mark))
           line-no (mark-charpos mark))))
 
-;;; below, I am not quite sure about left vs. right inserting --amb
-
-(defmethod insert-character :around (mark character)
-  (with-mark ((start mark :right-inserting))
-    (prog1
-        (call-next-method)
-      (unless (or *performing-undo*
-                  (eq (line-buffer (mark-line mark)) *echo-area-buffer*))
-        (push `(delete-characters ,(mark-position start)) *log*)))))
-
-(defmethod insert-string :around (mark string &optional (start 0) (end (length string)))
-  (if (car (mark-position mark)) ; used with kill-ring?
-      (progn
-        (with-mark ((start mark :right-inserting)
-                    (end mark :left-inserting))
-          (prog1
-              (call-next-method)
-            (unless (or *performing-undo*
-                        (eq (line-buffer (mark-line mark)) *echo-area-buffer*))
-              (push
-               `(delete-region ,(mark-position start) ,(mark-position end))
-               *log*)))))
-      (call-next-method)))
-
-(defmethod insert-region :around (mark region)
-  (with-mark ((start mark :right-inserting)
-              (end mark :left-inserting))
-    (prog1
-        (call-next-method)
-      (unless (or *performing-undo*
-                  (eq (line-buffer (mark-line mark)) *echo-area-buffer*))
-        (push
-         `(delete-region ,(mark-position start) ,(mark-position end))
-         *log*)))))
-
-(defmethod delete-characters :around (mark &optional (n 1))
-  (with-mark ((start mark :right-inserting)
-              (end mark :left-inserting))
-    (character-offset end n)
-    (let ((string (region-to-string (region start end))))
-      (prog1
-          (call-next-method)
-        (unless (or *performing-undo*
-                    (eq (line-buffer (mark-line mark)) *echo-area-buffer*))
-          (push
-           `(insert-string ,(mark-position start) ,string)
-           *log*))))))
-
-(defmethod delete-region :around (region)
-  (with-mark ((start (region-start region) :right-inserting)
-              (end (region-end region) :left-inserting))
-    (let ((string (region-to-string region)))
-      (prog1
-          (call-next-method)
-        (unless (or *performing-undo*
-                    (eq (line-buffer (mark-line (region-start region)))
-                        *echo-area-buffer*))
-          (push
-           `(insert-string ,(mark-position start) ,string)
-           *log*))))))
-
-(defmethod delete-and-save-region :around (region)
-  (with-mark ((start (region-start region) :right-inserting)
-              (end (region-end region) :left-inserting))
-    (let ((string (region-to-string region)))
-      (prog1
-          (call-next-method)
-        (unless (or *performing-undo*
-                    (eq (line-buffer (mark-line (region-start region)))
-                        *echo-area-buffer*))
-          (push
-           `(insert-string ,(mark-position start) ,string)
-           *log*))))))
-
-(defun dada ()
-  (let ((*performing-undo* t))
-    (do ((k (pop *log*) (pop *log*)))
-        ((null k))
-      (undo k))))
-
-(defun undo (k)
-  (ecase (car k)
-    (delete-characters
-     (destructuring-bind ((buffer line-no char-pos)) (cdr k)
-       (delete-characters (position-mark buffer line-no char-pos))))
-    (delete-region
-     (destructuring-bind ((buffer1 line-no1 char-pos1)
-                          (buffer2 line-no2 char-pos2)) (cdr k)
-       (delete-region
-        (region (position-mark buffer1 line-no1 char-pos1)
-                (position-mark buffer2 line-no2 char-pos2)))))
-    (insert-string
-     (destructuring-bind ((buffer line-no char-pos) string) (cdr k)
-       (insert-string (position-mark buffer line-no char-pos) string)))))
-
 (defun position-mark (buffer line-no char-pos)
   (let ((line (mark-line (buffer-start-mark buffer))))
     (dotimes (i line-no)
-      (if line
-        (setf line (line-next line))
-        (error "Line is NIL")))
+      (setf line (line-next line)))
     (mark line char-pos)))
+
+;;;; buffer-undo-list
+
+(defparameter *bul-hash*
+  (make-hash-table :test #'eq))
+
+(defun buffer-undo-list (buffer)
+  (gethash buffer *bul-hash*) )
+
+(defun (setf buffer-undo-list) (new-value buffer)
+  (setf (gethash buffer *bul-hash*) new-value))
+
+;;;; Insertion
+
+(defmethod insert-character :around (mark character)
+  (push `(insert-string ,(mark-position mark) ,(string character))
+        (buffer-undo-list (line-buffer (mark-line mark))))
+  (call-next-method))
+
+(defmethod insert-string :around (mark string &optional (start 0) (end (length string)))
+  (push `(insert-string ,(mark-position mark) ,(subseq string start end))
+        (buffer-undo-list (line-buffer (mark-line mark))))
+  (call-next-method))
+
+(defmethod insert-region :around (mark region)
+  (push `(insert-string ,(mark-position mark) ,(region-to-string region))
+        (buffer-undo-list (line-buffer (mark-line mark))))
+  (call-next-method))
+
+(defmethod ninsert-region :around (mark region)
+  ;; the "n" refers to the region argument.
+  (push `(insert-region ,(mark-position mark) ,(region-to-string region))
+        (buffer-undo-list (line-buffer (mark-line mark))))
+  (call-next-method))
+
+;;;; Deletion
+
+;; We make delete-characters and delete-region both call off to
+;; delete-and-save-region which is the most general method and has the
+;; benefit to return the deleted stuff.
+
+(defmethod delete-characters :around (mark &optional (n 1))
+  ;; For now delete-characters just calls delete-region in any case.
+  ;; code borrowed from htext4.lisp
+  (let* ((line (mark-line mark))
+         (charpos (mark-charpos mark))
+         (length (line-length* line)))
+    (setf (mark-line *internal-temp-mark*) line
+          (mark-charpos *internal-temp-mark*) charpos)
+    (let ((other-mark (character-offset *internal-temp-mark* n)))
+      (cond
+        (other-mark
+         (if (< n 0)
+             (setf (region-start *internal-temp-region*) other-mark
+                   (region-end *internal-temp-region*) mark)
+             (setf (region-start *internal-temp-region*) mark
+                   (region-end *internal-temp-region*) other-mark))
+         (delete-and-save-region *internal-temp-region*)
+         t)
+        (t nil)))))
+
+(defmethod delete-region :around (region)
+  (delete-and-save-region region))
+
+(defmethod delete-and-save-region :around (region)
+  (let ((pos (mark-position (region-start region)))
+        (matter (call-next-method)))
+    (push `(delete-region ,pos ,(region-to-string matter))
+          (buffer-undo-list (car pos)))
+    matter))
+
+;;;;
+
+(defvar last-was-undo-p nil)
+(defvar this-is-undo-p nil)
+(defvar undoing-undo-list nil)
+
+(defcommand "New Undo" (p)
+  ""
+  ""
+  (setf this-is-undo-p t)
+  ;; ### pop the "New Undo" log entry
+  (let ((buffer (current-buffer))
+        (undo-list (if last-was-undo-p
+                       undoing-undo-list
+                       (cddr (buffer-undo-list (current-buffer))))))
+    (block baz
+      (loop
+          (let ((chunk (pop undo-list)))
+            (when (or (eq (car chunk) :command)
+                      (null chunk))
+              (message "~S" (cadr chunk))
+              (return-from baz nil))
+            (when (and chunk (consp (cadr chunk)) (eq (car (cadr chunk)) buffer))
+              (case (car chunk)
+                (insert-string
+                 (let ((p (cadr chunk))
+                       (n (length (caddr chunk))))
+                   (let ()
+                     (delete-characters (apply #'position-mark p) n)
+
+                     )))
+                (delete-region
+                 (let ((p (cadr chunk))
+                       (matter (caddr chunk)))
+                   (let ()
+                     (insert-string (apply #'position-mark p) matter)
+                     )))
+                (point-position
+                 (move-mark (current-point) (apply #'position-mark (cadr chunk)))) )))))
+
+    (setf undoing-undo-list undo-list) ))
+
+(defun new-undo-invoke-hook (command p)
+  (setf this-is-undo-p nil)
+  (setf *b* (current-buffer))
+  (push (list :command command) (buffer-undo-list (current-buffer)))
+  (push (list 'point-position (mark-position (current-point)))
+        (buffer-undo-list (current-buffer))) )
+
+(defparameter *invoke-hook* #'(lambda (command p)
+                                (new-undo-invoke-hook command p)
+                                (funcall (command-function command) p)
+                                (setf last-was-undo-p this-is-undo-p))
+  "This function is called by the command interpreter when it wants to invoke a
+  command.  The arguments are the command to invoke and the prefix argument.
+  The default value just calls the Command-Function with the prefix argument.")

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/charmacs.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/charmacs.lisp,v 1.2 2004-12-27 18:53:27 gbaumann Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -81,13 +81,26 @@
    :lower, :upper, or :both, and var is bound to each character in
    order as specified under character relations in the manual.  When
    :both is specified, lowercase letters are processed first."
+  ;; ### Hmm, I added iso-latin-1 characters here, but this gets eaten
+  ;; by the ALPHA-CHAR-P in ALPHA-CHARS-LOOP. --GB 2004-11-20
   (case kind
     (:both
-     `(progn (alpha-chars-loop ,var #\a #\z nil ,forms)
-             (alpha-chars-loop ,var #\A #\Z ,result ,forms)))
+     `(progn
+       (alpha-chars-loop ,var #\a #\z nil ,forms)
+       (alpha-chars-loop ,var #\ß #\ö nil ,forms)
+       (alpha-chars-loop ,var #\ø #\ÿ nil ,forms)
+       (alpha-chars-loop ,var #\A #\Z nil ,forms)
+       (alpha-chars-loop ,var #\À #\Ö nil ,forms)
+       (alpha-chars-loop ,var #\Ø #\Þ ,result ,forms) ))
     (:lower
-     `(alpha-chars-loop ,var #\a #\z ,result ,forms))
+     `(progn
+       (alpha-chars-loop ,var #\ß #\ö nil ,forms)
+       (alpha-chars-loop ,var #\ø #\ÿ nil ,forms)
+       (alpha-chars-loop ,var #\a #\z ,result ,forms) ))
     (:upper
-     `(alpha-chars-loop ,var #\A #\Z ,result ,forms))
+     `(progn
+       (alpha-chars-loop ,var #\A #\Z nil ,forms)
+       (alpha-chars-loop ,var #\À #\Ö nil ,forms)
+       (alpha-chars-loop ,var #\Ø #\Þ ,result ,forms) ))
     (t (error "Kind argument not one of :lower, :upper, or :both -- ~S."
               kind))))

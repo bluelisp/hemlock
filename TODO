@@ -18,4 +18,18 @@ signature.
 
 - Import the scribe parser and work on the html converter
 
-$Id: TODO,v 1.1 2004-07-09 13:36:33 gbaumann Exp $
+HEMLOCK AS A GADGET
+
+I want Hemlock as a gadget for McCLIM. The easiest route to get that is to
+have a hemlock run in another thread and pass input events in as the gadget
+receives them. Redisplay should be done though accessing the dis-lines of
+Hemlock's idea of the window. When arguments are asked for in the echo
+buffer, pop up a little window near the cursor and ask there. [could also
+been done in real Hemlock]. When we run Hemlock as a gadget disallow
+changing windows or changing buffers.
+
+HEMLOCK AS THE DEFAULT COMMAND LINE EDITOR IN CLIM
+
+
+
+$Id: TODO,v 1.2 2004-12-27 18:53:14 gbaumann Exp $

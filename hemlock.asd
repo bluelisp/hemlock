@@ -157,7 +157,8 @@
                (:file "streams")
                #+port-root-hacks (:file "hacks")
                (:file "main")
-               (:file "echo")))
+               (:file "echo")
+               (:file "new-undo")))
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
