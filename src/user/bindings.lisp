@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.2 2004-08-10 05:24:16 rstrandh Exp $")
+       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.3 2004-08-10 06:34:42 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -321,24 +321,24 @@
 
 
 ;;;; Typescript.
-(bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
-(bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
-(bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
-(bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
-(bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
-(bind-key "Next Interactive Input" #k"meta-n" :mode "Typescript")
-(bind-key "Reenter Interactive Input" #k"control-return" :mode "Typescript")
-(bind-key "Typescript Slave Break" #k"hyper-b" :mode "Typescript")
-(bind-key "Typescript Slave to Top Level" #k"hyper-g" :mode "Typescript")
-(bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
-(bind-key "Select Slave" #k"control-meta-\c")
-(bind-key "Select Background" #k"control-meta-C")
+;; (bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
+;; (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
+;; (bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
+;; (bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
+;; (bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
+;; (bind-key "Next Interactive Input" #k"meta-n" :mode "Typescript")
+;; (bind-key "Reenter Interactive Input" #k"control-return" :mode "Typescript")
+;; (bind-key "Typescript Slave Break" #k"hyper-b" :mode "Typescript")
+;; (bind-key "Typescript Slave to Top Level" #k"hyper-g" :mode "Typescript")
+;; (bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
+;; (bind-key "Select Slave" #k"control-meta-\c")
+;; (bind-key "Select Background" #k"control-meta-C")
 
-(bind-key "Abort Operations" #k"hyper-a")
-(bind-key "List Operations" #k"hyper-l")
+;; (bind-key "Abort Operations" #k"hyper-a")
+;; (bind-key "List Operations" #k"hyper-l")
 
-(bind-key "Next Compiler Error" #k"hyper-n")
-(bind-key "Previous Compiler Error" #k"hyper-p")
+;; (bind-key "Next Compiler Error" #k"hyper-n")
+;; (bind-key "Previous Compiler Error" #k"hyper-p")
 
 
 ;;;; Lisp (some).
@@ -474,20 +474,20 @@
 
 ;;;; Spell bindings.
 
-(bind-key "Check Word Spelling" #k"meta-$")
-(bind-key "Add Word to Spelling Dictionary" #k"control-x $")
+;; (bind-key "Check Word Spelling" #k"meta-$")
+;; (bind-key "Add Word to Spelling Dictionary" #k"control-x $")
 
-(dolist (info (command-bindings (getstring "Self Insert" *command-names*)))
-  (let* ((key (car info))
-         (key-event (svref key 0))
-         (character (key-event-char key-event)))
-    (unless (or (alpha-char-p character) (eq key-event #k"'"))
-      (bind-key "Auto Check Word Spelling" key :mode "Spell"))))
-(bind-key "Auto Check Word Spelling" #k"return" :mode "Spell")
-(bind-key "Auto Check Word Spelling" #k"tab" :mode "Spell")
-(bind-key "Auto Check Word Spelling" #k"linefeed" :mode "Spell")
-(bind-key "Correct Last Misspelled Word" #k"meta-:")
-(bind-key "Undo Last Spelling Correction" #k"control-x a")
+;; (dolist (info (command-bindings (getstring "Self Insert" *command-names*)))
+;;   (let* ((key (car info))
+;;          (key-event (svref key 0))
+;;          (character (key-event-char key-event)))
+;;     (unless (or (alpha-char-p character) (eq key-event #k"'"))
+;;       (bind-key "Auto Check Word Spelling" key :mode "Spell"))))
+;; (bind-key "Auto Check Word Spelling" #k"return" :mode "Spell")
+;; (bind-key "Auto Check Word Spelling" #k"tab" :mode "Spell")
+;; (bind-key "Auto Check Word Spelling" #k"linefeed" :mode "Spell")
+;; (bind-key "Correct Last Misspelled Word" #k"meta-:")
+;; (bind-key "Undo Last Spelling Correction" #k"control-x a")
 
 
 ;;;; Overwrite Mode.
