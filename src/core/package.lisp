@@ -662,7 +662,7 @@
    #:prompt-for-buffer #:prompt-for-file #:prompt-for-integer
    #:prompt-for-keyword #:prompt-for-expression #:prompt-for-string
    #:prompt-for-variable #:prompt-for-yes-or-no #:prompt-for-y-or-n
-   #:prompt-for-key-event #:prompt-for-key #:*logical-key-event-names*
+   #:prompt-for-key-event #:prompt-for-key
    #:logical-key-event-p #:logical-key-event-documentation
    #:logical-key-event-name #:logical-key-event-key-events
    #:define-logical-key-event #:*parse-type* #:current-variable-tables
@@ -862,7 +862,14 @@
   )
 
 ;; $Log: package.lisp,v $
-;; Revision 1.1  2004-07-09 15:00:36  gbaumann
+;; Revision 1.2  2004-08-10 05:24:16  rstrandh
+;; Removed the string table *logical-key-event-names* as it was never
+;; used, only written to.
+;;
+;; Added #k"control=[" as an alias for ESCAPE, because that is what
+;; I use all the time (rather than trying to find the META key).
+;;
+;; Revision 1.1  2004/07/09 15:00:36  gbaumann
 ;; Let us see if this works.
 ;;
 ;; Revision 1.9  2003/08/05 19:58:21  gilbert

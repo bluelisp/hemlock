@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.1 2004-07-09 13:37:45 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.2 2004-08-10 05:24:15 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -559,10 +559,6 @@
 
 ;;;; Logical key-event stuff.
 
-(defvar *logical-key-event-names* (make-string-table)
-  "This variable holds a string-table from logical-key-event names to the
-   corresponding keywords.")
-
 (defvar *real-to-logical-key-events* (make-hash-table :test #'eql)
   "A hashtable from real key-events to their corresponding logical
    key-event keywords.")
@@ -648,9 +644,7 @@
                     (setf (gethash keyword *logical-key-event-descriptors*)
                           (make-logical-key-event-descriptor)))))
     (setf (logical-key-event-descriptor-name entry) name)
-    (setf (logical-key-event-descriptor-documentation entry) documentation)
-    (setf (getstring name *logical-key-event-names*) keyword)))
-
+    (setf (logical-key-event-descriptor-documentation entry) documentation)))
 
 
 ;;;; Some standard logical-key-events:

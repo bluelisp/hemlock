@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.1 2004-07-09 13:38:49 gbaumann Exp $")
+       "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bindings.lisp,v 1.2 2004-08-10 05:24:16 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -22,6 +22,7 @@
 ;;; the next character typed.
 ;;;
 (setf (key-translation #k"escape") '(:bits :meta))
+(setf (key-translation #k"control-[") '(:bits :meta))
 (setf (key-translation #k"control-z") '(:bits :control :meta))
 (setf (key-translation #k"control-Z") '(:bits :control :meta))
 (setf (key-translation #k"control-^") '(:bits :control))
