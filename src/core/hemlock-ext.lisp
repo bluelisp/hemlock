@@ -13,9 +13,15 @@
   (peek-char t stream))
 
 
+;;; These are just stubs for now:
+
+(defun enable-clx-event-handling (display handler)
+  (declare (ignore display handler))
+  nil)
+
 (defun disable-clx-event-handling (display)
   (declare (ignore display))
-  )
+  nil)
 
 (defun quit ()
   )
@@ -234,15 +240,6 @@
          ,@body)
      (disable-clx-event-handling ,display) ))
 
-;;; These are just stubs for now:
-
-(defun enable-clx-event-handling (display handler)
-  (declare (ignore display handler))
-  nil)
-
-(defun disable-clx-event-handling (display)
-  (declare (ignore display))
-  nil)
 
 #||
 ;;; ENABLE-CLX-EVENT-HANDLING associates the display with the handler in
