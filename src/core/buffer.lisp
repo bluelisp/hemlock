@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/buffer.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/buffer.lisp,v 1.2 2004-08-10 12:47:06 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -23,7 +23,8 @@
   "Returns whether buffer may be modified."
   (buffer-%writable buffer))
 
-(defun %set-buffer-writable (buffer value)
+(defun (setf buffer-writable) (value buffer)
+  "Sets whether the buffer is writable and invokes the Buffer Writable Hook."
   (invoke-hook hemlock::buffer-writable-hook buffer value)
   (setf (buffer-%writable buffer) value))
 
@@ -37,7 +38,7 @@
   (unless (bufferp buffer) (error "~S is not a buffer." buffer))
   (> (buffer-modified-tick buffer) (buffer-unmodified-tick buffer)))
 
-(defun %set-buffer-modified (buffer sense)
+(defun (setf buffer-modified) (sense buffer)
   "If true make the buffer modified, if NIL unmodified."
   (unless (bufferp buffer) (error "~S is not a buffer." buffer))
   (invoke-hook hemlock::buffer-modified-hook buffer sense)
@@ -53,7 +54,8 @@
   "Return the region which contains Buffer's text."
   (buffer-%region buffer))
 
-(defun %set-buffer-region (buffer new-region)
+(defun (setf buffer-region) (new-region buffer)
+  "Set a buffer's region."
   (let ((old (buffer-region buffer)))
     (delete-region old)
     (ninsert-region (region-start old) new-region)
@@ -65,7 +67,8 @@
 
 (declaim (special *buffer-names*))
 
-(defun %set-buffer-name (buffer name)
+(defun (setf buffer-name) (name buffer)
+  "Sets the name of a specified buffer, invoking the Buffer Name Hook."
   (multiple-value-bind (entry foundp) (getstring name *buffer-names*)
     (cond ((or (not foundp) (eq entry buffer))
            (invoke-hook hemlock::buffer-name-hook buffer name)
@@ -81,7 +84,8 @@
   (buffer-%pathname buffer))
 
 
-(defun %set-buffer-pathname (buffer pathname)
+(defun (setf buffer-pathname) (pathname buffer)
+  "Sets the pathname of a buffer, invoking the Buffer Pathname Hook."
   (invoke-hook hemlock::buffer-pathname-hook buffer pathname)
   (setf (buffer-%pathname buffer) pathname))
 
@@ -91,7 +95,9 @@
        (result () (cons (ml-field-info-field (car finfos)) result)))
       ((null finfos) (nreverse result))))
 
-(defun %set-buffer-modeline-fields (buffer fields)
+(defun (setf buffer-modeline-fields) (fields buffer)
+  "Sets the buffer's list of modeline fields causing all windows into buffer
+   to be updated for the next redisplay."
   (check-type fields list)
   (check-type buffer buffer "a Hemlock buffer")
   (sub-set-buffer-modeline-fields buffer fields)
@@ -196,14 +202,14 @@
   (check-type buffer buffer)
   (car (buffer-modes buffer)))
 
-;;; %SET-BUFFER-MAJOR-MODE  --  Public
+;;; (SETF BUFFER-MAJOR-MODE)  --  Public
 ;;;
 ;;;    Unwind all modes in effect and add the major mode specified.
 ;;;Note that BUFFER-MODE-OBJECTS is in order of invocation in buffers
 ;;;other than the current buffer, and in the reverse order in the
 ;;;current buffer.
 ;;;
-(defun %set-buffer-major-mode (buffer name)
+(defun (setf buffer-major-mode) (name buffer)
   "Set the major mode of some buffer to the Name'd mode."
   (with-mode-and-buffer (name t buffer)
     (invoke-hook hemlock::buffer-major-mode-hook buffer name)
@@ -246,7 +252,8 @@
 ;;;    Activate or deactivate a minor mode, with due respect for
 ;;; bindings.
 ;;;
-(defun %set-buffer-minor-mode (buffer name new-value)
+(defun (setf buffer-minor-mode) (new-value buffer name)
+  "Turn a buffer minor mode on or off."
   (let ((objects (buffer-mode-objects buffer)))
     (with-mode-and-buffer (name nil buffer)
       (invoke-hook hemlock::buffer-minor-mode-hook buffer name new-value)
@@ -314,12 +321,13 @@
   "Return the Buffer-Point of the current buffer."
   (buffer-point *current-buffer*))
 
-;;; %SET-CURRENT-BUFFER  --  Internal
+;;; (SETF CURRENT-BUFFER)  --  Internal
 ;;;
 ;;;    Undo previous buffer and mode specific variables and character
 ;;;attributes and set up the new ones.  Set *current-buffer*.
 ;;;
-(defun %set-current-buffer (buffer)
+(defun (setf current-buffer) (buffer)
+  "Set the current buffer, doing necessary stuff."
   (let ((old-buffer *current-buffer*))
     (check-type buffer buffer)
     (invoke-hook hemlock::set-buffer-hook buffer)

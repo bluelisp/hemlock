@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/key-event.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/key-event.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -207,13 +207,13 @@
         (:keysym (button-keysym data))
         (:shifted-modifier-name (button-shifted-modifier-name data))))))
 
-;;; %SET-MOUSE-TRANSLATION-INFO -- Internal.
+;;; (setf MOUSE-TRANSLATION-INFO) -- Internal.
 ;;;
 ;;; This walks into *mouse-translation-info* the same way MOUSE-TRANSLATION-INFO
 ;;; does, filling in the data structure on an as-needed basis, and stores
 ;;; the value for the indicated info.
 ;;;
-(defun %set-mouse-translation-info (button event-key info value)
+(defun (setf mouse-translation-info) (value button event-key info)
   (let ((event-dispatch (svref *mouse-translation-info* button)))
     (unless event-dispatch
       (setf event-dispatch
@@ -233,8 +233,6 @@
          (setf (button-keysym data) value))
         (:shifted-modifier-name
          (setf (button-shifted-modifier-name data) value))))))
-;;;
-(defsetf mouse-translation-info %set-mouse-translation-info)
 
 ;;; DEFINE-MOUSE-KEYSYM -- Public.
 ;;;
@@ -607,13 +605,10 @@
   (check-type key-event key-event)
   (gethash key-event *key-event-characters*))
 
-(defun %set-key-event-char (key-event character)
+(defun (setf key-event-char) (character key-event)
   (check-type character character)
   (check-type key-event key-event)
   (setf (gethash key-event *key-event-characters*) character))
-;;;
-(defsetf key-event-char %set-key-event-char)
-
 
 ;;; This maps characters to key-events.  Users modify this by SETF'ing
 ;;; CHAR-KEY-EVENT.
@@ -625,13 +620,10 @@
   (check-type char character)
   (svref *character-key-events* (char-code char)))
 
-(defun %set-char-key-event (char key-event)
+(defun (setf char-key-event) (key-event char)
   (check-type char character)
   (check-type key-event key-event)
   (setf (svref *character-key-events* (char-code char)) key-event))
-;;;
-(defsetf char-key-event %set-char-key-event)
-
 
 
 ;;;; DO-ALPHA-KEY-EVENTS.

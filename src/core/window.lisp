@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/window.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/window.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -33,7 +33,8 @@
   Window-Buffer is always displayed.  This may be set with Setf."
   *current-window*)
 
-(defun %set-current-window (new-window)
+(defun (setf current-window) (new-window)
+  "Set the current window."
   (invoke-hook hemlock::set-window-hook new-window)
   (move-mark (window-point *current-window*)
              (buffer-point (window-buffer *current-window*)))
@@ -56,7 +57,8 @@
   "Return the buffer which is displayed in Window."
   (window-%buffer window))
 
-(defun %set-window-buffer (window new-buffer)
+(defun (setf window-buffer) (new-buffer window)
+  "Change the buffer a window is mapped to."
   (unless (bufferp new-buffer) (error "~S is not a buffer." new-buffer))
   (unless (windowp window) (error "~S is not a window." window))
   (unless (eq new-buffer (window-buffer window))
@@ -152,7 +154,9 @@
   "Returns the name of a modeline field object."
   (modeline-field-%name ml-field))
 
-(defun %set-modeline-field-name (ml-field name)
+(defun (setf modeline-field-name) (name ml-field)
+  "Sets a modeline-field's name.  If one already exists with that name, an
+   error is signaled."
   (check-type ml-field modeline-field)
   (when (gethash name *modeline-field-names*)
     (error "Modeline field ~S already exists."
@@ -167,7 +171,9 @@
 
 (declaim (special *buffer-list*))
 
-(defun %set-modeline-field-width (ml-field width)
+(defun (setf modeline-field-width) (width ml-field)
+  "Sets a modeline-field's width and updates all the fields for all windows
+   in any buffer whose fields list contains the field."
   (check-type ml-field modeline-field)
   (unless (or (eq width nil) (and (integerp width) (plusp width)))
     (error "Width must be nil or a positive integer."))
@@ -183,7 +189,9 @@
   "Returns the function of a modeline field object.  It returns a string."
   (modeline-field-%function ml-field))
 
-(defun %set-modeline-field-function (ml-field function)
+(defun (setf modeline-field-function) (function ml-field)
+  "Sets a modeline-field's function and updates this field for all windows in
+   any buffer whose fields list contains the field."
   (check-type ml-field modeline-field)
   (check-type function (or symbol function))
   (setf (modeline-field-%function ml-field) function)

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/font.lisp,v 1.1 2004-07-09 13:37:45 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/font.lisp,v 1.2 2004-08-10 12:47:04 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -94,7 +94,8 @@
   "Returns a font id for window and font."
   (svref (font-family-map (bitmap-hunk-font-family (window-hunk window))) font))
 
-(defun %set-window-font (window font font-object)
+(defun (setf window-font) (font-object window font)
+  "Change the font-object associated with a font-number in a window."
   (unless (and (>= font 0) (< font font-map-size))
     (error "Font number ~S out of range." font))
   (setf (bitmap-hunk-trashed (window-hunk window)) :font-change)
@@ -109,7 +110,8 @@
   "Returns the font id for font out of the default font family."
   (svref (font-family-map *default-font-family*) font))
 
-(defun %set-default-font (font font-object)
+(defun (setf default-font) (font-object font)
+  "Change the font-object associated with a font-number in new windows."
   (unless (and (>= font 0) (< font font-map-size))
     (error "Font number ~S out of range." font))
   (dolist (w *window-list*)

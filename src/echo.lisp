@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.3 2004-08-10 05:58:03 rstrandh Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.4 2004-08-10 12:47:04 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -599,7 +599,8 @@
 ;;;    Add or remove a logical key-event link by adding to or deleting from
 ;;; the list in the from-char hashtable and the descriptor.
 ;;;
-(defun %set-logical-key-event-p (key-event keyword new-value)
+(defun (setf logical-key-event-p) (new-value key-event keyword)
+  "Change what Logical-Char= returns for the specified arguments."
   (let ((entry (get-logical-key-event-desc keyword)))
     (cond
      (new-value

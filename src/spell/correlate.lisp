@@ -201,10 +201,9 @@
 (declaim (inline desc-table-ref descriptor-ref))
 (defun desc-table-ref (dictionary index)
   (aref (descriptor-table dictionary) index))
-(defun %set-desc-table-ref (dictionary index value)
-  (setf (aref (descriptor-table dictionary) index) value))
 
-(defsetf desc-table-ref %set-desc-table-ref)
+(defun (setf desc-table-ref) (value dictionary index)
+  (setf (aref (descriptor-table dictionary) index) value))
 
 (defun descriptor-ref (dictionary index)
   (aref (descriptors dictionary) index))

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/interp.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/interp.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -136,20 +136,17 @@
       (integer
        (cons :bits (hemlock-ext:key-event-bits-modifiers entry))))))
 
-;;; %SET-KEY-TRANSLATION  --  Internal
+;;; (SETF KEY-TRANSLATION)  --  Internal
 ;;;
-(defun %set-key-translation (key new-value)
+(defun (setf key-translation) (new-value key)
+  "Set the key translation for a key.  If set to null, deletes any
+   translation."
   (let ((entry (cond ((and (consp new-value) (eq (car new-value) :bits))
                       (apply #'hemlock-ext:make-key-event-bits (cdr new-value)))
                      (new-value (crunch-key new-value))
                      (t new-value))))
     (set-table-entry *key-translations* (crunch-key key) entry)
     new-value))
-;;;
-(defsetf key-translation %set-key-translation
-  "Set the key translation for a key.  If set to null, deletes any
-  translation.")
-
 
 
 ;;;; Interface Utility Functions:
@@ -314,13 +311,14 @@
             (internal-make-command name documentation function))))))
 
 
-;;; COMMAND-NAME, %SET-COMMAND-NAME -- Public.
+;;; COMMAND-NAME, (SETF COMMAND-NAME) -- Public.
 ;;;
 (defun command-name (command)
   "Returns the string which is the name of Command."
   (command-%name command))
 ;;;
-(defun %set-command-name (command new-name)
+(defun (setf command-name) (new-name command)
+  "Change a Hemlock command's name."
   (check-type command command)
   (check-type new-name string)
   (setq new-name (coerce new-name 'simple-string))
@@ -376,7 +374,8 @@
 ;;;
 ;;;    Set the flag so we know not to clear the command-type.
 ;;;
-(defun %set-last-command-type (type)
+(defun (setf last-command-type) (type)
+  "Set the Last-Command-Type for use by the next command."
   (setq *last-command-type* type *command-type-set* t))
 
 
@@ -393,7 +392,7 @@
 
 ;;; %SET-PREFIX-ARGUMENT  --  Internal
 ;;;
-(defun %set-prefix-argument (argument)
+(defun (setf prefix-argument) (argument)
   "Set the prefix argument for the next command to Argument."
   (unless (or (null argument) (integerp argument))
     (error "Prefix argument ~S is neither an integer nor Nil." argument))

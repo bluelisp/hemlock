@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/netnews.lisp,v 1.1 2004-07-09 13:38:33 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/netnews.lisp,v 1.2 2004-08-10 12:47:08 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -506,7 +506,7 @@
                 following ~S in database file."
                        group-name))))))))
 
-(defun %set-nn-last-read-message-number (group-name new-value)
+(defun (setf nn-last-read-message-number) (new-value group-name)
   (with-open-file (s (merge-pathnames (value netnews-database-file)
                                       (user-homedir-pathname))
                      :direction :io :if-does-not-exist :error
@@ -527,8 +527,6 @@
                   (return t))))
       (write-line group-name s)
       (format s "~14D~%" new-value))))
-
-(defsetf nn-last-read-message-number %set-nn-last-read-message-number)
 
 (defconstant nntp-eof "."
   "NNTP marks the end of a textual response with this.  NNTP also recognizes

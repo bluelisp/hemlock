@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext2.lisp,v 1.2 2004-07-09 15:41:24 dbarlow Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext2.lisp,v 1.3 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -132,7 +132,8 @@
 ;;; join lines.  We cannot just delete  a character and insert the new one
 ;;; because the marks would not be right.
 ;;;
-(defun %set-next-character (mark character)
+(defun (setf next-character) (character mark)
+  "Sets the characters to the right of the given Mark."
   (let* ((line (mark-line mark))
          (buffer (line-%buffer line))
          (next (line-next line)))
@@ -178,15 +179,13 @@
                    character)))))
   character)
 
-;;; %Set-Previous-Character  --  Internal
+;;; (SETF PREVIOUS-CHARACTER) --  Internal
 ;;;
-;;;    The setf form for Previous-Character.  We just Temporarily move the
-;;; mark back one and call %Set-Next-Character.
-;;;
-(defun %set-previous-character (mark character)
+(defun (setf previous-character) (character mark)
+  "Sets the character to the left of the given Mark."
   (unless (mark-before mark)
     (error "~S has no previous character, so it cannot be set." mark))
-  (%set-next-character mark character)
+  (setf (next-character mark) character)
   (mark-after mark)
   character)
 

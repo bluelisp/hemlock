@@ -7,7 +7,7 @@
 (in-package :hemlock-internals)
 
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/struct.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/struct.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -667,21 +667,6 @@
 
 ;;;; Some defsetfs:
 
-(defsetf buffer-writable %set-buffer-writable
-  "Sets whether the buffer is writable and invokes the Buffer Writable Hook.")
-(defsetf buffer-name %set-buffer-name
-  "Sets the name of a specified buffer, invoking the Buffer Name Hook.")
-(defsetf buffer-modified %set-buffer-modified
-  "Make a buffer modified or unmodified.")
-(defsetf buffer-pathname %set-buffer-pathname
-  "Sets the pathname of a buffer, invoking the Buffer Pathname Hook.")
-
-(defsetf getstring %set-string-table
-  "Sets the value for a string-table entry, making a new one if necessary.")
-
-(defsetf window-buffer %set-window-buffer
-  "Change the buffer a window is mapped to.")
-
 (define-setf-expander value (var)
   "Set the value of a Hemlock variable, calling any hooks."
   (let ((svar (gensym)))
@@ -704,48 +689,3 @@
   "Set a Hemlock variable's documentation."
   `(%set-variable-documentation ,name ,kind ,where ,new-value))
 
-(defsetf buffer-minor-mode %set-buffer-minor-mode
-  "Turn a buffer minor mode on or off.")
-(defsetf buffer-major-mode %set-buffer-major-mode
-  "Set a buffer's major mode.")
-(defsetf previous-character %set-previous-character
-  "Sets the character to the left of the given Mark.")
-(defsetf next-character %set-next-character
-  "Sets the characters to the right of the given Mark.")
-(defsetf character-attribute %set-character-attribute
-  "Set the value for a character attribute.")
-(defsetf character-attribute-hooks %set-character-attribute-hooks
-  "Set the hook list for a Hemlock character attribute.")
-(defsetf ring-ref %set-ring-ref "Set an element in a ring.")
-(defsetf current-window %set-current-window "Set the current window.")
-(defsetf current-buffer %set-current-buffer
-  "Set the current buffer, doing necessary stuff.")
-(defsetf mark-kind %set-mark-kind "Used to set the kind of a mark.")
-(defsetf buffer-region %set-buffer-region "Set a buffer's region.")
-(defsetf command-name %set-command-name
-  "Change a Hemlock command's name.")
-(defsetf line-string %set-line-string
-  "Replace the contents of a line.")
-(defsetf last-command-type %set-last-command-type
-  "Set the Last-Command-Type for use by the next command.")
-(defsetf prefix-argument %set-prefix-argument
-  "Set the prefix argument for the next command.")
-(defsetf logical-key-event-p %set-logical-key-event-p
-  "Change what Logical-Char= returns for the specified arguments.")
-(defsetf window-font %set-window-font
-  "Change the font-object associated with a font-number in a window.")
-(defsetf default-font %set-default-font
-  "Change the font-object associated with a font-number in new windows.")
-
-(defsetf buffer-modeline-fields %set-buffer-modeline-fields
-  "Sets the buffer's list of modeline fields causing all windows into buffer
-   to be updated for the next redisplay.")
-(defsetf modeline-field-name %set-modeline-field-name
-  "Sets a modeline-field's name.  If one already exists with that name, an
-   error is signaled.")
-(defsetf modeline-field-width %set-modeline-field-width
-  "Sets a modeline-field's width and updates all the fields for all windows
-   in any buffer whose fields list contains the field.")
-(defsetf modeline-field-function %set-modeline-field-function
-  "Sets a modeline-field's function and updates this field for all windows in
-   any buffer whose fields list contains the field.")

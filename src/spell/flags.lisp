@@ -33,10 +33,8 @@
 (declaim (inline flag-mask))
 (defun flag-mask (char)
   (aref *flag-masks* (char-code char)))
-(defun %set-flag-mask (char value)
+(defun (setf flag-mask) (value char)
   (setf (aref *flag-masks* (char-code char)) value))
-
-(defsetf flag-mask %set-flag-mask)
 
 (dolist (e flag-names-to-masks)
   (let ((char (car e))

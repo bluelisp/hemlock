@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/syntax.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/syntax.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -248,7 +248,8 @@
   (with-attribute attribute
     (attribute-descriptor-hooks obj)))
 
-(defun %set-character-attribute-hooks (attribute new-value)
+(defun (setf character-attribute-hooks) (new-value attribute)
+  "Set the hook list for a Hemlock character attribute."
   (with-attribute attribute
     (setf (attribute-descriptor-hooks obj) new-value)))
 
@@ -288,11 +289,12 @@
   (not (null (gethash symbol *character-attributes*))))
 
 
-;;; %SET-CHARACTER-ATTRIBUTE  --  Internal
+;;; (SETF CHARACTER-ATTRIBUTE)  --  Internal
 ;;;
 ;;;    Set the value of a character attribute.
 ;;;
-(defun %set-character-attribute (attribute character new-value)
+(defun (setf character-attribute) (new-value attribute character)
+  "Set the value for a character attribute."
   (with-attribute attribute
     (invoke-hook hemlock::character-attribute-hook attribute character new-value)
     (invoke-hook (attribute-descriptor-hooks obj) attribute character new-value)

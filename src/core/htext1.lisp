@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext1.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext1.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -311,7 +311,8 @@
       (close-line))
   (line-chars line))
 
-(defun %set-line-string (line string)
+(defun (setf line-string) (string line)
+  "Replace the contents of a line."
   (let ((buffer (line-%buffer line)))
     (modifying-buffer buffer
       (unless (simple-string-p string)
@@ -356,7 +357,8 @@
   :Right-Inserting.  This may be set with Setf."
   (mark-%kind mark))
 
-(defun %set-mark-kind (mark kind)
+(defun (setf mark-kind) (kind mark)
+  "Used to set the kind of a mark."
   (let ((line (mark-line mark)))
     (cond ((eq kind :temporary)
            (setf (line-marks line) (delq mark (line-marks line)))
