@@ -27,12 +27,10 @@
                                (string-downcase (lisp-implementation-type))))
                  :defaults *hemlock-base-directory*))
 
-#-CMU
 (asdf:defsystem :hemlock
      :pathname #.(make-pathname
                         :directory
-                        (append (pathname-directory *hemlock-base-directory*)
-                                (list "src"))
+                        (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
 ;;     :source-extension "lisp"
 ;;     :binary-pathname #.*binary-pathname*
