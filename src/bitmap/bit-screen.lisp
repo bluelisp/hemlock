@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/bitmap/bit-screen.lisp,v 1.2 2004-08-10 12:47:06 rstrandh Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/bitmap/bit-screen.lisp,v 1.3 2004-09-03 23:06:46 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -18,7 +18,11 @@
 
 (in-package :hemlock.x11)
 
-(declaim (special *echo-area-window*))
+(declaim (special *echo-area-window* ; defined in echo --amb
+                  *cursor-background-color* ; defined too late --amb
+                  *cursor-foreground-color* ; defined too late --amb
+                  *hemlock-cursor* ; defined too late --amb
+                  ))
 
 ;;; We have an internal notion of window groups on bitmap devices.  Every
 ;;; Hemlock window has a hunk slot which holds a structure with information
@@ -1122,22 +1126,24 @@
 
 
 ;;;; Setting window width and height.
+;;; Commented out by amb because of a side effect of undefining the
+;;; window struct.
 
 ;;; (SETF WINDOW-WIDTH)  --  Internal
 ;;;
 ;;;    Since we don't support non-full-width windows, this does nothing.
 ;;;
-(defun (setf window-width) (new-value window)
-  (declare (ignore window))
-  new-value)
+;;;(defun (setf window-width) (new-value window)
+;;;  (declare (ignore window))
+;;;  new-value)
 
 ;;; (SETF WINDOW-HEIGHT)  --  Internal
 ;;;
 ;;;    Can't change window height either.
 ;;;
-(defun (setf window-height) (new-value window)
-  (declare (ignore window))
-  new-value)
+;;;(defun (setf window-height) (new-value window)
+;;;  (declare (ignore window))
+;;;  new-value)
 
 
 

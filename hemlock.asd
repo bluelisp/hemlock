@@ -1,25 +1,233 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
-(defpackage "MK"  (:export "DEFSYSTEM"))
-(defpackage :hemlock-system (:use "CL" "ASDF"))
-(in-package :hemlock-system)
+(proclaim '(optimize (safety 3) (speed 0) (debug 3)))
 
-(with-open-file (in (merge-pathnames "hemlock.system" *load-truename*))
-  (loop for form = (read in nil nil)
-        while form
-        if (eql (car form) 'mk::defsystem)
-        do (destructuring-bind (name &key components &allow-other-keys)
-               (cdr form)
-             (eval `(asdf:defsystem ,name :serial t :depends-on (clx)
-                     :components
-                     ,(mapcar (lambda (x) `(:file ,x
-                                            :pathname
-                                            ,(merge-pathnames
-                                              (make-pathname
-                                               :name x
-                                               :directory '(:relative "src")
-                                               :type "lisp")
-                                              *load-truename*)))
+(defpackage #:hemlock-system
+  (:use #:cl)
+  (:export #:*hemlock-base-directory*))
 
-                              components))))
-        else do (eval form)))
+(in-package #:hemlock-system)
+
+(pushnew :command-bits *features*)
+(pushnew :buffered-lines *features*)
+
+(defparameter *hemlock-base-directory*
+  (make-pathname :name nil :type nil :version nil
+                 :defaults (parse-namestring *load-truename*)))
+
+(defparameter *binary-pathname*
+  (make-pathname :directory
+                 (append (pathname-directory *hemlock-base-directory*)
+                         (list "bin"
+                               #+CLISP "clisp"
+                               #+CMU   "cmu"
+                               #+EXCL  "acl"
+                               #+SBCL  "sbcl"
+                               #-(or CLISP CMU EXCL SBCL)
+                               (string-downcase (lisp-implementation-type))))
+                 :defaults *hemlock-base-directory*))
+
+#-CMU
+(asdf:defsystem :hemlock
+     :pathname #.(make-pathname
+                        :directory
+                        (append (pathname-directory *hemlock-base-directory*)
+                                (list "src"))
+                        :defaults *hemlock-base-directory*)
+;;     :source-extension "lisp"
+;;     :binary-pathname #.*binary-pathname*
+;;     :depends-on (:clim-clx #+NIL :mcclim-freetype)
+;;     ;; ehem ..
+;;     :initially-do
+;;     (progn
+;;       ;; try to load clx
+;;       (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
+;;         (ignore-errors (require :clx))
+;;         (ignore-errors (require :cmucl-clx)))
+;;       (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
+;;         (error "Please provide me with CLX."))
+;;       ;; Create binary pathnames
+;;       (ensure-directories-exist *binary-pathname*)
+;;       (dolist (subdir '("tty" "wire" "user" "core" "clim"))
+;;         (ensure-directories-exist
+;;       (merge-pathnames (make-pathname :directory (list :relative subdir))
+;;                        *binary-pathname*)
+;;       :verbose t))
+;;       ;; Gray Streams
+;;       #+CMU
+;;       (require :gray-streams)
+;;       #+CMU
+;;       (setf ext:*efficiency-note-cost-threshold* most-positive-fixnum)
+;;       #+CMU
+;;       (setf ext:*efficiency-note-limit* 0)
+;;       #+CMU
+;;       (proclaim '(optimize (c::brevity 3)))
+;;       #+CMU
+;;       (setf c:*record-xref-info* t)
+;;       )
+    :components
+    ((:module core-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "core")))
+              :components
+              ((:file "package")
+               ;; Lisp implementation specific stuff goes into one of the next
+               ;; two files.
+               (:file "lispdep")
+               (:file "hemlock-ext")
+
+               (:file "decls") ; early declarations of functions and stuff
+               (:file "struct")
+               ;; "struct-ed"
+               (:file "charmacs")
+               (:file "key-event")))
+     (:module bitmap-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "bitmap")))
+              :depends-on (core-1)
+              :components
+              ((:file "keysym-defs") ; hmm.
+               (:file "bit-stuff") ; input depends on it --amb
+               (:file "hunk-draw"))) ; window depends on it --amb
+     (:module core-2
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "core")))
+              :depends-on (bitmap-1)
+              :components
+              ((:file "rompsite")
+               (:file "input")
+               (:file "macros")
+               (:file "line")
+               (:file "ring")
+               (:file "htext1") ; buffer depends on it --amb
+               (:file "buffer")
+               (:file "vars")
+               (:file "interp")
+               (:file "syntax")
+               (:file "htext2")
+               (:file "htext3")
+               (:file "htext4")
+               (:file "files")
+               (:file "search1")
+               (:file "search2")
+               (:file "table")
+
+               (:file "winimage")
+               (:file "window")
+               (:file "screen")
+               (:file "linimage")
+               (:file "cursor")
+               (:file "display")))
+;;;      (:module tty-1
+;;;           :source-pathname "tty"
+;;;           :components
+;;;           ("termcap"
+;;;            ;; "tty-disp-rt"
+;;;            ;; "tty-display"
+;;;            ))
+     (:module root-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src")))
+              :depends-on (core-2)
+              :components
+              ((:file "pop-up-stream")))
+;;;     (:module tty-2
+;;;           :source-pathname "tty"
+;;;           :components
+;;;           ("tty-screen"))
+     (:module root-2
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src")))
+              :depends-on (root-1)
+              :components
+              ((:file "font")
+               (:file "streams")
+               ;; "hacks"
+               (:file "main")
+               (:file "echo")))
+     (:module user-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "user")))
+              :depends-on (root-2)
+              :components
+              ((:file "echocoms")
+
+               (:file "command")
+               (:file "kbdmac")
+               (:file "undo")
+               (:file "killcoms")
+               (:file "indent")
+               (:file "searchcoms")
+               (:file "filecoms")
+               (:file "morecoms")
+               (:file "doccoms")
+               (:file "srccom")
+               (:file "group")
+               (:file "fill")
+               (:file "text")
+
+               (:file "lispmode")
+               ;; "ts-buf"
+               ;; "ts-stream"
+               ;; "eval-server"
+               (:file "lispbuf")
+               ;; "lispeval"
+               ;; "spell-rt"
+               ;; "spell-corr"
+               ;; "spell-aug"
+               ;; "spellcoms"
+
+               (:file "comments")
+               (:file "overwrite")
+               (:file "abbrev")
+               (:file "icom")
+               (:file "defsyn")
+               (:file "scribe")
+               (:file "pascal")
+               (:file "dylan")
+
+               (:file "edit-defs")
+               (:file "auto-save")
+               (:file "register")
+               (:file "xcoms")
+               ;; "unixcoms"
+               ;; "mh"
+               (:file "highlight")
+               ;; "dired"
+               ;; "diredcoms"
+               (:file "bufed")
+               ;;"lisp-lib"
+               (:file "completion")
+               ;; "shell"
+               ;; "debug"
+               ;; "netnews"
+               ;; "rcs"
+               (:file "dabbrev")
+               (:file "bindings")
+               (:file "bindings-gb")))
+     (:module bitmap-2
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "bitmap")))
+              :depends-on (user-1)
+              :components
+              ((:file "rompsite")
+               (:file "input")
+               (:file "bit-screen")
+               (:file "bit-display")
+               (:file "pop-up-stream")))
+     (:module clim-1
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "clim")))
+              :depends-on (bitmap-2)
+              :components
+              ((:file "patch")
+               (:file "foo")
+               #+nilamb(:file "exp-syntax")))))

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/main.lisp,v 1.1 2004-07-09 13:37:42 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/main.lisp,v 1.2 2004-09-03 23:06:45 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -321,7 +321,7 @@ GB
             (if (not (eq init t))
                 init
                 (and switch
-                     (or (cmd-switch-value switch)
+                     #+nilamb (or (cmd-switch-value switch)
                          (car (cmd-switch-words switch))))))
            (home (user-homedir-pathname)))
       (when home

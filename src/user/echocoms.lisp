@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/echocoms.lisp,v 1.1 2004-07-09 13:39:10 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/echocoms.lisp,v 1.2 2004-09-03 23:07:06 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -80,8 +80,9 @@
                  (write-line
  "There are no possible completions of what you have typed." s))))))
      ((and (eq *parse-type* :file) (not (zerop (length input))))
-      (let ((pns (ambiguous-files (region-to-string *parse-input-region*)
-                                  *parse-default*)))
+      (let ((pns #-CMU(ambiguous-files (region-to-string *parse-input-region*)
+                                  *parse-default*)
+                 #+CMU(list (region-to-string *parse-input-region*))))
         (declare (list pns))
         (with-pop-up-display(s :height (+ (length pns) 2))
           (write-line help s)

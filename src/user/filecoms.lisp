@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/filecoms.lisp,v 1.1 2004-07-09 13:39:05 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/filecoms.lisp,v 1.2 2004-09-03 23:07:06 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -372,9 +372,10 @@
     (cond ((not found)
            (if (and (null (pathname-name trial-pathname))
                     (null (pathname-type trial-pathname))
-                    (pathname-directory trial-pathname))
+                    (pathname-directory trial-pathname)
+                    nil) ; dired-guts is commented out for now --amb
                ;; This looks like a directory -- make dired buffer
-               (dired-guts nil nil trial-pathname)
+               nil ; (dired-guts nil nil trial-pathname)
 
                (let* ((name (pathname-to-buffer-name trial-pathname))
                       (found (getstring name *buffer-names*))
@@ -882,6 +883,15 @@
 
 
 ;;;; File utility commands:
+
+(defun print-directory (pathname &optional stream &key all verbose return-list)
+  "Portable surrogate of cmucl ext:print-directory. --amb"
+  (declare (ignorable all verbose return-list))
+  (let ((s (cond
+             ((null stream) *standard-output*)
+             ((eq t stream) *terminal-io*)
+             (t stream))))
+    (format s "~{~&~A~}" (directory pathname))))
 
 (defcommand "Directory" (p)
   "Do a directory into a pop-up window.  If an argument is supplied, then

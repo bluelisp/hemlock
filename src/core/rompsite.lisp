@@ -8,7 +8,7 @@
 
 #+CMU
 (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/rompsite.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/rompsite.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -205,6 +205,7 @@
                #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
          (setf *editor-input* (make-windowed-editor-input))
          (setup-font-family *editor-windowed-input*))
+        #+nilamb
         (t ;; The editor's file descriptor is Unix standard input (0).
            ;; We don't need to affect system:*file-input-handlers* here
            ;; because the init and exit methods for tty redisplay devices
@@ -258,6 +259,7 @@
 ;;; *BEEP-FUNCTION* and BEEP are in SYSTEM package in CMUCL.
 ;;;
 (defvar *beep-function* #'(lambda (&optional stream)
+                            (declare (ignorable stream))
                             (print "BEEP!" *trace-output*)
                             (finish-output *trace-output*)))
 
@@ -311,6 +313,9 @@
   #+CMU (lisp::make-lisp-stream :in #'in-hemlock-standard-input-read)
   #-CMU (make-broadcast-stream))
 
+(declaim (special *gc-notify-before*
+                  *gc-notify-after*))
+
 (defmacro site-wrapper-macro (&body body)
   `(unwind-protect
      (progn
@@ -333,10 +338,10 @@
        (device-exit device))))
 
 (defun standard-device-init ()
-  (setup-input))
+  #+nilamb(setup-input))
 
 (defun standard-device-exit ()
-  (reset-input))
+  #+nilamb(reset-input))
 
 (declaim (special *echo-area-window*))
 
@@ -521,6 +526,7 @@
   "Takes a symbol or function and returns the pathname for the file the
    function was defined in.  If it was not defined in some file, nil is
    returned."
+  #-CMU(declare (ignorable function))
   #+CMU
   (flet ((frob (code)
            (let ((info (kernel:%code-debug-info code)))

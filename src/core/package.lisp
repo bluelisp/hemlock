@@ -103,6 +103,8 @@
    #:delete-characters
    #:delete-region
    #:delete-and-save-region
+   #:fetch-cut-string
+   #:store-cut-string
    #:filter-region
    #:start-line-p
    #:end-line-p
@@ -539,6 +541,7 @@
    #:complete-file
    #:default-directory
    #:set-file-permissions
+   #:ambiguous-files
    ))
 
 (defpackage :hemlock-internals
@@ -860,7 +863,14 @@
   )
 
 ;; $Log: package.lisp,v $
-;; Revision 1.3  2004-08-10 05:58:04  rstrandh
+;; Revision 1.4  2004-09-03 23:06:51  abakic
+;; Changes to get rid of warnings and notes. As a side-effect, more code
+;; has been commented out. There should be no more warnings nor notes
+;; with CMUCL, and only two style warnings with SBCL. Not tested with
+;; other implementations yet. TODO: spread key bindings to different
+;; files.
+;;
+;; Revision 1.3  2004/08/10 05:58:04  rstrandh
 ;; Removed logical-key-event-name and logical-key-event-documentation
 ;; as they were never used.
 ;;

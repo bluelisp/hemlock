@@ -28,10 +28,11 @@
                  :defaults *hemlock-base-directory*))
        
 (mk:defsystem :hemlock
-    :source-pathname #.(make-pathname :directory
-                                      (append (pathname-directory *hemlock-base-directory*)
-                                              (list "src"))
-                                      :defaults *hemlock-base-directory*)
+    :source-pathname #.(make-pathname
+			:directory
+			(append (pathname-directory *hemlock-base-directory*)
+				(list "src"))
+			:defaults *hemlock-base-directory*)
     :source-extension "lisp"
     :binary-pathname #.*binary-pathname*
     :depends-on (:clim-clx #+NIL :mcclim-freetype)
@@ -47,138 +48,169 @@
       ;; Create binary pathnames
       (ensure-directories-exist *binary-pathname*)
       (dolist (subdir '("tty" "wire" "user" "core" "clim"))
-        (ensure-directories-exist (merge-pathnames (make-pathname :directory (list :relative subdir))
-                                                   *binary-pathname*)
-                                  :verbose t))
+        (ensure-directories-exist
+	 (merge-pathnames (make-pathname :directory (list :relative subdir))
+			  *binary-pathname*)
+	 :verbose t))
       ;; Gray Streams
       #+CMU
       (require :gray-streams)
       #+CMU
-      (setf *EFFICIENCY-NOTE-COST-THRESHOLD* 1000000)
+      (setf ext:*efficiency-note-cost-threshold* most-positive-fixnum)
       #+CMU
-      (setf *EFFICIENCY-NOTE-LIMIT* 0)
+      (setf ext:*efficiency-note-limit* 0)
       #+CMU
-      (setf C:*RECORD-XREF-INFO* t)
+      (proclaim '(optimize (c::brevity 3)))
+      #+CMU
+      (setf c:*record-xref-info* t)
       )
     :components
-    ("core/package"
+    ((:module core-1
+	      :source-pathname "core"
+	      :components
+	      ((:file "package")
+	       ;; Lisp implementation specific stuff goes into one of the next
+	       ;; two files.
+	       (:file "lispdep")
+	       (:file "hemlock-ext")
 
-     ;; Lisp implementation specific stuff goes into one of the next
-     ;; two files.
-     "core/lispdep"
-     "core/hemlock-ext"                     
-
-     "core/decls"                            ;early declarations of functions and stuff
+	       (:file "decls") ; early declarations of functions and stuff
+	       (:file "struct")
+	       ;; "struct-ed"
+	       (:file "charmacs")
+	       (:file "key-event")))
+     (:module bitmap-1
+	      :source-pathname "bitmap"
+	      :depends-on (core-1)
+	      :components
+	      ((:file "keysym-defs") ; hmm.
+	       (:file "bit-stuff") ; input depends on it --amb
+	       (:file "hunk-draw"))) ; window depends on it --amb
+     (:module core-2
+	      :source-pathname "core"
+	      :depends-on (bitmap-1)
+	      :components
+	      ((:file "rompsite")
+	       (:file "input")
+	       (:file "macros")
+	       (:file "line")
+	       (:file "ring")
+	       (:file "htext1") ; buffer depends on it --amb
+	       (:file "buffer")
+	       (:file "vars")
+	       (:file "interp")
+	       (:file "syntax")
+	       (:file "htext2")
+	       (:file "htext3")
+	       (:file "htext4")
+	       (:file "files")
+	       (:file "search1")
+	       (:file "search2")
+	       (:file "table")
      
-     "core/struct"
-     ;; "struct-ed"
-     "core/charmacs"
-     "core/key-event" 
-     "bitmap/keysym-defs"               ;hmm.
-     "core/rompsite"
-     "core/input"
-     "core/macros"
-     "core/line"
-     "core/ring"
-     "core/vars"
-     "core/interp"
-     "core/syntax"
-     "core/htext1"
-     "core/buffer"  
-     "core/htext2"
-     "core/htext3"
-     "core/htext4"
-     "core/files"
-     "core/search1"
-     "core/search2"
-     "core/table"
-     
-     
-     "core/window"
-     "core/screen"
-     "core/winimage"
-     "core/linimage"
-     "core/cursor"
-     "core/display"
+	       (:file "winimage")
+	       (:file "window")
+	       (:file "screen")
+	       (:file "linimage")
+	       (:file "cursor")
+	       (:file "display")))
+;;;      (:module tty-1
+;;; 	      :source-pathname "tty"
+;;; 	      :components
+;;; 	      ("termcap"
+;;; 	       ;; "tty-disp-rt"
+;;; 	       ;; "tty-display"
+;;; 	       ))
+     (:module root-1
+	      :source-pathname ""
+	      :depends-on (core-2)
+	      :components
+	      ((:file "pop-up-stream")))
+;;;     (:module tty-2
+;;;	      :source-pathname "tty"
+;;;	      :components
+;;;	      ("tty-screen"))
+     (:module root-2
+	      :source-pathname ""
+	      :depends-on (root-1)
+	      :components
+	      ((:file "font")
+	       (:file "streams")
+	       ;; "hacks"
+	       (:file "main")
+	       (:file "echo")))
+     (:module user-1
+	      :source-pathname "user"
+	      :depends-on (root-2)
+	      :components
+	      ((:file "echocoms")
 
+	       (:file "command")
+	       (:file "kbdmac")
+	       (:file "undo")
+	       (:file "killcoms")
+	       (:file "indent")
+	       (:file "searchcoms")
+	       (:file "filecoms")
+	       (:file "morecoms")
+	       (:file "doccoms")
+	       (:file "srccom")
+	       (:file "group")
+	       (:file "fill")
+	       (:file "text")
 
-     "tty/termcap"
-     ;"tty-disp-rt"
-     ;"tty-display"
-     "pop-up-stream"
-     "tty/tty-screen"
+	       (:file "lispmode")
+	       ;; "ts-buf"
+	       ;; "ts-stream"
+	       ;; "eval-server"
+	       (:file "lispbuf")
+	       ;; "lispeval"
+	       ;; "spell-rt"
+	       ;; "spell-corr"
+	       ;; "spell-aug"
+	       ;; "spellcoms"
 
-     "font"
-     "streams"
-;     "hacks"
-     "main"
-     "echo"
-     "user/echocoms"
+	       (:file "comments")
+	       (:file "overwrite")
+	       (:file "abbrev")
+	       (:file "icom")
+	       (:file "defsyn")
+	       (:file "scribe")
+	       (:file "pascal")
+	       (:file "dylan")
 
-     "user/command"
-     "user/kbdmac"
-     "user/undo"
-     "user/killcoms"
-     "user/indent"
-     "user/searchcoms"
-     "user/filecoms"
-     "user/morecoms"
-     "user/doccoms"
-     "user/srccom"
-     "user/group"
-     "user/fill"
-     "user/text"
-
-     "user/lispmode"
-;;     "user/ts-buf"
-;;     "user/ts-stream"
-;;     "user/eval-server"
-     "user/lispbuf"
-;;     "user/lispeval"
-;;     "user/spell-rt"
-;;     "user/spell-corr"
-;;     "user/spell-aug"
-;;     "user/spellcoms"
-
-     "user/comments"
-     "user/overwrite"
-     "user/abbrev"
-     "user/icom"
-     "user/defsyn"
-     "user/scribe"
-     "user/pascal"
-     "user/dylan"
-
-     "user/edit-defs"
-     "user/auto-save"
-     "user/register"
-     "user/xcoms"
-;;     "user/unixcoms"
-;;     "user/mh"
-     "user/highlight"
-;;     "user/dired"
-;;     "user/diredcoms"
-     "user/bufed"
-;;   "user/lisp-lib"
-     "user/completion"
-;;     "user/shell"
-;;     "user/debug"
-;;     "user/netnews"
-;;     "user/rcs"
-     "user/dabbrev"
-     "user/bindings"
-     "user/bindings-gb"
-
-
-     "bitmap/rompsite"
-     "bitmap/input"
-     "bitmap/bit-stuff"
-     "bitmap/hunk-draw"
-     "bitmap/bit-display"
-     "bitmap/bit-screen"
-     "bitmap/pop-up-stream"
-
-     "clim/patch"
-     "clim/foo"
-     "clim/exp-syntax"
-     ))
+	       (:file "edit-defs")
+	       (:file "auto-save")
+	       (:file "register")
+	       (:file "xcoms")
+	       ;; "unixcoms"
+	       ;; "mh"
+	       (:file "highlight")
+	       ;; "dired"
+	       ;; "diredcoms"
+	       (:file "bufed")
+	       ;;"lisp-lib"
+	       (:file "completion")
+	       ;; "shell"
+	       ;; "debug"
+	       ;; "netnews"
+	       ;; "rcs"
+	       (:file "dabbrev")
+	       (:file "bindings")
+	       (:file "bindings-gb")))
+     (:module bitmap-2
+	      :source-pathname "bitmap"
+	      :depends-on (user-1)
+	      :components
+	      ((:file "rompsite")
+	       (:file "input")
+	       (:file "bit-screen")
+	       (:file "bit-display")
+	       (:file "pop-up-stream")))
+     (:module clim-1
+	      :source-pathname "clim"
+	      :depends-on (bitmap-2)
+	      :components
+	      ((:file "patch")
+	       (:file "foo")
+	       (:file "exp-syntax")))))

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/ring.lisp,v 1.2 2004-08-10 12:47:07 rstrandh Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/ring.lisp,v 1.3 2004-09-03 23:06:51 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -18,6 +18,10 @@
 (defun %print-hring (obj stream depth)
   (declare (ignore depth obj))
   (write-string "#<Hemlock Ring>" stream))
+
+(defun required-argument ()
+  "Portable surrogate of cmucl ext:required-argument. --amb"
+  (error "A required keyword argument was not supplied."))
 
 ;;;; The ring data structure:
 ;;;

@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/screen.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/screen.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -34,7 +34,7 @@
         (value hemlock::default-status-line-fields))
   (if (windowed-monitor-p)
       (init-bitmap-screen-manager display)
-      (init-tty-screen-manager (get-terminal-name))))
+      nil));(init-tty-screen-manager (get-terminal-name)))) ; disabled --amb
 
 
 

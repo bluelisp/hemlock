@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bufed.lisp,v 1.1 2004-07-09 13:38:37 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/bufed.lisp,v 1.2 2004-09-03 23:07:06 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -41,7 +41,21 @@
     (setf *bufed-buffer* nil)
     (setf *bufed-buffers* nil)))
 
-
+;;; copied from diredcoms.lisp (hemlock-internal package) --amb
+;;; ARRAY-ELEMENT-FROM-MARK -- Internal Interface.
+;;;
+;;; This counts the lines between it and the beginning of the buffer.  The
+;;; number is used to index vector as if each line mapped to an element
+;;; starting with the zero'th element (lines are numbered starting at 1).
+;;; This must use AREF since some modes use this with extendable vectors.
+;;;
+(defun array-element-from-mark (mark vector
+                                &optional (error-msg "Invalid line."))
+  (when (blank-line-p (mark-line mark)) (editor-error error-msg))
+  (aref vector
+         (1- (count-lines (region
+                           (buffer-start-mark (line-buffer (mark-line mark)))
+                           mark)))))
 
 ;;;; Commands.
 

@@ -19,3 +19,4 @@ This was tested with:
  - CLISP using MIT CLX
 
 
+ASDF system file hemlock.asd has been added, supporting SBCL for now.

@@ -110,6 +110,7 @@
            :documentation "Extended input stream we read from.")) )
 
 (defmethod get-key-event ((stream clim-editor-input) &optional ignore-abort-attempts-p)
+  (declare (ignorable ignore-abort-attempts-p))
   (or (hi::dq-event stream)
       ;;
       (progn                            ;###
@@ -175,6 +176,10 @@
                                          (command-unparser 'command-line-command-unparser)
                                          (partial-command-parser 'command-line-read-remaining-arguments-for-partial-command)
                                          (prompt "Command: "))
+  (declare (ignorable command-parser
+                      command-unparser
+                      partial-command-parser
+                      prompt))
   (let ((clim:*application-frame* frame))
     (setf *sheet* (clim:frame-standard-output frame))
     (let ((*window-list* *window-list*)
@@ -422,7 +427,7 @@
          (buffer *current-buffer*)
          (start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel)) )
-
+    (declare (ignorable start first))
     (setf (slot-value hunk 'ts) (clim:make-text-style :fixed :roman :normal))
     #+NIL
     (setf (slot-value hunk 'ts) (clim:make-device-font-text-style
@@ -538,6 +543,7 @@
          (w (slot-value hunk 'cw))
          (xo 5)
          (yo 5))
+    (declare (ignorable stream))
     ;; (print dl *trace-output*)(finish-output *trace-output*)
     (unless (zerop (dis-line-flags dl))
       (setf (hi::dis-line-tick dl) (incf *tick*)))

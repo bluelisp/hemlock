@@ -98,7 +98,7 @@
 ;;;    This function should be called whenever the editor is entered in a new
 ;;; lisp.  It sets up process specific data structures.
 ;;;
-(defun init-raw-io (display)
+#+nilamb-duplicate(defun init-raw-io (display)
   #-clx (declare (ignore display))
   (setf *editor-windowed-input* nil)
   (cond #+clx
@@ -109,6 +109,7 @@
                #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
          (setf *editor-input* (make-windowed-editor-input))
          (setup-font-family *editor-windowed-input*))
+        #+nilamb
         (t ;; The editor's file descriptor is Unix standard input (0).
            ;; We don't need to affect system:*file-input-handlers* here
            ;; because the init and exit methods for tty redisplay devices

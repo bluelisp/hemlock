@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/display.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/display.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -16,6 +16,7 @@
 
 (in-package :hemlock-internals)
 
+(declaim (special *in-the-editor*)) ; defined in main.lisp --amb
 
 ;;;; Main redisplay entry points.
 
@@ -105,14 +106,15 @@
                  (setf ,n-res t)))
            (device-force-output ,device)
            ,@(if afterp
-                 `(progn
-                     (device-after-redisplay ,device)
+                 (list
+                  `(progn
+                    (device-after-redisplay ,device)
                      ;; The after method may have queued input that the input
                      ;; loop won't see until the next input arrives, so check
                      ;; here to return the correct value as per the redisplay
                      ;; contract.
                      (when (listen-editor-input *real-editor-input*)
-                       (setf ,n-res :editor-input))))
+                       (setf ,n-res :editor-input)))))
            ,n-res)))))
 
 ) ;eval-when
