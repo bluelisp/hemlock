@@ -1,22 +1,33 @@
                           INSTALLATION NOTES
 
-Phemlock comes with a mk:defsystem style .system file. So when you are
-lucky you just can fire up your Lisp and say
+Phemlock comes with a mk:defsystem style .system file. ASDF system
+file hemlock.asd has been added, supporting SBCL for now. So when you
+are lucky you just can fire up your Lisp and say
 
-    (oos :hemlock :load)
+CMUCL/MK:
+    ; (require 'defsystem)
+    (mk:load-system :hemlock)
+
+SBCL/ASDF:
+    ; (require 'asdf)
+    ; (require 'sb-bsd-sockets)
+    ; (asdf:oos 'asdf:load-op :clx)
+    (asdf:oos 'adsf:load-op :hemlock)
 
     (cl-user::hemlock)
 
 If you want to try the CLIM backend, which not yet is fully operational, try:
+
+    ; (load "../McCLIM/system.lisp")
+    ; (mk:load-system :clim-clx) ; CMUCL/MK, might already be a dependency
+    ; (asdf:oos 'asdf:load-op :clim-clx) ; SBCL/ASDF
 
     (clim-hemlock::clim-hemlock)
 
 
 This was tested with:
 
- - CMUCL
+ - CMUCL (with CLX library) using McCLIM
+ - SBCL using McCLIM, CLX
  - ACL
  - CLISP using MIT CLX
-
-
-ASDF system file hemlock.asd has been added, supporting SBCL for now.
