@@ -4,9 +4,41 @@
 
 (defpackage #:hemlock-system
   (:use #:cl)
-  (:export #:*hemlock-base-directory*))
+  (:export #:*hemlock-base-directory* #:iso-8859-1-file))
 
 (in-package #:hemlock-system)
+
+(defclass iso-8859-1-file (asdf:cl-source-file) ())
+(defmethod asdf:perform ((o asdf:compile-op) (c iso-8859-1-file))
+  ;; Darn.  Can't just CALL-NEXT-METHOD; have to reimplement the
+  ;; world.
+  (let ((source-file (asdf:component-pathname c))
+        (output-file (car (asdf:output-files o c))))
+    (multiple-value-bind (output warnings-p failure-p)
+        (compile-file source-file :output-file output-file
+                      #+sbcl #+sbcl :external-format :iso-8859-1)
+      (when warnings-p
+        (case (asdf:operation-on-warnings o)
+          (:warn (warn
+                  "~@<COMPILE-FILE warned while performing ~A on ~A.~@:>"
+                  o c))
+          (:error (error 'compile-warned :component c :operation o))
+          (:ignore nil)))
+      (when failure-p
+        (case (asdf:operation-on-failure o)
+          (:warn (warn
+                  "~@<COMPILE-FILE failed while performing ~A on ~A.~@:>"
+                  o c))
+          (:error (error 'compile-failed :component c :operation o))
+          (:ignore nil)))
+      (unless output
+        (error 'asdf:compile-error :component c :operation o)))))
+(defmethod perform ((o asdf:load-source-op) (c iso-8859-1-file))
+  ;; likewise, have to reimplement rather than closily extend
+  (let ((source (asdf:component-pathname c)))
+    (setf (asdf:component-property c 'asdf::last-loaded-as-source)
+          (and (load source #+sbcl #+sbcl :external-format :iso-8859-1)
+               (get-universal-time)))))
 
 (pushnew :command-bits *features*)
 (pushnew :buffered-lines *features*)
@@ -79,7 +111,7 @@
                (:file "decls") ; early declarations of functions and stuff
                (:file "struct")
                #+port-core-struct-ed (:file "struct-ed")
-               (:file "charmacs")
+               (hemlock-system:iso-8859-1-file "charmacs")
                (:file "key-event")))
      (:module bitmap-1
               :pathname #.(merge-pathnames
