@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext3.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext3.lisp,v 1.2 2004-12-23 23:58:28 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -100,7 +100,7 @@
 (defconstant line-number-interval-guess 8
   "Our first guess at how we should number an inserted region's lines.")
 
-(defun insert-region (mark region)
+(defmethod insert-region (mark region)
   "Inserts the given Region at the Mark."
   (let* ((start (region-start region))
          (end (region-end region))
