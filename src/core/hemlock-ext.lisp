@@ -76,8 +76,6 @@
 
 (defvar *object-set-event-handler-print* nil)
 
-(declaim (declaration values))
-
 (defun object-set-event-handler (display &optional (timeout 0))
   "This display event handler uses object sets to map event windows cross
    event types to handlers.  It uses XLIB:EVENT-CASE to bind all the slots

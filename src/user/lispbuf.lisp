@@ -7,7 +7,7 @@
 (in-package :hemlock)
 
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/lispbuf.lisp,v 1.1 2004-07-09 13:38:53 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/lispbuf.lisp,v 1.2 2004-12-15 12:16:50 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -46,9 +46,6 @@
 
 
 ;;;; Eval Mode Interaction.
-
-(declaim (special * ** *** - + ++ +++ / // ///))
-
 
 (defun get-prompt ()
   #+cmu (locally (declare (special ext:*prompt*))

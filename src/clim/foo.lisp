@@ -44,6 +44,10 @@
             )
    ))
 
+(defclass clim-hunk-pane (CLIM:APPLICATION-PANE)
+  ((hunk)
+   ))
+
 (defmethod device-init ((device clim-device))
   )
 
@@ -236,10 +240,6 @@
 
 ;;;; There is awful lot to do to boot a device.
 
-(defclass clim-hunk-pane (CLIM:APPLICATION-PANE)
-  ((hunk)
-   ))
-
 (defmethod clim:note-sheet-region-changed :after ((sheet clim-hunk-pane))
   (when (slot-boundp sheet 'hunk)
     (clim-window-changed (slot-value sheet 'hunk))
@@ -287,7 +287,7 @@
 
 (defun clim-hemlock ()
   (when *clim-hemlock-process*
-    (mp:destroy-process *clim-hemlock-process*))
+    (clim-sys:destroy-process *clim-hemlock-process*))
   (setf *clim-hemlock-process*
         (clim-sys:make-process
          (lambda ()
@@ -694,7 +694,15 @@
     (otherwise clim:+white+)))
 
 ;; $Log: foo.lisp,v $
-;; Revision 1.4  2004-11-21 01:03:51  gbaumann
+;; Revision 1.5  2004-12-15 12:16:43  crhodes
+;; Make clim-hemlock basically work on sbcl -- mostly build fixes from Hannu
+;; Koivisto.
+;;
+;; * don't declaim or declare stuff in CL special;
+;; * classes come before methods specializing on them;
+;; * clim-sys: not mp:
+;;
+;; Revision 1.4  2004/11/21 01:03:51  gbaumann
 ;; Basic support for c-x 1 and c-x 2.
 ;;
 

@@ -7,7 +7,7 @@
 (in-package :hemlock-internals)
 
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/line.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/line.lisp,v 1.2 2004-12-15 12:16:45 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -139,7 +139,7 @@
 ;;;
 #+buffered-lines
 (defmacro %set-line-chars (line chars)
-  `(setf (line-%chars ,line) ,chars))
+  `(setf (line-%chars ,line) ,chars)) ; EW: CHARS can be a "tick".
 
 
 ;;; Line-Signature  --  Public
@@ -187,6 +187,14 @@
           (length (the simple-string (line-%chars ,line))))))
 
 ;; $Log: line.lisp,v $
-;; Revision 1.1  2004-07-09 15:00:36  gbaumann
+;; Revision 1.2  2004-12-15 12:16:45  crhodes
+;; Make clim-hemlock basically work on sbcl -- mostly build fixes from Hannu
+;; Koivisto.
+;;
+;; * don't declaim or declare stuff in CL special;
+;; * classes come before methods specializing on them;
+;; * clim-sys: not mp:
+;;
+;; Revision 1.1  2004/07/09 15:00:36  gbaumann
 ;; Let us see if this works.
 ;;

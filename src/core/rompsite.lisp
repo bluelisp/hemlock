@@ -8,7 +8,7 @@
 
 #+CMU
 (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/rompsite.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/rompsite.lisp,v 1.3 2004-12-15 12:16:45 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -219,7 +219,6 @@
 ;;; Stop flaming from compiler due to CLX macros expanding into illegal
 ;;; declarations.
 ;;;
-(declaim (declaration values))
 (declaim (special *default-font-family*))
 
 ;;; font-map-size should be defined in font.lisp, but SETUP-FONT-FAMILY would
