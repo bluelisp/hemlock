@@ -5,7 +5,7 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 #+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.2 2004-08-10 05:24:15 rstrandh Exp $")
+  "$Header: /home/david/phemlock/cvsroot/phemlock/src/echo.lisp,v 1.3 2004-08-10 05:58:03 rstrandh Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
@@ -612,19 +612,6 @@
             (delete keyword (logical-key-event-descriptor-key-events entry))))))
   new-value)
 
-;;; LOGICAL-KEY-EVENT-DOCUMENTATION, NAME, KEY-EVENTS  --  Public
-;;;
-;;;    Grab the right field out of the descriptor and return it.
-;;;
-(defun logical-key-event-documentation (keyword)
-  "Return the documentation for the logical key-event Keyword."
-  (logical-key-event-descriptor-documentation
-   (get-logical-key-event-desc keyword)))
-;;;
-(defun logical-key-event-name (keyword)
-  "Return the string name for the logical key-event Keyword."
-  (logical-key-event-descriptor-name (get-logical-key-event-desc keyword)))
-;;;
 (defun logical-key-event-key-events (keyword)
   "Return the list of key-events for which Keyword is the logical key-event."
   (logical-key-event-descriptor-key-events
@@ -643,7 +630,6 @@
          (entry (or (gethash keyword *logical-key-event-descriptors*)
                     (setf (gethash keyword *logical-key-event-descriptors*)
                           (make-logical-key-event-descriptor)))))
-    (setf (logical-key-event-descriptor-name entry) name)
     (setf (logical-key-event-descriptor-documentation entry) documentation)))
 
 

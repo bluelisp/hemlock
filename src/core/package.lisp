@@ -206,8 +206,6 @@
    #:editor-finish-output
    #:define-logical-key-event
    #:logical-key-event-key-events
-   #:logical-key-event-name
-   #:logical-key-event-documentation
    #:logical-key-event-p
    #:clear-echo-area
    #:message
@@ -663,8 +661,8 @@
    #:prompt-for-keyword #:prompt-for-expression #:prompt-for-string
    #:prompt-for-variable #:prompt-for-yes-or-no #:prompt-for-y-or-n
    #:prompt-for-key-event #:prompt-for-key
-   #:logical-key-event-p #:logical-key-event-documentation
-   #:logical-key-event-name #:logical-key-event-key-events
+   #:logical-key-event-p
+   #:logical-key-event-key-events
    #:define-logical-key-event #:*parse-type* #:current-variable-tables
 
    ;; files.lisp
@@ -862,7 +860,11 @@
   )
 
 ;; $Log: package.lisp,v $
-;; Revision 1.2  2004-08-10 05:24:16  rstrandh
+;; Revision 1.3  2004-08-10 05:58:04  rstrandh
+;; Removed logical-key-event-name and logical-key-event-documentation
+;; as they were never used.
+;;
+;; Revision 1.2  2004/08/10 05:24:16  rstrandh
 ;; Removed the string table *logical-key-event-names* as it was never
 ;; used, only written to.
 ;;
