@@ -64,6 +64,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
+     :depends-on (clx mcclim)
 ;;     :source-extension "lisp"
 ;;     :binary-pathname #.*binary-pathname*
 ;;     :depends-on (:clim-clx #+NIL :mcclim-freetype)
@@ -105,14 +106,14 @@
               ((:file "package")
                ;; Lisp implementation specific stuff goes into one of the next
                ;; two files.
-               (:file "lispdep")
-               (:file "hemlock-ext")
+               (:file "lispdep" :depends-on ("package"))
+               (:file "hemlock-ext" :depends-on ("package"))
 
-               (:file "decls") ; early declarations of functions and stuff
-               (:file "struct")
-               #+port-core-struct-ed (:file "struct-ed")
-               (hemlock-system:iso-8859-1-file "charmacs")
-               (:file "key-event")))
+               (:file "decls" :depends-on ("package")) ; early declarations of functions and stuff
+               (:file "struct" :depends-on ("package"))
+               #+port-core-struct-ed (:file "struct-ed" :depends-on ("package"))
+               (hemlock-system:iso-8859-1-file "charmacs" :depends-on ("package"))
+               (:file "key-event" :depends-on ("package"))))
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -128,7 +129,7 @@
                            (make-pathname
                             :directory '(:relative "src" "core"))
                            *hemlock-base-directory*)
-              :depends-on (bitmap-1)
+              :depends-on (bitmap-1 core-1)
               :components
               ((:file "rompsite")
                (:file "input")
@@ -168,7 +169,7 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :depends-on (core-2)
+              :depends-on (core-2 core-1)
               :components
               ((:file "pop-up-stream")))
      (:module tty-2
@@ -183,7 +184,7 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :depends-on (root-1)
+              :depends-on (root-1 core-1)
               :components
               ((:file "font")
                (:file "streams")
@@ -196,7 +197,7 @@
                            (make-pathname
                             :directory '(:relative "src" "user"))
                            *hemlock-base-directory*)
-              :depends-on (root-2)
+              :depends-on (root-2 core-1)
               :components
               ((:file "echocoms")
 
@@ -258,7 +259,7 @@
                            (make-pathname
                             :directory '(:relative "src" "bitmap"))
                            *hemlock-base-directory*)
-              :depends-on (user-1)
+              :depends-on (user-1 core-1)
               :components
               ((:file "rompsite")
                (:file "input")
@@ -270,7 +271,7 @@
                            (make-pathname
                             :directory '(:relative "src" "clim"))
                            *hemlock-base-directory*)
-              :depends-on (bitmap-2)
+              :depends-on (bitmap-2 core-1)
               :components
               ((:file "patch")
                (:file "foo")

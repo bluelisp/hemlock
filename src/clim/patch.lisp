@@ -2,14 +2,6 @@
 
 (in-package :clim-internals)
 
-(defmethod stream-listen ((stream standard-extended-input-stream))
-  (with-encapsulating-stream (estream stream)
-    (loop for char = (read-gesture-or-reason stream :timeout 0 :peek-p t)
-          do (if (read-result-p char)
-                 (loop-finish)
-                 (stream-read-gesture estream)) ; consume pointer gesture
-          finally (return (characterp char)))))
-
 (in-package :clim-clx)
 
 #+NIL
