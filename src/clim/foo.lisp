@@ -22,12 +22,15 @@
   (:metaclass qt-class)
   (:qt-superclass "QWidget")
   (:override ("paintEvent" paint-event)
+             ("resizeEvent" resize-event)
+             ("keyPressEvent" key-press-event)
              #+nil ("mousePressEvent" mouse-press-event)
              #+nil ("mouseMoveEvent" mouse-move-event)
              #+nil ("mouseReleaseEvent" mouse-release-event)))
 
 (defmethod initialize-instance :after ((instance qt-hunk-pane) &key)
-  (new instance))
+  (new instance)
+  (#_setFocusPolicy instance (#_Qt::StrongFocus)))
 
 (defmethod device-init ((device qt-device))
   )
@@ -114,16 +117,25 @@
     (finish-output *trace-output*))
   res)
 
+(defmethod resize-event ((instance qt-hunk-pane) resize-event)
+  (call-next-qmethod)
+  (note-sheet-region-changed instance))
+
 (defmethod paint-event ((instance qt-hunk-pane) paint-event)
-  (print :paint-event)
-  (force-output)
-  (insert-string (current-point) "[repaint]")
+  (let* ((painter (#_new QPainter instance)))
+    (#_setPen painter (#_Qt::NoPen))
+    (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
+    (#_fillRect painter
+                (#_new QRectF (#_rect instance))
+                (#_new QBrush (#_new QColor 255 255 255)))
+    (#_end painter))
   (let* ((hunk (slot-value instance 'hunk))
          (device (device-hunk-device hunk)))
+    #+(or)
     (with-slots (cursor-hunk) device
       (when cursor-hunk
         (qt-drop-cursor cursor-hunk)))
-    (device-dumb-redisplay device (device-hunk-window hunk))
+    (dumb-repaint device (device-hunk-window hunk))
     ;; draw contents here
     (with-slots (cursor-hunk) device
       (when cursor-hunk
@@ -164,20 +176,31 @@
 (defclass qt-editor-input (editor-input)
   () )
 
-;; (hi::q-event stream e)
+;;
 
 (defvar *qapp*)
 
+(defmethod key-press-event ((instance qt-hunk-pane) event)
+  (call-next-qmethod)
+  (hi::q-event *editor-input* (qevent-to-key-event event)))
+
+(defun qevent-to-key-event (event)
+  (let ((text (#_text event))
+        (mask 0))
+    (when (eql (length text) 1)
+      (hemlock-ext:make-key-event text mask))))
+
 (defmethod get-key-event ((stream qt-editor-input) &optional ignore-abort-attempts-p)
   (declare (ignorable ignore-abort-attempts-p))
-  (or (hi::dq-event stream)
-      (progn                            ;###
-        (hi::internal-redisplay)
-        (print :execute)
-        (force-output)
-        (#_processEvents *qapp*)
-        (get-key-event stream)
-        nil)))
+  (hi::internal-redisplay)
+  (loop
+     (let ((event (hi::dq-event stream)))
+       (when event
+         (return event)))
+     #+nil (hi::internal-redisplay)
+     #+nil (print :execute)
+     (force-output)
+     (#_processEvents *qapp*)))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
@@ -192,26 +215,31 @@
 ;;;; There is awful lot to do to boot a device.
 
 (defun note-sheet-region-changed (hunk-pane)
-  (print :note-sheet-region-changed)
   (when (slot-boundp hunk-pane 'hunk)
     (clim-window-changed (slot-value hunk-pane 'hunk))
     (hi::internal-redisplay)))
 
 (defun qt-hemlock ()
   (setf *qapp* (make-qapplication))
-  (let ((window (make-instance 'qt-hunk-pane))
+  (let ((window (#_new QWidget))
+        (layout (#_new QVBoxLayout))
+        (main (make-instance 'qt-hunk-pane))
         (echo (make-instance 'qt-hunk-pane))
         (*window-list* *window-list*)
         (*editor-input*
          (let ((e (hi::make-input-event)))
            (make-instance 'qt-editor-input :head e :tail e))))
+    (#_addWidget layout main)
+    (#_addWidget layout echo)
+    (#_setLayout window layout)
     (setf hi::*real-editor-input* *editor-input*)
     (#_setGeometry window 100 100 500 355)
-    (baba window echo nil)
-    ;; (note-sheet-region-changed window)
+    (#_setMaximumHeight echo 100)
+    (baba main echo nil)
+    (insert-string (current-point) (format nil "line1~%line2~%"))
     (#_show window)
     (unwind-protect
-         (#_exec *qapp*)
+         (hi::%command-loop)
       (#_hide window))))
 
 ;;; Keysym translations
@@ -248,10 +276,6 @@
                 ;; hmm, these days there also is ALT.
                 ))
 
-(defun qevent-to-key-event (qevent)
-  ;; (hemlock-ext:make-key-event char mask)
-  nil)
-
 ;;;;
 
 (defun clim-window-changed (hunk)
@@ -269,16 +293,13 @@
     ;; reallocate the dis-line-chars.
     (let* ((res (window-spare-lines window))
            (new-width
-            42
-             #+nil (max 5 (floor (- (clim:bounding-rectangle-width (qt-hunk-stream hunk))
-                                       (* 2 *gutter*))
-                                    (slot-value hunk 'cw))))
+            (max 5 (floor (- (#_width (qt-hunk-stream hunk))
+                             (* 2 *gutter*))
+                          (slot-value hunk 'cw))))
            (new-height
-            42
-             #+nil (max 2 (1-
-                           (floor (- (clim:bounding-rectangle-height (qt-hunk-stream hunk))
-                                     (* 2 *gutter*))
-                                  (slot-value hunk 'ch)))))
+            (max 2 (1- (floor (- (#_height (qt-hunk-stream hunk))
+                                 (* 2 *gutter*))
+                              (slot-value hunk 'ch)))))
            (width (length (the simple-string (dis-line-chars (car res))))))
       (declare (list res))
       (when (> new-width width)
@@ -348,19 +369,19 @@
         hunk)
   (let* ((start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel))
+         (font (#_new QFont "Courier" 10))
+         (metrics (#_new QFontMetrics font))
          width height)
     (setf
      ;; (slot-value hunk 'ts) (clim:make-text-style :fix :roman 11.5)
-     (slot-value hunk 'cw) 10 #+nil(+ 0 (clim:text-size (qt-hunk-stream hunk) "m"
-                                                    :text-style (slot-value hunk 'ts)))
-     (slot-value hunk 'ch) 10 #+nil (+ 2 (clim:text-style-height (slot-value hunk 'ts)
-                                                        (qt-hunk-stream hunk)))
-     width 42 #+nil (max 5 (floor (- (clim:bounding-rectangle-width (qt-hunk-stream hunk))
+     (slot-value hunk 'cw) (+ 0 (#_width metrics "m"))
+     (slot-value hunk 'ch) (+ 2 (#_height metrics))
+     width (max 5 (floor (- (#_width (qt-hunk-stream hunk))
                                      (* 2 *gutter*))
                                   (slot-value hunk 'cw)))
-     height 42 #+nil (max 2 (floor (- (clim:bounding-rectangle-height (qt-hunk-stream hunk))
-                                      (* 2 *gutter*))
-                                   (slot-value hunk 'ch)))
+     height (max 2 (floor (- (#_height (qt-hunk-stream hunk))
+                             (* 2 *gutter*))
+                          (slot-value hunk 'ch)))
      (device-hunk-window hunk) window
      (device-hunk-position hunk) 0
      (device-hunk-height hunk) height
@@ -426,48 +447,50 @@
 
 (defvar *tick* 0)
 
-(defmethod device-dumb-redisplay ((device qt-device) window)
+(defmethod dumb-repaint ((device qt-device) window)
   (qt-drop-cursor (window-hunk window))
-  (let ()
-    (let ((w 42 #+nil (clim:bounding-rectangle-width *standard-output*))
-          (h 42 #+nil (clim:bounding-rectangle-height *standard-output*)))
-      #+(or)
-      (clim:updating-output (t :unique-id :static :cache-value h)
-                            (clim:draw-rectangle* *standard-output*
-                                                  1 1
-                                                  (- w 2) (- h 2)
-                                                  :ink clim:+black+
-                                                  :filled nil) ))
-    (progn ;clim:with-text-style (*standard-output* (slot-value (window-hunk window) 'ts))
-      (progn ;clim:updating-output (*standard-output*)
-        (let* ((hunk (window-hunk window))
-               (first (window-first-line window)))
-          ;; (hunk-reset hunk)
-          (do ((i 0 (1+ i))
-               (dl (cdr first) (cdr dl)))
-              ((eq dl the-sentinel)
-               (setf (window-old-lines window) (1- i)))
-            (clim-dumb-line-redisplay hunk (car dl)))
-          (setf (window-first-changed window) the-sentinel
-                (window-last-changed window) first)
-          #+NIL                         ;###
-          (when (window-modeline-buffer window)
-            ;;(hunk-replace-modeline hunk)
-            (clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
-              (clim-dumb-line-redisplay hunk
-                                        (window-modeline-dis-line window)
-                                        t))
-            (setf (dis-line-flags (window-modeline-dis-line window))
-                  unaltered-bits))
-          #+NIL
-          (setf (bitmap-hunk-start hunk) (cdr (window-first-line window))))))
-    #+nil (clim:redisplay-frame-pane clim:*application-frame* *standard-output*)
-    (qt-put-cursor (window-hunk window))
-    ;;(force-output *standard-output*)
-    #+nil (clim:medium-finish-output (clim:sheet-medium *standard-output*))))
+  (let* ((widget (qt-hunk-stream (window-hunk window)))
+         (w (#_width widget))
+         (h (#_height widget)))
+    #+(or)
+    (clim:updating-output (t :unique-id :static :cache-value h)
+                          (clim:draw-rectangle* *standard-output*
+                                                1 1
+                                                (- w 2) (- h 2)
+                                                :ink clim:+black+
+                                                :filled nil) ))
+  (progn ;clim:with-text-style (*standard-output* (slot-value (window-hunk window) 'ts))
+    (progn                     ;clim:updating-output (*standard-output*)
+      (let* ((hunk (window-hunk window))
+             (first (window-first-line window)))
+        ;; (hunk-reset hunk)
+        (do ((i 0 (1+ i))
+             (dl (cdr first) (cdr dl)))
+            ((eq dl the-sentinel)
+             (setf (window-old-lines window) (1- i)))
+          (clim-dumb-line-redisplay hunk (car dl)))
+        (setf (window-first-changed window) the-sentinel
+              (window-last-changed window) first)
+        #+NIL                           ;###
+        (when (window-modeline-buffer window)
+          ;;(hunk-replace-modeline hunk)
+          (clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
+            (clim-dumb-line-redisplay hunk
+                                      (window-modeline-dis-line window)
+                                      t))
+          (setf (dis-line-flags (window-modeline-dis-line window))
+                unaltered-bits))
+        #+NIL
+        (setf (bitmap-hunk-start hunk) (cdr (window-first-line window))))))
+  #+nil (clim:redisplay-frame-pane clim:*application-frame* *standard-output*)
+  (qt-put-cursor (window-hunk window))
+  ;;(force-output *standard-output*)
+  #+nil (clim:medium-finish-output (clim:sheet-medium *standard-output*)))
+
+(defmethod device-dumb-redisplay ((device qt-device) window)
+  (#_update (qt-hunk-stream (window-hunk window))))
 
 (defun clim-dumb-line-redisplay (hunk dl &optional modelinep)
-  (print :dumb-line-redisplay)
   (let* ((h (slot-value hunk 'ch))
          (w (slot-value hunk 'cw))
          (xo *gutter*)
@@ -483,9 +506,7 @@
                :cache-test #'eql)
         (let ((y (+ yo (* (dis-line-position dl) h))))
           (when modelinep
-            (setf y (- 42 #+nil (clim:bounding-rectangle-height *standard-output*)
-                       h
-                       2)))
+            (setf y (- (#_height (qt-hunk-stream hunk)) h 2)))
           #+nil (clim:draw-rectangle* *standard-output*
                                       (+ xo 0) y
                                       (clim:bounding-rectangle-width *standard-output*) (+ y h)
@@ -513,7 +534,6 @@
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
 
 (defun clim-draw-text (hunk string x y start end font)
-  (print :draw-text)
   #+(or)
   (let ((ch (clim:text-style-height (clim:medium-text-style stream)
                                     stream))
@@ -531,6 +551,7 @@
          (painter (#_new QPainter instance)))
     (#_setPen painter (#_black "Qt"))
     (#_setFont painter (#_new QFont "Courier" 10))
+    (incf y (#_ascent (#_fontMetrics painter)))
     (#_drawText painter x y (subseq string start end))
     (#_end painter))
   #+(or)
@@ -541,28 +562,29 @@
       (clim:draw-line* stream x (+ y ch -1) (+ x dx) (+ y ch -1)))) )
 
 (defun qt-drop-cursor (hunk)
-  (print :drop-cursor)
-  #+(or)
-  (with-slots (cx cy cw ch) hunk
-    (when (and cx cy)
-      (clim:draw-rectangle* (clim:sheet-medium (qt-hunk-stream hunk))
-                            (+ *gutter* (* cx cw))
-                            (+ *gutter* (* cy ch))
-                            (+ *gutter* (* (1+ cx) cw))
-                            (+ *gutter* (* (1+ cy) ch))
-                            :ink clim:+flipping-ink+))))
+  hunk
+  nil)
 
 (defun qt-put-cursor (hunk)
-  (print :put-cursor)
-  #+(or)
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
-      (clim:draw-rectangle* (clim:sheet-medium (qt-hunk-stream hunk))
-                            (+ *gutter* (* cx cw))
-                            (+ *gutter* (* cy ch))
-                            (+ *gutter* (* (1+ cx) cw))
-                            (+ *gutter* (* (1+ cy) ch))
-                            :ink clim:+flipping-ink+))))
+      (let* ((instance (qt-hunk-stream hunk))
+             (painter (#_new QPainter instance)))
+        (#_setPen painter (#_Qt::NoPen) #+nil (#_new QColor 0 0 255 16))
+        (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
+        (#_drawRect painter
+                    (+ *gutter* (* cx cw))
+                    (+ *gutter* (* cy ch))
+                    cw ch)
+        #+(or)
+        (#_setPen painter (#_new QColor 0 0 255))
+        #+(or)
+        (#_drawLine painter
+                    (+ *gutter* (* cx cw))
+                    (+ *gutter* (* cy ch))
+                    (+ *gutter* (* cx cw) 0)
+                    (+ *gutter* (* cy ch) ch))
+        (#_end painter)))))
 
 (defun hi::editor-sleep (time)
   "Sleep for approximately Time seconds."
