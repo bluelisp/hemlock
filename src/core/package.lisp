@@ -862,6 +862,10 @@
     (:use :common-lisp :hemlock-interface)
   )
 
+(defpackage :qt-hemlock
+    (:use :common-lisp :hemlock-interface :qt)
+  )
+
 ;; $Log: package.lisp,v $
 ;; Revision 1.4  2004-09-03 23:06:51  abakic
 ;; Changes to get rid of warnings and notes. As a side-effect, more code

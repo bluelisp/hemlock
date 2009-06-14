@@ -64,7 +64,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (clx mcclim)
+     :depends-on (clx mcclim qt)
 ;;     :source-extension "lisp"
 ;;     :binary-pathname #.*binary-pathname*
 ;;     :depends-on (:clim-clx #+NIL :mcclim-freetype)
