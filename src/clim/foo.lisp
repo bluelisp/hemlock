@@ -176,7 +176,7 @@
 (defclass qt-editor-input (editor-input)
   () )
 
-;;
+(defvar *alt-is-meta* t)
 
 (defvar *qapp*)
 
@@ -184,11 +184,51 @@
   (call-next-qmethod)
   (hi::q-event *editor-input* (qevent-to-key-event event)))
 
+(defun parse-modifiers (event)
+  (let ((mods (qt::primitive-value (#_modifiers event))))
+    (logior (if (logtest mods
+                         (qt::primitive-value (#_Qt::ControlModifier)))
+                (hemlock-ext:key-event-bits #k"control-a")
+                0)
+            (if (or (logtest mods
+                             (qt::primitive-value (#_Qt::MetaModifier)))
+                    (and *alt-is-meta*
+                         (logtest (qt::primitive-value (#_modifiers event))
+                                  (qt::primitive-value (#_Qt::AltModifier)))))
+                (hemlock-ext:key-event-bits #k"meta-a")
+                0))))
+
+(defun parse-key (event)
+  (let ((k (#_key event)))
+    (cond
+      ((or (eql k (primitive-value (#_Qt::Key_Return)))
+           (eql k (primitive-value (#_Qt::Key_Enter))))
+       (hemlock-ext:key-event-keysym #k"Return"))
+      ((eql k (primitive-value (#_Qt::Key_Tab)))
+       (hemlock-ext:key-event-keysym #k"Tab"))
+      ((eql k (primitive-value (#_Qt::Key_Escape)))
+       (hemlock-ext:key-event-keysym #k"Escape"))
+      ((eql k (primitive-value (#_Qt::Key_Backspace)))
+       (hemlock-ext:key-event-keysym #k"Backspace"))
+      ((eql k (primitive-value (#_Qt::Key_Delete)))
+       (hemlock-ext:key-event-keysym #k"delete"))
+      ((eql k (primitive-value (#_Qt::Key_Space)))
+       (hemlock-ext:key-event-keysym #k"space"))
+      (t
+       nil))))
+
 (defun qevent-to-key-event (event)
-  (let ((text (#_text event))
-        (mask 0))
-    (when (eql (length text) 1)
-      (hemlock-ext:make-key-event text mask))))
+  (let* ((text (map 'string
+                    (lambda (c)
+                      (if (< (char-code c) 32)
+                          (code-char (+ 96 (char-code c)))
+                          c))
+                    (#_text event)))
+         (mask (parse-modifiers event))
+         (keysym (or (parse-key event)
+                     (hemlock-ext::name-keysym text))))
+    (when keysym
+      (hemlock-ext:make-key-event keysym mask))))
 
 (defmethod get-key-event ((stream qt-editor-input) &optional ignore-abort-attempts-p)
   (declare (ignorable ignore-abort-attempts-p))
@@ -239,7 +279,8 @@
     (insert-string (current-point) (format nil "line1~%line2~%"))
     (#_show window)
     (unwind-protect
-         (hi::%command-loop)
+         (catch 'hi::hemlock-exit
+           (hi::%command-loop))
       (#_hide window))))
 
 ;;; Keysym translations
@@ -258,23 +299,6 @@
      (hemlock-ext:key-event-keysym #k"delete"))
     (t
      (char-code gesture))))
-
-(defun clim-modifier-state-modifier-mask (state)
-  0
-  #+nil (logior (if (not (zerop (logand clim:+control-key+ state)))
-                    (hemlock-ext:key-event-bits #k"control-a")
-                    0)
-                (if (not (zerop (logand clim:+meta-key+ state)))
-                    (hemlock-ext:key-event-bits #k"meta-a")
-                    0)
-                (if (not (zerop (logand clim:+super-key+ state)))
-                    (hemlock-ext:key-event-bits #k"super-a")
-                    0)
-                (if (not (zerop (logand clim:+hyper-key+ state)))
-                    (hemlock-ext:key-event-bits #k"hyper-a")
-                    0)
-                ;; hmm, these days there also is ALT.
-                ))
 
 ;;;;
 
