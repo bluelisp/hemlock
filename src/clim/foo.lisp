@@ -240,7 +240,7 @@
      #+nil (hi::internal-redisplay)
      #+nil (print :execute)
      (force-output)
-     (#_processEvents *qapp*)))
+     (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
