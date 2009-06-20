@@ -106,7 +106,7 @@
       (let* ((window (hi::internal-make-window))
              (hunk (make-instance 'qt-hunk :stream new)))
         (setf res window)
-        (baba-aux device window hunk *current-buffer*)
+        (baba-aux device window hunk *current-buffer* modelinep)
         (let ((p (position *current-window* (slot-value device 'windows))))
           (setf (slot-value device 'windows)
                 (append (subseq (slot-value device 'windows) 0 p)
@@ -356,8 +356,7 @@
     hunk))
 
 (defun baba (stream echo-stream another-stream)
-  (let* (
-         (device (make-instance 'qt-device))
+  (let* ((device (make-instance 'qt-device))
          (buffer *current-buffer*)
          (start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel)) )
@@ -369,27 +368,27 @@
      (device-bottom-window-base device) nil)
     (let* ((window (hi::internal-make-window))
            (hunk (make-instance 'qt-hunk :stream stream)))
-      (baba-aux device window hunk buffer)
+      (baba-aux device window hunk buffer t)
       (setf *current-window* window)
       (push window (slot-value device 'windows))
       (setf (device-hunks device) (list hunk)) )
     (when another-stream
       (let* ((window (hi::internal-make-window))
              (hunk (make-instance 'qt-hunk :stream another-stream)))
-        (baba-aux device window hunk buffer)
+        (baba-aux device window hunk buffer t)
         (push window (slot-value device 'windows))
         (push hunk (device-hunks device))))
     ;;
     (when echo-stream                   ;hmm
       (let ((echo-window (hi::internal-make-window))
             (echo-hunk (make-instance 'qt-hunk :stream echo-stream)))
-        (baba-aux device echo-window echo-hunk *echo-area-buffer*)
+        (baba-aux device echo-window echo-hunk *echo-area-buffer* nil)
         (setf *echo-area-window* echo-window)
         ;; why isn't this on the list of hunks?
         ;; List of hunks isn't used at all.
         ))))
 
-(defun baba-aux (device window hunk buffer)
+(defun baba-aux (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-stream hunk) 'hunk)
         hunk)
   (let* ((start (buffer-start-mark buffer))
@@ -451,11 +450,11 @@
 
     (baba-make-dis-lines window width height)
 
-    (when t ;;modelinep
-        (setup-modeline-image buffer window)
-        #+NIL
-        (setf (bitmap-hunk-modeline-dis-line hunk)
-              (window-modeline-dis-line window)))
+    (when modelinep
+      (setup-modeline-image buffer window)
+      #+NIL
+      (setf (bitmap-hunk-modeline-dis-line hunk)
+            (window-modeline-dis-line window)))
 
     (push window (buffer-windows buffer))
     (push window *window-list*)
@@ -496,10 +495,13 @@
           (clim-dumb-line-redisplay hunk (car dl)))
         (setf (window-first-changed window) the-sentinel
               (window-last-changed window) first)
-        #+NIL                           ;###
         (when (window-modeline-buffer window)
           ;;(hunk-replace-modeline hunk)
-          (clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
+          (progn ;clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
+            #+(or)
+            (let ((dl (window-modeline-dis-line window))
+                  (buffer (window-modeline-buffer window)))
+              (print (subseq (dis-line-chars dl) 0 (dis-line-length dl))))
             (clim-dumb-line-redisplay hunk
                                       (window-modeline-dis-line window)
                                       t))
