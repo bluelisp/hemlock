@@ -240,9 +240,6 @@
      (let ((event (hi::dq-event stream)))
        (when event
          (return event)))
-     #+nil (hi::internal-redisplay)
-     #+nil (print :execute)
-     (force-output)
      (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
@@ -259,7 +256,7 @@
 
 (defun note-sheet-region-changed (hunk-pane)
   (when (slot-boundp hunk-pane 'hunk)
-    (clim-window-changed (slot-value hunk-pane 'hunk))
+    (qt-window-changed (slot-value hunk-pane 'hunk))
     (hi::internal-redisplay)))
 
 (defvar *font*)
@@ -300,13 +297,12 @@
     (#_show window)
     (unwind-protect
          (progn ;catch 'hi::hemlock-exit
-           ;; (hi::%command-loop)
            (funcall command-loop-fun))
       (#_hide window))))
 
 ;;; Keysym translations
 
-(defun clim-character-keysym (gesture)
+(defun qt-character-keysym (gesture)
   (cond
     ((eql gesture #\newline)            ;### hmm
      (hemlock-ext:key-event-keysym #k"Return"))
@@ -323,7 +319,7 @@
 
 ;;;;
 
-(defun clim-window-changed (hunk)
+(defun qt-window-changed (hunk)
   (let ((window (device-hunk-window hunk)))
     ;;
     ;; Nuke all the lines in the window image.
@@ -424,7 +420,6 @@
          (metrics (#_new QFontMetrics font))
          width height)
     (setf
-     ;; (slot-value hunk 'ts) (clim:make-text-style :fix :roman 11.5)
      (slot-value hunk 'cw) (+ 0 (#_width metrics "m"))
      (slot-value hunk 'ch) (+ 2 (#_height metrics))
      width (max 5 (floor (- (#_width (qt-hunk-stream hunk))
@@ -466,15 +461,6 @@
      (window-display-recentering window) nil ;
      )
 
-    #+(or)
-    (loop for i from 32 below 126 do
-          (let ((s (string (code-char i))))
-            (let ((w (clim:text-size (qt-hunk-stream hunk) s
-                                         :text-style (slot-value hunk 'ts))))
-              (unless (= w 7)
-                (print s *trace-output*)))))
-    (finish-output *trace-output*)
-
     (baba-make-dis-lines window width height)
 
     (when modelinep
@@ -502,42 +488,28 @@
   (qt-drop-cursor (window-hunk window))
   (let* ((widget (qt-hunk-stream (window-hunk window)))
          (w (#_width widget))
-         (h (#_height widget)))
-    (progn ;clim:with-text-style (*standard-output* (slot-value (window-hunk window) 'ts))
-      (progn                   ;clim:updating-output (*standard-output*)
-        (let* ((hunk (window-hunk window))
-               (first (window-first-line window)))
-          ;; (hunk-reset hunk)
-          (do ((i 0 (1+ i))
-               (dl (cdr first) (cdr dl)))
-              ((eq dl the-sentinel)
-               (setf (window-old-lines window) (1- i)))
-            (clim-dumb-line-redisplay hunk (car dl)))
-          (setf (window-first-changed window) the-sentinel
-                (window-last-changed window) first)
-          (when (window-modeline-buffer window)
-            ;;(hunk-replace-modeline hunk)
-            (progn ;clim:with-text-style (*standard-output* (clim:make-text-style :serif :italic 12))
-              #+(or)
-              (let ((dl (window-modeline-dis-line window))
-                    (buffer (window-modeline-buffer window)))
-                (print (subseq (dis-line-chars dl) 0 (dis-line-length dl))))
-              (clim-dumb-line-redisplay hunk
-                                        (window-modeline-dis-line window)
-                                        t))
-            (setf (dis-line-flags (window-modeline-dis-line window))
-                  unaltered-bits))
-          #+NIL
-          (setf (bitmap-hunk-start hunk) (cdr (window-first-line window))))))
-    #+nil (clim:redisplay-frame-pane clim:*application-frame* *standard-output*)
-    (qt-put-cursor (window-hunk window))
-    ;;(force-output *standard-output*)
-    #+nil (clim:medium-finish-output (clim:sheet-medium *standard-output*))))
+         (h (#_height widget))
+         (hunk (window-hunk window))
+         (first (window-first-line window)))
+    (do ((i 0 (1+ i))
+         (dl (cdr first) (cdr dl)))
+        ((eq dl the-sentinel)
+         (setf (window-old-lines window) (1- i)))
+      (qt-dumb-line-redisplay hunk (car dl)))
+    (setf (window-first-changed window) the-sentinel
+          (window-last-changed window) first)
+    (when (window-modeline-buffer window)
+      (qt-dumb-line-redisplay hunk
+                                (window-modeline-dis-line window)
+                                t)
+      (setf (dis-line-flags (window-modeline-dis-line window))
+            unaltered-bits))
+    (qt-put-cursor (window-hunk window))))
 
 (defmethod device-dumb-redisplay ((device qt-device) window)
   (#_update (qt-hunk-stream (window-hunk window))))
 
-(defun clim-dumb-line-redisplay (hunk dl &optional modelinep)
+(defun qt-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((h (slot-value hunk 'ch))
          (w (slot-value hunk 'cw))
          (xo *gutter*)
@@ -545,64 +517,39 @@
     (unless (zerop (dis-line-flags dl))
       (setf (hi::dis-line-tick dl) (incf *tick*)))
     (let ((chrs (dis-line-chars dl)))
-      (progn ;clim:updating-output
-        #+nil (*standard-output*        ;###
-               :unique-id (if modelinep :modeline (dis-line-position dl))
-               :id-test #'eq            ;###
-               :cache-value (hi::dis-line-tick dl)
-               :cache-test #'eql)
-        (let ((y (+ yo (* (dis-line-position dl) h))))
-          (when modelinep
-            (setf y (- (#_height (qt-hunk-stream hunk)) h 2)))
-          ;; font changes
-          (let ((font 0)                ;###
-                (start 0)
-                (end (dis-line-length dl))
-                (changes (dis-line-font-changes dl)))
-            (loop
-                (cond ((null changes)
-                       (clim-draw-text hunk chrs
-                                       (+ xo (* w start))
-                                       (+ 1 y)
-                                       start end font)
-                       (return))
-                      (t
-                       (clim-draw-text hunk chrs
-                                       (+ xo (* w start))
-                                       (+ 1 y)
-                                       start (font-change-x changes) font)
-                       (setf font (font-change-font changes)
-                             start (font-change-x changes)
-                             changes (font-change-next changes)))))) ))))
+      (let ((y (+ yo (* (dis-line-position dl) h))))
+        (when modelinep
+          (setf y (- (#_height (qt-hunk-stream hunk)) h 2)))
+        ;; font changes
+        (let ((font 0)                  ;###
+              (start 0)
+              (end (dis-line-length dl))
+              (changes (dis-line-font-changes dl)))
+          (loop
+             (cond ((null changes)
+                    (qt-draw-text hunk chrs
+                                  (+ xo (* w start))
+                                  (+ 1 y)
+                                  start end font)
+                    (return))
+                   (t
+                    (qt-draw-text hunk chrs
+                                  (+ xo (* w start))
+                                  (+ 1 y)
+                                  start (font-change-x changes) font)
+                    (setf font (font-change-font changes)
+                          start (font-change-x changes)
+                          changes (font-change-next changes)))))) )))
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
 
-(defun clim-draw-text (hunk string x y start end font)
-  #+(or)
-  (let ((ch (clim:text-style-height (clim:medium-text-style stream)
-                                    stream))
-        (dx (clim:stream-string-width stream string :start start :end end)))
-    (clim:draw-rectangle* stream
-                          x (1- y)
-                          (+ x dx) (+ y ch 1) :ink (hemlock-font-background font)))
-  #+(or)
-  (clim:draw-text* stream string x (+ y (clim:text-style-ascent (clim:medium-text-style stream)
-                                                                stream))
-                   :start start :end end
-                   ;; :align-y :top ### :align-y is borken.
-                   :ink (hemlock-font-foreground font))
+(defun qt-draw-text (hunk string x y start end font)
   (let* ((instance (qt-hunk-stream hunk))
          (painter (#_new QPainter instance)))
     (#_setPen painter (#_black "Qt"))
     (#_setFont painter *font*)
     (incf y (#_ascent (#_fontMetrics painter)))
     (#_drawText painter x y (subseq string start end))
-    (#_end painter))
-  #+(or)
-  (when (= font 5)
-    (let ((ch (clim:text-style-height (clim:medium-text-style stream)
-                                      stream))
-          (dx (clim:stream-string-width stream string :start start :end end)))
-      (clim:draw-line* stream x (+ y ch -1) (+ x dx) (+ y ch -1)))) )
+    (#_end painter)))
 
 (defun qt-drop-cursor (hunk)
   hunk
@@ -649,25 +596,6 @@
         (device-note-read-wait device t)
         (sleep .1)))
     (device-note-read-wait device nil)))
-
-;;;
-
-#+(or)
-(defun hemlock-font-foreground (font)
-  (case font
-    (1 clim:+blue4+)
-    (3 clim:+black+)
-    (2 clim:+cyan4+)
-    (4 clim:+green4+)
-    (5 clim:+red4+)
-    (6 clim:+gray50+)
-    (otherwise clim:+black+)))
-
-#+(or)
-(defun hemlock-font-background (font)
-  (case font
-    (3 (clim:make-rgb-color 1 .9 .8))
-    (otherwise clim:+white+)))
 
 (defun hi::invoke-with-pop-up-display (cont buffer-name height)
   (funcall cont *trace-output*)
