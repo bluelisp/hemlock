@@ -259,7 +259,7 @@
     (clim-window-changed (slot-value hunk-pane 'hunk))
     (hi::internal-redisplay)))
 
-(defun qt-hemlock ()
+(defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
   (let ((window (#_new QWidget))
         (layout (#_new QVBoxLayout))
@@ -277,11 +277,13 @@
     (#_setGeometry window 100 100 500 355)
     (#_setMaximumHeight echo 100)
     (baba main echo nil)
-    (insert-string (current-point) (format nil "line1~%line2~%"))
+    (when init-fun
+      (funcall init-fun))
     (#_show window)
     (unwind-protect
          (catch 'hi::hemlock-exit
-           (hi::%command-loop))
+           ;; (hi::%command-loop)
+           (funcall command-loop-fun))
       (#_hide window))))
 
 ;;; Keysym translations

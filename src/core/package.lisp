@@ -746,13 +746,16 @@
    #:update-modeline-field #:modeline-field-name #:modeline-field
    #:editor-finish-output #:*window-list*
 
-   ))
+   ;; start hemlock
+   #:hemlock))
 
 
 (defpackage :hemlock
   (:use :common-lisp :hemlock-interface :hi :hemlock-ext)
 ;;;  (:import-from :hemlock-ext #:delq #:memq #:assq)
 ;;;  (:import-from :hemlock-internals #:*fast*)
+  (:import-from :hemlock-internals #:hemlock)
+  (:export #:hemlock)
   (:shadowing-import-from #:hemlock-ext
                           #:char-code-limit)
   ;;  #+cmu

@@ -252,7 +252,10 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
-(defun cl-user::hemlock (&optional x
+;; another function that looks clever but doesn't currently work.
+;; see the Qt-specific hack below instead
+#+nil
+(defun hemlock (&optional x
                          &key (init t)
                               (display (hemlock-ext:getenv "DISPLAY")))
   "Invokes the editor, Hemlock.  If X is supplied and is a symbol, the
@@ -265,7 +268,7 @@ GB
    different name.  Any compiled version of the source is preferred when
    choosing the file to load.  If the argument is non-nil and not t, then it
    should be a pathname that will be merged with the home directory."
-  (when *in-the-editor* (error "You are already in the editor, you bogon!"))
+  (when *in-the-editor* (error "You are already in the editor"))
   (let ((*in-the-editor* t)
         (display (unless *editor-has-been-entered*
                    (maybe-load-hemlock-init init)
@@ -311,6 +314,55 @@ GB
                 (invoke-hook hemlock::abort-hook)
                 (%command-loop))))
            (invoke-hook hemlock::exit-hook)))))))
+
+(defun %hemlock-process-argument (x)
+  (catch 'editor-top-level-catcher
+    (cond ((and x (symbolp x))
+           (let* ((name (nstring-capitalize
+                         (concatenate 'simple-string "Edit " (string x))))
+                  (buffer (or (getstring name *buffer-names*)
+                              (make-buffer name)))
+                  (*print-case* :downcase))
+             (delete-region (buffer-region buffer))
+             (with-output-to-mark
+                 (*standard-output* (buffer-point buffer))
+               (eval `(grindef ,x))     ; hackish, I know...
+               (terpri)
+               (hemlock::change-to-buffer buffer)
+               (buffer-start (buffer-point buffer)))))
+          ((or (stringp x) (pathnamep x))
+           (hemlock::find-file-command () x))
+          (x
+           (error
+            "~S is not a symbol or pathname.  I can't edit it!" x))))
+  (invoke-hook hemlock::entry-hook))
+
+(defun hemlock (&optional x)
+  (when *in-the-editor* (error "You are already in the editor"))
+  (let ((*in-the-editor* t))
+    (catch 'editor-top-level-catcher
+      (catch 'hemlock-exit
+        (qt-hemlock::qt-hemlock
+         (lambda ()
+           (%hemlock-process-argument x))
+         (lambda ()
+           (unwind-protect
+                (loop
+                   (catch 'editor-top-level-catcher
+                     (handler-bind
+                         ((error #'(lambda (condition)
+                                     (lisp-error-error-handler condition
+                                                               :internal))))
+                       (invoke-hook hemlock::abort-hook)
+                       (%command-loop))))
+             (invoke-hook hemlock::exit-hook))))))))
+
+#+sbcl
+(defun hemlock-ed-function (x)
+  (hemlock x)
+  t)
+#+sbcl
+(pushnew 'hemlock-ed-function sb-ext:*ed-functions*)
 
 (defun maybe-load-hemlock-init (init)
   (when init
