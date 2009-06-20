@@ -17,8 +17,19 @@
     :initform nil :documentation "The hunk that has the cursor.")
    (windows :initform nil)))
 
-(defclass qt-hunk-pane ()
-  ((hunk))
+(defclass qt-hunk (device-hunk)
+  ((widget :initarg :widget
+           :reader qt-hunk-widget)
+   (cx :initarg :cx
+       :initform nil)
+   (cy :initarg :cy
+       :initform nil)
+   (cw)
+   (ch)
+   (ts)))
+
+(defclass hunk-widget ()
+    ((hunk))
   (:metaclass qt-class)
   (:qt-superclass "QWidget")
   (:override ("paintEvent" paint-event)
@@ -28,12 +39,9 @@
              #+nil ("mouseMoveEvent" mouse-move-event)
              #+nil ("mouseReleaseEvent" mouse-release-event)))
 
-(defmethod initialize-instance :after ((instance qt-hunk-pane) &key)
+(defmethod initialize-instance :after ((instance hunk-widget) &key)
   (new instance)
   (#_setFocusPolicy instance (#_Qt::StrongFocus)))
-
-(defmethod device-init ((device qt-device))
-  )
 
 (defmethod device-exit ((device qt-device)))
 
@@ -90,7 +98,7 @@
 
 (defmethod device-delete-window ((device qt-device) window)
   (let* ((hunk (window-hunk window))
-         (stream (qt-hunk-stream hunk)))
+         (stream (qt-hunk-widget hunk)))
     (#_close stream)
     (setf (slot-value device 'windows)
           (remove window (slot-value device 'windows)))
@@ -101,10 +109,10 @@
                                ask-user x y width-arg height-arg proportion
                                &aux res)
   (let* ((hunk (window-hunk *current-window*))
-         (stream (qt-hunk-stream hunk)))
-    (let ((new (make-instance 'qt-hunk-pane)))
+         (stream (qt-hunk-widget hunk)))
+    (let ((new (make-instance 'hunk-widget)))
       (let* ((window (hi::internal-make-window))
-             (hunk (make-instance 'qt-hunk :stream new)))
+             (hunk (make-instance 'qt-hunk :widget new)))
         (setf res window)
         (baba-aux device window hunk *current-buffer* modelinep)
         (let ((p (position *current-window* (slot-value device 'windows))))
@@ -117,11 +125,11 @@
     (finish-output *trace-output*))
   res)
 
-(defmethod resize-event ((instance qt-hunk-pane) resize-event)
+(defmethod resize-event ((instance hunk-widget) resize-event)
   (call-next-qmethod)
   (note-sheet-region-changed instance))
 
-(defmethod paint-event ((instance qt-hunk-pane) paint-event)
+(defmethod paint-event ((instance hunk-widget) paint-event)
   (let* ((painter (#_new QPainter instance)))
     (#_setPen painter (#_Qt::NoPen))
     (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
@@ -162,28 +170,16 @@
 (defmethod device-beep ((device qt-device) stream)
   )
 
-;;; Hunks
-
-(defclass qt-hunk (device-hunk)
-  ((stream :initarg :stream
-           :reader qt-hunk-stream
-           :documentation "Extended output stream this hunk is displayed on.")
-   (cx :initarg :cx :initform nil)
-   (cy :initarg :cy :initform nil)
-   (cw)
-   (ch)
-   (ts)))
-
 ;;; Input
 
 (defclass qt-editor-input (editor-input)
-  () )
+  ())
 
 (defvar *alt-is-meta* t)
 
 (defvar *qapp*)
 
-(defmethod key-press-event ((instance qt-hunk-pane) event)
+(defmethod key-press-event ((instance hunk-widget) event)
   (call-next-qmethod)
   (hi::q-event *editor-input* (qevent-to-key-event event)))
 
@@ -265,8 +261,8 @@
   (setf *qapp* (make-qapplication))
   (let* ((window (#_new QWidget))
          (layout (#_new QVBoxLayout))
-         (main (make-instance 'qt-hunk-pane))
-         (echo (make-instance 'qt-hunk-pane))
+         (main (make-instance 'hunk-widget))
+         (echo (make-instance 'hunk-widget))
          (*window-list* *window-list*)
          (*editor-input*
           (let ((e (hi::make-input-event)))
@@ -334,11 +330,11 @@
     ;; reallocate the dis-line-chars.
     (let* ((res (window-spare-lines window))
            (new-width
-            (max 5 (floor (- (#_width (qt-hunk-stream hunk))
+            (max 5 (floor (- (#_width (qt-hunk-widget hunk))
                              (* 2 *gutter*))
                           (slot-value hunk 'cw))))
            (new-height
-            (max 2 (1- (floor (- (#_height (qt-hunk-stream hunk))
+            (max 2 (1- (floor (- (#_height (qt-hunk-widget hunk))
                                  (* 2 *gutter*))
                               (slot-value hunk 'ch)))))
            (width (length (the simple-string (dis-line-chars (car res))))))
@@ -383,21 +379,21 @@
      (device-name device) "CLIM"
      (device-bottom-window-base device) nil)
     (let* ((window (hi::internal-make-window))
-           (hunk (make-instance 'qt-hunk :stream stream)))
+           (hunk (make-instance 'qt-hunk :widget stream)))
       (baba-aux device window hunk buffer t)
       (setf *current-window* window)
       (push window (slot-value device 'windows))
       (setf (device-hunks device) (list hunk)) )
     (when another-stream
       (let* ((window (hi::internal-make-window))
-             (hunk (make-instance 'qt-hunk :stream another-stream)))
+             (hunk (make-instance 'qt-hunk :widget another-stream)))
         (baba-aux device window hunk buffer t)
         (push window (slot-value device 'windows))
         (push hunk (device-hunks device))))
     ;;
     (when echo-stream                   ;hmm
       (let ((echo-window (hi::internal-make-window))
-            (echo-hunk (make-instance 'qt-hunk :stream echo-stream)))
+            (echo-hunk (make-instance 'qt-hunk :widget echo-stream)))
         (baba-aux device echo-window echo-hunk *echo-area-buffer* nil)
         (setf *echo-area-window* echo-window)
         ;; why isn't this on the list of hunks?
@@ -412,7 +408,7 @@
   15)
 
 (defun baba-aux (device window hunk buffer modelinep)
-  (setf (slot-value (qt-hunk-stream hunk) 'hunk)
+  (setf (slot-value (qt-hunk-widget hunk) 'hunk)
         hunk)
   (let* ((start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel))
@@ -422,10 +418,10 @@
     (setf
      (slot-value hunk 'cw) (+ 0 (#_width metrics "m"))
      (slot-value hunk 'ch) (+ 2 (#_height metrics))
-     width (max 5 (floor (- (#_width (qt-hunk-stream hunk))
+     width (max 5 (floor (- (#_width (qt-hunk-widget hunk))
                                      (* 2 *gutter*))
                                   (slot-value hunk 'cw)))
-     height (max 2 (floor (- (#_height (qt-hunk-stream hunk))
+     height (max 2 (floor (- (#_height (qt-hunk-widget hunk))
                              (* 2 *gutter*))
                           (slot-value hunk 'ch)))
      (device-hunk-window hunk) window
@@ -486,7 +482,7 @@
 
 (defmethod dumb-repaint ((device qt-device) window)
   (qt-drop-cursor (window-hunk window))
-  (let* ((widget (qt-hunk-stream (window-hunk window)))
+  (let* ((widget (qt-hunk-widget (window-hunk window)))
          (w (#_width widget))
          (h (#_height widget))
          (hunk (window-hunk window))
@@ -507,7 +503,7 @@
     (qt-put-cursor (window-hunk window))))
 
 (defmethod device-dumb-redisplay ((device qt-device) window)
-  (#_update (qt-hunk-stream (window-hunk window))))
+  (#_update (qt-hunk-widget (window-hunk window))))
 
 (defun qt-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((h (slot-value hunk 'ch))
@@ -519,7 +515,7 @@
     (let ((chrs (dis-line-chars dl)))
       (let ((y (+ yo (* (dis-line-position dl) h))))
         (when modelinep
-          (setf y (- (#_height (qt-hunk-stream hunk)) h 2)))
+          (setf y (- (#_height (qt-hunk-widget hunk)) h 2)))
         ;; font changes
         (let ((font 0)                  ;###
               (start 0)
@@ -543,7 +539,7 @@
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
 
 (defun qt-draw-text (hunk string x y start end font)
-  (let* ((instance (qt-hunk-stream hunk))
+  (let* ((instance (qt-hunk-widget hunk))
          (painter (#_new QPainter instance)))
     (#_setPen painter (#_black "Qt"))
     (#_setFont painter *font*)
@@ -558,7 +554,7 @@
 (defun qt-put-cursor (hunk)
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
-      (let* ((instance (qt-hunk-stream hunk))
+      (let* ((instance (qt-hunk-widget hunk))
              (painter (#_new QPainter instance)))
         (#_setPen painter (#_Qt::NoPen) #+nil (#_new QColor 0 0 255 16))
         (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
