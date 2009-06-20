@@ -666,6 +666,10 @@
 ;;; get back to the command loop and forget about the error we are currently
 ;;; handling.
 ;;;
+
+;; Diese Logik ist wohl zu clever, als dass sie aktuell in phemlock
+;; funktionieren koennte.
+#+(or)
 (defun lisp-error-error-handler (condition &optional internalp)
   ;;(invoke-debugger condition)
   (handler-bind ((editor-error #'(lambda (condx)
@@ -727,6 +731,17 @@
               ))
           (unget-key-event key-event *editor-input*))
       (throw 'editor-top-level-catcher nil))))
+
+(defvar *trap-errors-p* t)
+
+(defun lisp-error-error-handler (condition &optional internalp)
+  (declare (ignore internalp))
+  (cond
+    (*trap-errors-p*
+     (warn "ignoring error: ~A" condition)
+     (throw 'command-loop-catcher nil))
+    (t
+     (invoke-debugger condition))))
 
 (defmacro handle-lisp-errors (&body body)
   "Handle-Lisp-Errors {Form}*
