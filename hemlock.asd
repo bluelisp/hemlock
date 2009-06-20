@@ -64,7 +64,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (clx mcclim qt)
+     :depends-on (clx qt)
 ;;     :source-extension "lisp"
 ;;     :binary-pathname #.*binary-pathname*
 ;;     :depends-on (:clim-clx #+NIL :mcclim-freetype)
@@ -273,6 +273,4 @@
                            *hemlock-base-directory*)
               :depends-on (bitmap-2 core-1)
               :components
-              ((:file "patch")
-               (:file "foo")
-               #+port-clim-exp-syntax (:file "exp-syntax")))))
+              ((:file "qt")))))
