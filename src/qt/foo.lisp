@@ -127,7 +127,10 @@
     (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
     (#_fillRect painter
                 (#_new QRectF (#_rect instance))
-                (#_new QBrush (#_new QColor 255 255 255)))
+                (#_new QBrush (#_new QColor 255 200 200)))
+    (let ((left (#_new QRectF (#_rect instance))))
+      (#_setWidth left (* 80 (#_width (#_new QFontMetrics *font*) "m")))
+      (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255))))
     (#_end painter))
   (let* ((hunk (slot-value instance 'hunk))
          (device (device-hunk-device hunk)))
@@ -259,23 +262,38 @@
     (clim-window-changed (slot-value hunk-pane 'hunk))
     (hi::internal-redisplay)))
 
+(defvar *font*)
+
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
-  (let ((window (#_new QWidget))
-        (layout (#_new QVBoxLayout))
-        (main (make-instance 'qt-hunk-pane))
-        (echo (make-instance 'qt-hunk-pane))
-        (*window-list* *window-list*)
-        (*editor-input*
-         (let ((e (hi::make-input-event)))
-           (make-instance 'qt-editor-input :head e :tail e))))
+  (let* ((window (#_new QWidget))
+         (layout (#_new QVBoxLayout))
+         (main (make-instance 'qt-hunk-pane))
+         (echo (make-instance 'qt-hunk-pane))
+         (*window-list* *window-list*)
+         (*editor-input*
+          (let ((e (hi::make-input-event)))
+            (make-instance 'qt-editor-input :head e :tail e)))
+         (*font*
+          #+nil (#_new QFont *font-family* 10)
+          #+nil (cffi:with-foreign-object (arg :char)
+                  (#_QFontDialog::getFont (qt::bool* arg)))
+          (let ((font (#_new QFont)))
+            (#_fromString font *font-family*)
+            (#_setPixelSize font *font-size*)
+            font))
+         (metrics (#_new QFontMetrics *font*)))
     (#_setWindowTitle window "Hemlock")
     (#_addWidget layout main)
     (#_addWidget layout echo)
     (#_setLayout window layout)
     (setf hi::*real-editor-input* *editor-input*)
-    (#_setGeometry window 100 100 500 355)
+    ;; fixme: should be a default, not a strict minimum:
+    (#_setMinimumSize window
+                   (* 80 (#_width metrics "m"))
+                   (* 25 (#_height metrics)))
     (#_setMaximumHeight echo 100)
+    (baba main echo nil)
     (baba main echo nil)
     (when init-fun
       (funcall init-fun))
@@ -390,12 +408,19 @@
         ;; List of hunks isn't used at all.
         ))))
 
+(defvar *font-family*
+  #+nil "Nimbus Mono L"
+  "Courier")
+
+(defvar *font-size*
+  15)
+
 (defun baba-aux (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-stream hunk) 'hunk)
         hunk)
   (let* ((start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel))
-         (font (#_new QFont "Courier" 10))
+         (font *font*)
          (metrics (#_new QFontMetrics font))
          width height)
     (setf
@@ -478,13 +503,6 @@
   (let* ((widget (qt-hunk-stream (window-hunk window)))
          (w (#_width widget))
          (h (#_height widget)))
-    #+(or)
-    (clim:updating-output (t :unique-id :static :cache-value h)
-                          (clim:draw-rectangle* *standard-output*
-                                                1 1
-                                                (- w 2) (- h 2)
-                                                :ink clim:+black+
-                                                :filled nil) ))
   (progn ;clim:with-text-style (*standard-output* (slot-value (window-hunk window) 'ts))
     (progn                     ;clim:updating-output (*standard-output*)
       (let* ((hunk (window-hunk window))
@@ -536,10 +554,6 @@
         (let ((y (+ yo (* (dis-line-position dl) h))))
           (when modelinep
             (setf y (- (#_height (qt-hunk-stream hunk)) h 2)))
-          #+nil (clim:draw-rectangle* *standard-output*
-                                      (+ xo 0) y
-                                      (clim:bounding-rectangle-width *standard-output*) (+ y h)
-                                      :ink clim:+white+)
           ;; font changes
           (let ((font 0)                ;###
                 (start 0)
@@ -579,7 +593,7 @@
   (let* ((instance (qt-hunk-stream hunk))
          (painter (#_new QPainter instance)))
     (#_setPen painter (#_black "Qt"))
-    (#_setFont painter (#_new QFont "Courier" 10))
+    (#_setFont painter *font*)
     (incf y (#_ascent (#_fontMetrics painter)))
     (#_drawText painter x y (subseq string start end))
     (#_end painter))

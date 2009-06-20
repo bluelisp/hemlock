@@ -266,10 +266,10 @@
                (:file "bit-screen")
                (:file "bit-display")
                (:file "pop-up-stream")))
-     (:module clim-1
+     (:module qthemlock
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "clim"))
+                            :directory '(:relative "src" "qt"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-2 core-1)
               :components
