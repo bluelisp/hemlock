@@ -183,12 +183,22 @@
                             (region-end input-region))
                  (return))
                (setq +++ ++ ++ + + - - form)
-               (let ((this-eval (multiple-value-list (eval form))))
-                 (fresh-line)
-                 (dolist (x this-eval) (prin1 x) (terpri))
-                 (show-prompt)
-                 (setq /// // // / / this-eval)
-                 (setq *** ** ** * * (car this-eval)))))))))))
+               (let ((buffer (current-buffer))
+                     (ok nil))
+                 (unwind-protect
+                      (let ((this-eval (multiple-value-list (eval form))))
+                        (fresh-line)
+                        (dolist (x this-eval) (prin1 x) (terpri))
+                        (show-prompt)
+                        (setq /// // // / / this-eval)
+                        (setq *** ** ** * * (car this-eval))
+                        (setq ok t))
+                   (unless ok
+                     (format t "; Something went wrong; resetting prompt.~%")
+                     (show-prompt)
+                     (move-mark
+                      (variable-value 'buffer-input-mark :buffer buffer)
+                      (buffer-point buffer)))))))))))))
 
 (defcommand "Abort Eval Input" (p)
   "Move to the end of the buffer and prompt."
