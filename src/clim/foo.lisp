@@ -269,6 +269,7 @@
         (*editor-input*
          (let ((e (hi::make-input-event)))
            (make-instance 'qt-editor-input :head e :tail e))))
+    (#_setWindowTitle window "Hemlock")
     (#_addWidget layout main)
     (#_addWidget layout echo)
     (#_setLayout window layout)
