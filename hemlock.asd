@@ -65,37 +65,6 @@
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
      :depends-on (clx qt)
-;;     :source-extension "lisp"
-;;     :binary-pathname #.*binary-pathname*
-;;     :depends-on (:clim-clx #+NIL :mcclim-freetype)
-;;     ;; ehem ..
-;;     :initially-do
-;;     (progn
-;;       ;; try to load clx
-;;       (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
-;;         (ignore-errors (require :clx))
-;;         (ignore-errors (require :cmucl-clx)))
-;;       (unless (ignore-errors (fboundp (find-symbol "OPEN-DISPLAY" "XLIB")))
-;;         (error "Please provide me with CLX."))
-;;       ;; Create binary pathnames
-;;       (ensure-directories-exist *binary-pathname*)
-;;       (dolist (subdir '("tty" "wire" "user" "core" "clim"))
-;;         (ensure-directories-exist
-;;       (merge-pathnames (make-pathname :directory (list :relative subdir))
-;;                        *binary-pathname*)
-;;       :verbose t))
-;;       ;; Gray Streams
-;;       #+CMU
-;;       (require :gray-streams)
-;;       #+CMU
-;;       (setf ext:*efficiency-note-cost-threshold* most-positive-fixnum)
-;;       #+CMU
-;;       (setf ext:*efficiency-note-limit* 0)
-;;       #+CMU
-;;       (proclaim '(optimize (c::brevity 3)))
-;;       #+CMU
-;;       (setf c:*record-xref-info* t)
-;;       )
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
