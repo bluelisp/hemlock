@@ -112,7 +112,7 @@
 (bind-key "Top of Window" #k"meta-,")
 (bind-key "Bottom of Window" #k"meta-.")
 
-(bind-key "Exit Hemlock" #k"control-x control-z")
+(bind-key "Exit Hemlock" #k"control-x control-c")
 (bind-key "Exit Recursive Edit" #k"control-meta-z")
 (bind-key "Abort Recursive Edit" #k"control-]")
 
@@ -313,8 +313,7 @@
 (bind-key "Editor Evaluate Expression" #k"control-meta-escape")
 (bind-key "Editor Evaluate Expression" #k"meta-escape"  :mode "Editor")
 (bind-key "Editor Evaluate Defun" #k"control-x control-e" :mode "Editor")
-(bind-key "Editor Compile Defun" #k"control-x control-c" :mode "Editor")
-(bind-key "Editor Compile Defun" #k"control-x control-C" :mode "Editor")
+(bind-key "Editor Compile Defun" #k"control-c control-c" :mode "Editor")
 (bind-key "Editor Macroexpand Expression" #k"control-m" :mode "Editor")
 (bind-key "Editor Describe Function Call" #k"control-meta-A" :mode "Editor")
 (bind-key "Editor Describe Symbol" #k"control-meta-S" :mode "Editor")
