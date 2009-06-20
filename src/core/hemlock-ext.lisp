@@ -76,6 +76,7 @@
 
 (defvar *object-set-event-handler-print* nil)
 
+#+hemlock-clx
 (defun object-set-event-handler (display &optional (timeout 0))
   "This display event handler uses object sets to map event windows cross
    event types to handlers.  It uses XLIB:EVENT-CASE to bind all the slots
@@ -221,6 +222,7 @@
   (error "No handler for event type ~S on ~S in ~S."
          event-key object (lisp--map-xwindow event-window)))
 
+#+hemlock-clx
 (defun flush-display-events (display)
   "Dumps all the events in display's event queue including the current one
    in case this is called from within XLIB:EVENT-CASE, etc."
@@ -535,6 +537,7 @@
         (setf (aref dest d) (aref src s))))
 
 
+#+hemlock-clx
 (defun serve-event (&optional timeout)
   (let ((dps))
     (maphash (lambda (win value)

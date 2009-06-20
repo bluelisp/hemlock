@@ -193,6 +193,7 @@
 ;;;
 (defparameter editor-abort-key-events (list #k"Control-g" #k"Control-G"))
 
+#+hemlock-clx
 (defun cleanup-for-wm-closed-display (closed-display)
   ;; Remove fd-handlers
   (hemlock-ext:disable-clx-event-handling closed-display)
@@ -225,6 +226,7 @@
 ;;; if we got an error in getting input, we should prompt the user using the
 ;;; input method (recursively even).
 ;;;
+#+hemlock-clx
 (eval-when (:compile-toplevel :execute)
 
 (defmacro editor-input-method-macro ()

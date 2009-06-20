@@ -64,7 +64,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (clx qt)
+     :depends-on (qt)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
@@ -232,7 +232,7 @@
               :components
               ((:file "rompsite")
                (:file "input")
-               (:file "bit-screen")
+               #+hemlock-clx (:file "bit-screen")
                (:file "bit-display")
                (:file "pop-up-stream")))
      (:module qthemlock
