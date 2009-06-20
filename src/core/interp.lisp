@@ -456,11 +456,13 @@
             (etypecase res
               (command
                (let ((punt t))
-                 (catch 'command-loop-catcher
-                   (dolist (c t-bindings)
-                     (funcall *invoke-hook* c *prefix-argument*))
-                   (funcall *invoke-hook* res *prefix-argument*)
-                   (setf punt nil))
+                 (with-simple-restart (abort-to-hemlock
+                                       "Abort to Hemlock command loop")
+                   (catch 'command-loop-catcher
+                     (dolist (c t-bindings)
+                       (funcall *invoke-hook* c *prefix-argument*))
+                     (funcall *invoke-hook* res *prefix-argument*)
+                     (setf punt nil)))
                  (when punt (invoke-hook hemlock::command-abort-hook)))
                (if *command-type-set*
                    (setq *command-type-set* nil)
