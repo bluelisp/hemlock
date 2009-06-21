@@ -348,13 +348,14 @@ GB
          (lambda ()
            (unwind-protect
                 (loop
-                   (catch 'editor-top-level-catcher
-                     (handler-bind
-                         ((error #'(lambda (condition)
-                                     (lisp-error-error-handler condition
-                                                               :internal))))
-                       (invoke-hook hemlock::abort-hook)
-                       (%command-loop))))
+                   (catch 'command-loop-catcher
+                     (catch 'editor-top-level-catcher
+                       (handler-bind
+                           ((error #'(lambda (condition)
+                                       (lisp-error-error-handler condition
+                                                                 :internal))))
+                         (invoke-hook hemlock::abort-hook)
+                         (%command-loop)))))
              (invoke-hook hemlock::exit-hook))))))))
 
 #+sbcl

@@ -472,6 +472,11 @@
                    (setq *prefix-argument* nil))
                (setf (fill-pointer cmd) 0))
               (null
+               (when
+                   ;; probably bogus, but I foundn't find another way
+                   ;; to make M-x followed by C-g abort properly.
+                   (some (lambda (ev) (logical-key-event-p ev :abort)) cmd)
+                 (editor-error "abort"))
                (unless prefix-p
                  (beep)
                  (setq *prefix-argument* nil)
