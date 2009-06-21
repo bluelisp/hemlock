@@ -260,8 +260,8 @@
 (defvar *font*)
 
 (defun make-hemlock-widget ()
-  (let* ((wrapper (#_new QWidget))
-         (layout (#_new QVBoxLayout))
+  (let* ((wrapper (#_new QSplitter))
+         (layout #+nil (#_new QVBoxLayout) wrapper)
          (main (make-instance 'hunk-widget))
          (echo (make-instance 'hunk-widget))
          (font
@@ -275,15 +275,46 @@
          (metrics (#_new QFontMetrics font)))
     (#_addWidget layout main)
     (#_addWidget layout echo)
-    (#_setLayout wrapper layout)
-    (#_setSpacing layout 0)
-    (#_setMargin layout 0)
+    (#_setOrientation wrapper (#_Qt::Vertical))
+    #+nil (#_setLayout wrapper layout)
+    #+nil (#_setSpacing layout 0)
+    #+nil (#_setMargin layout 0)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize wrapper
                       (* 80 (#_width metrics "m"))
                       (* 25 (#_height metrics)))
     (#_setMaximumHeight echo 100)
     (values main echo font wrapper)))
+
+(defclass command-action-receiver ()
+    ((command :initarg :command
+              :accessor command-action-receiver-command))
+  (:metaclass qt-class)
+  (:qt-superclass "QWidget")
+  (:slots ("triggered()" (lambda (this)
+                           (funcall (command-function
+                                     (command-action-receiver-command
+                                      this))
+                                    nil)
+                           (hi::internal-redisplay)))))
+
+(defmethod initialize-instance :after ((instance command-action-receiver) &key)
+  (new instance))
+
+(defvar *do-not-gc-list*)
+
+(defun add-command-action (menu command &optional suffix)
+  (let* ((receiver
+          (make-instance 'command-action-receiver
+                         :command (getstring command hi::*command-names*)))
+         (action
+          (#_addAction
+           menu
+           (concatenate 'string command suffix)
+           receiver
+           (qslot "triggered()"))))
+    (push action *do-not-gc-list*)
+    (push receiver *do-not-gc-list*)))
 
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
@@ -293,11 +324,21 @@
            (*window-list* *window-list*)
            (*editor-input*
             (let ((e (hi::make-input-event)))
-              (make-instance 'qt-editor-input :head e :tail e))))
+              (make-instance 'qt-editor-input :head e :tail e)))
+           (*do-not-gc-list* '()))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
-      (#_addAction (#_addMenu (#_menuBar window) "File")
-                   "Exit Hemlock")
+      (let ((menu (#_addMenu (#_menuBar window) "File")))
+        (add-command-action menu "Find File")
+        (add-command-action menu "Save File")
+        (#_addSeparator menu)
+        (add-command-action menu "Write File")
+        (#_addSeparator menu)
+        (add-command-action menu "Exit Hemlock"))
+      (let ((menu (#_addMenu (#_menuBar window) "Eval")))
+        (add-command-action menu "Select Eval Buffer"))
+      (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
+        (add-command-action menu "Select Buffer"))
       (setf hi::*real-editor-input* *editor-input*)
       (redraw-all-widgets main echo nil)
       (when init-fun
@@ -510,6 +551,7 @@
                      (subseq (window-modeline-buffer window)
                              0
                              (window-modeline-buffer-len window)))
+      (#_update (widget-modeline widget))
       #+(or)
       (qt-dumb-line-redisplay hunk
                               (window-modeline-dis-line window)
