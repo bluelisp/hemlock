@@ -1,33 +1,21 @@
-                          INSTALLATION NOTES
+About Hemlock
 
-Phemlock comes with a mk:defsystem style .system file. ASDF system
-file hemlock.asd has been added, supporting SBCL for now. So when you
-are lucky you just can fire up your Lisp and say
+  This is a Qt port of Hemlock, based on portable hemlock.
+  Thanks to Gilbert Baumann for making hemlock portable.
 
-CMUCL/MK:
-    ; (require '#:defsystem)
-    ; (load "../McCLIM/system.lisp")
-    (mk:load-system :hemlock) ; or (mk:compile-system :hemlock)
+Dependencies
 
-SBCL/ASDF:
-    ; (require 'asdf)
-    ; (require 'sb-bsd-sockets)
-    ; (asdf:oos 'asdf:load-op :clx)
-    ; (load "../McCLIM/system.lisp")
-    (asdf:oos 'adsf:load-op :hemlock)
+  This version of Hemlock needs CommonQt.
 
-    (cl-user::hemlock)
+Installation
 
-If you want to try the CLIM backend, which not yet is fully operational, try:
+  (push #p"/path/to/hemlock/" asdf:*central-registry*)
+  (asdf:operate 'asdf:load-op :hemlock)
 
-    ; (asdf:oos 'asdf:load-op :clim-clx) ; SBCL/ASDF
+Usage
 
-    (clim-hemlock::clim-hemlock)
+  (hemlock:hemlock)
 
+or just
 
-This was tested with:
-
- - CMUCL (with CLX library) using McCLIM
- - SBCL using McCLIM, CLX
- - ACL
- - CLISP using MIT CLX
+  (ed)    ;SBCL only
