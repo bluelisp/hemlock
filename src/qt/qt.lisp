@@ -259,18 +259,13 @@
 
 (defvar *font*)
 
-(defun qt-hemlock (init-fun command-loop-fun)
-  (setf *qapp* (make-qapplication))
-  (let* ((window (#_new QWidget))
+(defun make-hemlock-widget ()
+  (let* ((wrapper (#_new QWidget))
          (layout (#_new QVBoxLayout))
          (modeline (#_new QLabel))
          (main (make-instance 'hunk-widget :modeline modeline))
          (echo (make-instance 'hunk-widget))
-         (*window-list* *window-list*)
-         (*editor-input*
-          (let ((e (hi::make-input-event)))
-            (make-instance 'qt-editor-input :head e :tail e)))
-         (*font*
+         (font
           #+nil (#_new QFont *font-family* 10)
           #+nil (cffi:with-foreign-object (arg :char)
                   (#_QFontDialog::getFont (qt::bool* arg)))
@@ -278,29 +273,42 @@
             (#_fromString font *font-family*)
             (#_setPixelSize font *font-size*)
             font))
-         (metrics (#_new QFontMetrics *font*)))
-    (#_setMaximumHeight modeline
-                        (#_height (#_fontMetrics modeline)))
-    (#_setWindowTitle window "Hemlock")
+         (metrics (#_new QFontMetrics font)))
+    (#_setMaximumHeight modeline (#_height (#_fontMetrics modeline)))
     (#_addWidget layout main)
     (#_addWidget layout modeline)
     (#_addWidget layout echo)
-    (#_setLayout window layout)
+    (#_setLayout wrapper layout)
     (#_setSpacing layout 0)
-    (setf hi::*real-editor-input* *editor-input*)
     ;; fixme: should be a default, not a strict minimum:
-    (#_setMinimumSize window
-                   (* 80 (#_width metrics "m"))
-                   (* 25 (#_height metrics)))
+    (#_setMinimumSize wrapper
+                      (* 80 (#_width metrics "m"))
+                      (* 25 (#_height metrics)))
     (#_setMaximumHeight echo 100)
-    (redraw-all-widgets main echo nil)
-    (when init-fun
-      (funcall init-fun))
-    (#_show window)
-    (unwind-protect
-         (progn ;catch 'hi::hemlock-exit
-           (funcall command-loop-fun))
-      (#_hide window))))
+    (values main echo font wrapper)))
+
+(defun qt-hemlock (init-fun command-loop-fun)
+  (setf *qapp* (make-qapplication))
+  (multiple-value-bind (main echo *font* widget)
+      (make-hemlock-widget)
+    (let* ((window (#_new QWidget))
+           (*window-list* *window-list*)
+           (*editor-input*
+            (let ((e (hi::make-input-event)))
+              (make-instance 'qt-editor-input :head e :tail e))))
+      (#_setWindowTitle window "Hemlock")
+      (let ((layout (#_new QVBoxLayout)))
+        (#_addWidget layout widget)
+        (#_setLayout window layout))
+      (setf hi::*real-editor-input* *editor-input*)
+      (redraw-all-widgets main echo nil)
+      (when init-fun
+        (funcall init-fun))
+      (#_show window)
+      (unwind-protect
+           (progn                       ;catch 'hi::hemlock-exit
+             (funcall command-loop-fun))
+        (#_hide window)))))
 
 ;;; Keysym translations
 
