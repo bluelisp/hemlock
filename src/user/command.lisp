@@ -213,7 +213,13 @@
       (cond ((not p)
              (when (same-line-p point (buffer-end-mark (current-buffer)))
                (line-end point))
-             (insert-character point #\newline))
+             ;;
+             ;; The insert-character was probably intentional back when
+             ;; Hemlock was written, but it inserts bogus newlines at
+             ;; the end of the file, and that's a bad idea.
+             ;;
+             ;; (insert-character point #\newline)
+             (editor-error "No next line."))
             ((minusp p)
              (buffer-start point)
              (editor-error "No previous line."))
