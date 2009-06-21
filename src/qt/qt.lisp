@@ -29,7 +29,9 @@
    (ts)))
 
 (defclass hunk-widget ()
-    ((hunk))
+    ((hunk :accessor widget-hunk)
+     (modeline :initarg :modeline
+               :accessor widget-modeline))
   (:metaclass qt-class)
   (:qt-superclass "QWidget")
   (:override ("paintEvent" paint-event)
@@ -261,7 +263,8 @@
   (setf *qapp* (make-qapplication))
   (let* ((window (#_new QWidget))
          (layout (#_new QVBoxLayout))
-         (main (make-instance 'hunk-widget))
+         (modeline (#_new QLabel))
+         (main (make-instance 'hunk-widget :modeline modeline))
          (echo (make-instance 'hunk-widget))
          (*window-list* *window-list*)
          (*editor-input*
@@ -276,10 +279,14 @@
             (#_setPixelSize font *font-size*)
             font))
          (metrics (#_new QFontMetrics *font*)))
+    (#_setMaximumHeight modeline
+                        (#_height (#_fontMetrics modeline)))
     (#_setWindowTitle window "Hemlock")
     (#_addWidget layout main)
+    (#_addWidget layout modeline)
     (#_addWidget layout echo)
     (#_setLayout window layout)
+    (#_setSpacing layout 0)
     (setf hi::*real-editor-input* *editor-input*)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize window
@@ -492,6 +499,11 @@
           (window-last-changed window) first)
     (when (window-modeline-buffer window)
       (update-modeline-fields (window-buffer window) window)
+      (#_setText (widget-modeline widget)
+                 (subseq (window-modeline-buffer window)
+                         0
+                         (window-modeline-buffer-len window)))
+      #+(or)
       (qt-dumb-line-redisplay hunk
                               (window-modeline-dis-line window)
                               t)
