@@ -232,7 +232,7 @@
               ((:file "rompsite")
                (:file "input")
                #+hemlock-clx (:file "bit-screen")
-               (:file "bit-display")
+               #+hemlock-clx (:file "bit-display")
                (:file "pop-up-stream")))
      (:module qthemlock
               :pathname #.(merge-pathnames
