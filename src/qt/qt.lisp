@@ -114,7 +114,7 @@
       (let* ((window (hi::internal-make-window))
              (hunk (make-instance 'qt-hunk :widget new)))
         (setf res window)
-        (baba-aux device window hunk *current-buffer* modelinep)
+        (redraw-widget device window hunk *current-buffer* t)
         (let ((p (position *current-window* (slot-value device 'windows))))
           (setf (slot-value device 'windows)
                 (append (subseq (slot-value device 'windows) 0 p)
@@ -286,8 +286,7 @@
                    (* 80 (#_width metrics "m"))
                    (* 25 (#_height metrics)))
     (#_setMaximumHeight echo 100)
-    (baba main echo nil)
-    (baba main echo nil)
+    (redraw-all-widgets main echo nil)
     (when init-fun
       (funcall init-fun))
     (#_show window)
@@ -367,7 +366,7 @@
     (when (eq window *current-window*) (maybe-recenter-window window))
     hunk))
 
-(defun baba (stream echo-stream another-stream)
+(defun redraw-all-widgets (main-widget echo-widget another-widget)
   (let* ((device (make-instance 'qt-device))
          (buffer *current-buffer*)
          (start (buffer-start-mark buffer))
@@ -379,22 +378,22 @@
      (device-name device) "CLIM"
      (device-bottom-window-base device) nil)
     (let* ((window (hi::internal-make-window))
-           (hunk (make-instance 'qt-hunk :widget stream)))
-      (baba-aux device window hunk buffer t)
+           (hunk (make-instance 'qt-hunk :widget main-widget)))
+      (redraw-widget device window hunk buffer t)
       (setf *current-window* window)
       (push window (slot-value device 'windows))
       (setf (device-hunks device) (list hunk)) )
-    (when another-stream
+    (when another-widget
       (let* ((window (hi::internal-make-window))
-             (hunk (make-instance 'qt-hunk :widget another-stream)))
-        (baba-aux device window hunk buffer t)
+             (hunk (make-instance 'qt-hunk :widget another-widget)))
+        (redraw-widget device window hunk buffer t)
         (push window (slot-value device 'windows))
         (push hunk (device-hunks device))))
     ;;
-    (when echo-stream                   ;hmm
+    (when echo-widget                   ;hmm
       (let ((echo-window (hi::internal-make-window))
-            (echo-hunk (make-instance 'qt-hunk :widget echo-stream)))
-        (baba-aux device echo-window echo-hunk *echo-area-buffer* nil)
+            (echo-hunk (make-instance 'qt-hunk :widget echo-widget)))
+        (redraw-widget device echo-window echo-hunk *echo-area-buffer* nil)
         (setf *echo-area-window* echo-window)
         ;; why isn't this on the list of hunks?
         ;; List of hunks isn't used at all.
@@ -405,9 +404,9 @@
   "Courier")
 
 (defvar *font-size*
-  15)
+  13)
 
-(defun baba-aux (device window hunk buffer modelinep)
+(defun redraw-widget (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-widget hunk) 'hunk)
         hunk)
   (let* ((start (buffer-start-mark buffer))
@@ -457,19 +456,16 @@
      (window-display-recentering window) nil ;
      )
 
-    (baba-make-dis-lines window width height)
+    (setup-dis-lines window width height)
 
     (when modelinep
-      (setup-modeline-image buffer window)
-      #+NIL
-      (setf (bitmap-hunk-modeline-dis-line hunk)
-            (window-modeline-dis-line window)))
+      (setup-modeline-image buffer window))
 
     (push window (buffer-windows buffer))
     (push window *window-list*)
     (hi::update-window-image window)))
 
-(defun baba-make-dis-lines (window width height)
+(defun setup-dis-lines (window width height)
   (do ((i (- height) (1+ i))
        (res ()
             (cons (make-window-dis-line (make-string width)) res)))
@@ -495,9 +491,10 @@
     (setf (window-first-changed window) the-sentinel
           (window-last-changed window) first)
     (when (window-modeline-buffer window)
+      (update-modeline-fields (window-buffer window) window)
       (qt-dumb-line-redisplay hunk
-                                (window-modeline-dis-line window)
-                                t)
+                              (window-modeline-dis-line window)
+                              t)
       (setf (dis-line-flags (window-modeline-dis-line window))
             unaltered-bits))
     (qt-put-cursor (window-hunk window))))
