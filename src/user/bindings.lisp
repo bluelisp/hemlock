@@ -415,6 +415,7 @@
 
 (bind-key "Open Line" #k"Control-o")
 (bind-key "New Line" #k"return")
+(bind-key "New Line" #k"control-m")
 
 (bind-key "Transpose Words" #k"meta-t")
 (bind-key "Transpose Lines" #k"control-x control-t")
@@ -434,6 +435,7 @@
 (bind-key "Indent Rigidly" #k"control-x control-i")
 
 (bind-key "Indent New Line" #k"linefeed")
+(bind-key "Indent New Line" #k"control-j")
 (bind-key "Indent" #k"tab")
 (bind-key "Indent" #k"control-i")
 (bind-key "Indent Region" #k"control-meta-\\")
@@ -535,7 +537,7 @@
 ;; Removed in lieu of "Pop and Goto Mark".
 ;;(bind-key "Abbrev Expand Only" #k"meta-space")
 (bind-key "Word Abbrev Prefix Mark" #k"meta-\"")
-(bind-key "Unexpand Last Word" #k"control-x u")
+;; (bind-key "Unexpand Last Word" #k"control-x u")
 
 (dolist (key (list #k"!" #k"~" #k"@" #k"#" #k";" #k"$" #k"%" #k"^" #k"&" #k"*"
                    #k"\-" #k"_" #k"=" #k"+" #k"[" #k"]" #k"(" #k")" #k"/" #k"|"
@@ -872,6 +874,17 @@
                                  (bind-key "Self Insert Caps Lock" key-event :mode "CAPS-LOCK"))
 
 
+;;;; phemlock changes
+
+(bind-key "Scroll Window Down" #k"pagedown")
+(bind-key "Scroll Window Up"   #k"pageup")
+(bind-key "Delete Previous Character" #k"control-h")
+(bind-key "Dabbrev Expand"     #k"meta-/")
+(bind-key "Just One Space"     #k"meta-space")
+(bind-key "Mark Form"          #k"control-meta-space")
+(bind-key "New Undo"           #k"control-_")
+(bind-key "New Undo"           #k"control-x u")
+
 ;;;; Logical characters.
 
 (setf (logical-key-event-p #k"control-s" :forward-search) t)

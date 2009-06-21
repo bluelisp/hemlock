@@ -206,7 +206,7 @@
            (eql k (primitive-value (#_Qt::Key_Enter))))
        (hemlock-ext:key-event-keysym #k"Return"))
       ((eql k (primitive-value (#_Qt::Key_Tab)))
-       (hemlock-ext:key-event-keysym #k"Tab"))
+       (hemlock-ext:key-event-keysym #k"tab"))
       ((eql k (primitive-value (#_Qt::Key_Escape)))
        (hemlock-ext:key-event-keysym #k"Escape"))
       ((eql k (primitive-value (#_Qt::Key_Backspace)))

@@ -221,8 +221,7 @@
                #+port-user-netnews (:file "netnews")
                #+port-user-rcs (:file "rcs")
                (:file "dabbrev")
-               (:file "bindings")
-               (:file "bindings-gb")))
+               (:file "bindings")))
      (:module bitmap-2
               :pathname #.(merge-pathnames
                            (make-pathname
