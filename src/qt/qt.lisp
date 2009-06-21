@@ -262,8 +262,7 @@
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QWidget))
          (layout (#_new QVBoxLayout))
-         (modeline (#_new QLabel))
-         (main (make-instance 'hunk-widget :modeline modeline))
+         (main (make-instance 'hunk-widget))
          (echo (make-instance 'hunk-widget))
          (font
           #+nil (#_new QFont *font-family* 10)
@@ -274,12 +273,11 @@
             (#_setPixelSize font *font-size*)
             font))
          (metrics (#_new QFontMetrics font)))
-    (#_setMaximumHeight modeline (#_height (#_fontMetrics modeline)))
     (#_addWidget layout main)
-    (#_addWidget layout modeline)
     (#_addWidget layout echo)
     (#_setLayout wrapper layout)
     (#_setSpacing layout 0)
+    (#_setMargin layout 0)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize wrapper
                       (* 80 (#_width metrics "m"))
@@ -291,19 +289,20 @@
   (setf *qapp* (make-qapplication))
   (multiple-value-bind (main echo *font* widget)
       (make-hemlock-widget)
-    (let* ((window (#_new QWidget))
+    (let* ((window (#_new QMainWindow))
            (*window-list* *window-list*)
            (*editor-input*
             (let ((e (hi::make-input-event)))
               (make-instance 'qt-editor-input :head e :tail e))))
       (#_setWindowTitle window "Hemlock")
-      (let ((layout (#_new QVBoxLayout)))
-        (#_addWidget layout widget)
-        (#_setLayout window layout))
+      (#_setCentralWidget window widget)
+      (#_addAction (#_addMenu (#_menuBar window) "File")
+                   "Exit Hemlock")
       (setf hi::*real-editor-input* *editor-input*)
       (redraw-all-widgets main echo nil)
       (when init-fun
         (funcall init-fun))
+      (setf (widget-modeline main) (#_statusBar window))
       (#_show window)
       (unwind-protect
            (progn                       ;catch 'hi::hemlock-exit
@@ -507,10 +506,10 @@
           (window-last-changed window) first)
     (when (window-modeline-buffer window)
       (update-modeline-fields (window-buffer window) window)
-      (#_setText (widget-modeline widget)
-                 (subseq (window-modeline-buffer window)
-                         0
-                         (window-modeline-buffer-len window)))
+      (#_showMessage (widget-modeline widget)
+                     (subseq (window-modeline-buffer window)
+                             0
+                             (window-modeline-buffer-len window)))
       #+(or)
       (qt-dumb-line-redisplay hunk
                               (window-modeline-dis-line window)
