@@ -787,7 +787,7 @@
 ;;; one directory.
 ;;;
 (defun dired-directorify (pathname)
-  (let ((directory (ext:unix-namestring pathname)))
+  (let ((directory (sb-int:unix-namestring pathname)))
     (if (directoryp directory)
         directory
         (pathname (concatenate 'simple-string (namestring directory) "/")))))
