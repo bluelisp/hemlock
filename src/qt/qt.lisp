@@ -258,10 +258,13 @@
     (hi::internal-redisplay)))
 
 (defvar *font*)
+(defvar *tabs*)
+(defvar *buffers-to-tabs*)
 
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QSplitter))
-         (layout #+nil (#_new QVBoxLayout) wrapper)
+         (vbox (#_new QVBoxLayout))
+         (tabs (#_new QTabBar))
          (main (make-instance 'hunk-widget))
          (echo (make-instance 'hunk-widget))
          (font
@@ -273,18 +276,70 @@
             (#_setPixelSize font *font-size*)
             font))
          (metrics (#_new QFontMetrics font)))
-    (#_addWidget layout main)
-    (#_addWidget layout echo)
+    (#_addWidget vbox tabs)
+    (#_addWidget vbox main)
+    (let ((x (#_new QWidget)))
+      (#_setLayout x vbox)
+      (#_addWidget wrapper x))
+    (#_addWidget wrapper echo)
     (#_setOrientation wrapper (#_Qt::Vertical))
-    #+nil (#_setLayout wrapper layout)
-    #+nil (#_setSpacing layout 0)
-    #+nil (#_setMargin layout 0)
+    (#_setFocusPolicy tabs (#_Qt::NoFocus))
+    (#_setSpacing vbox 0)
+    (#_setMargin vbox 0)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize wrapper
                       (* 80 (#_width metrics "m"))
                       (* 25 (#_height metrics)))
+    (#_setMaximumWidth tabs (#_width wrapper))
     (#_setMaximumHeight echo 100)
-    (values main echo font wrapper)))
+    (values main echo font wrapper tabs)))
+
+(defun add-buffer-tab-hook (buffer)
+  (#_addTab *tabs* (buffer-name buffer)))
+
+(defun buffer-tab-index (buffer)
+  (dotimes (i (#_count *tabs*) (error "buffer tab missing"))
+    (when (equal (#_tabText *tabs* i) (buffer-name buffer))
+      (return i))))
+
+(defun delete-buffer-tab-hook (buffer)
+  (#_removeTab *tabs* (buffer-tab-index buffer)))
+
+(defun update-buffer-tab-hook (buffer new-name)
+  (#_setTabText *tabs*
+                (buffer-tab-index buffer)
+                new-name))
+
+(defun set-buffer-tab-hook (buffer)
+  (#_setCurrentIndex *tabs* (buffer-tab-index buffer)))
+
+(add-hook hemlock::make-buffer-hook 'add-buffer-tab-hook)
+(add-hook hemlock::delete-buffer-hook 'delete-buffer-tab-hook)
+(add-hook hemlock::buffer-name-hook 'update-buffer-tab-hook)
+(add-hook hemlock::set-buffer-hook 'set-buffer-tab-hook)
+
+(defun signal-receiver (function)
+  (make-instance 'signal-receiver :function function))
+
+(defun connect (source signal cont)
+  (let ((receiver (signal-receiver cont)))
+    (push receiver *do-not-gc-list*)
+    (#_QObject::connect source signal receiver (QSLOT "invoke(int)"))))
+
+(defclass signal-receiver ()
+  ((function :initarg :function
+             :accessor signal-receiver-function))
+  (:metaclass qt-class)
+  (:qt-superclass "QObject")
+  (:slots ("invoke()" (lambda (this &rest args)
+                        (apply (signal-receiver-function this)
+                               args)))
+          ("invoke(int)" (lambda (this &rest args)
+                           (apply (signal-receiver-function this)
+                                  args)))))
+
+(defmethod initialize-instance :after ((instance signal-receiver) &key)
+  (new instance))
 
 (defclass command-action-receiver ()
     ((command :initarg :command
@@ -316,16 +371,20 @@
     (push action *do-not-gc-list*)
     (push receiver *do-not-gc-list*)))
 
+(defun find-buffer (name)
+  (getstring name hi::*buffer-names*))
+
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
-  (multiple-value-bind (main echo *font* widget)
+  (multiple-value-bind (main echo *font* widget *tabs*)
       (make-hemlock-widget)
     (let* ((window (#_new QMainWindow))
            (*window-list* *window-list*)
            (*editor-input*
             (let ((e (hi::make-input-event)))
               (make-instance 'qt-editor-input :head e :tail e)))
-           (*do-not-gc-list* '()))
+           (*do-not-gc-list* '())
+           (*buffers-in-tab-order* '()))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
       (let ((menu (#_addMenu (#_menuBar window) "File")))
@@ -338,12 +397,21 @@
       (let ((menu (#_addMenu (#_menuBar window) "Eval")))
         (add-command-action menu "Select Eval Buffer"))
       (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
+        (add-command-action menu "Bufed")
         (add-command-action menu "Select Buffer"))
       (setf hi::*real-editor-input* *editor-input*)
       (redraw-all-widgets main echo nil)
       (when init-fun
         (funcall init-fun))
       (setf (widget-modeline main) (#_statusBar window))
+      (dolist (buffer hi::*buffer-list*)
+        (unless (eq buffer *echo-area-buffer*)
+          (add-buffer-tab-hook buffer)))
+      (connect *tabs*
+               (qsignal "currentChanged(int)")
+               (lambda (index)
+                 (change-to-buffer (find-buffer (#_tabText *tabs* index)))
+                 (hi::internal-redisplay)))
       (#_show window)
       (unwind-protect
            (progn                       ;catch 'hi::hemlock-exit
@@ -456,7 +524,7 @@
 
 (defvar *font-family*
   #+nil "Nimbus Mono L"
-  "Courier")
+  "Courier New")
 
 (defvar *font-size*
   13)
@@ -602,6 +670,7 @@
     (#_setPen painter (#_black "Qt"))
     (#_setFont painter *font*)
     (incf y (#_ascent (#_fontMetrics painter)))
+    (#_setRenderHint painter (#_QPainter::Antialiasing) t)
     (#_drawText painter x y (subseq string start end))
     (#_end painter)))
 
@@ -632,25 +701,27 @@
 
 (defun hi::editor-sleep (time)
   "Sleep for approximately Time seconds."
-  (setf time 0)                         ;CLIM event processing still is messy.
-  (unless (or (zerop time) (listen-editor-input *editor-input*))
+  (unless (zerop time)
     (hi::internal-redisplay)
     (hi::sleep-for-time time)
     nil))
 
 (defun hi::sleep-for-time (time)
+  #+(or)
   (let ((device (device-hunk-device (window-hunk (current-window))))
         (end (+ (get-internal-real-time)
                 (truncate (* time internal-time-units-per-second)))))
     (loop
-      (when (listen-editor-input *editor-input*)
-        (return))
-      (let ((left (- end (get-internal-real-time))))
-        (unless (plusp left) (return nil))
-        (device-note-read-wait device t)
-        (sleep .1)))
-    (device-note-read-wait device nil)))
+       (when (listen-editor-input *editor-input*)
+         (return))
+       (let ((left (- end (get-internal-real-time))))
+         (unless (plusp left) (return nil))
+         (device-note-read-wait device t)
+         (sleep .1)))
+    (device-note-read-wait device nil))
+  (format t "ignoring hi::sleep-for-time ~A~%" time))
 
+#+(or)
 (defun hi::invoke-with-pop-up-display (cont buffer-name height)
   (funcall cont *trace-output*)
   (finish-output *trace-output*))
