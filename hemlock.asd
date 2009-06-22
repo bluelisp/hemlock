@@ -103,6 +103,7 @@
               ((:file "rompsite")
                (:file "input")
                (:file "macros")
+               (:file "typeout")
                (:file "line")
                (:file "ring")
                (:file "htext1") ; buffer depends on it --amb
