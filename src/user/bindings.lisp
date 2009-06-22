@@ -90,7 +90,7 @@
 (bind-key "Save All Files" #k"control-x return")
 (bind-key "Save All Files and Exit" #k"control-x meta-z")
 
-(bind-key "List Buffers" #k"control-x control-b")
+(bind-key "Bufed" #k"control-x control-b")
 (bind-key "Buffer Not Modified" #k"meta-~")
 (bind-key "Check Buffer Modified" #k"control-x ~")
 (bind-key "Select Buffer" #k"control-x b")
