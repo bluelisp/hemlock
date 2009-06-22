@@ -476,6 +476,7 @@
 
 ;;;; Editor sleeping.
 
+#+nil                                   ;overwritten by qt.lisp
 (defun editor-sleep (time)
   "Sleep for approximately Time seconds."
   (unless (or (zerop time) (listen-editor-input *editor-input*))
@@ -483,6 +484,7 @@
     (sleep-for-time time)
     nil))
 
+#+nil                                   ;overwritten by qt.lisp
 (defun sleep-for-time (time)
   (let ((device (device-hunk-device (window-hunk (current-window))))
         (end (+ (get-internal-real-time)

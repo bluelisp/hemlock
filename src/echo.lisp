@@ -101,7 +101,7 @@
                    (float internal-time-units-per-second)))
          (pause (value hemlock::message-pause)))
     (when (< delta pause)
-      (sleep (- pause delta)))))
+      (editor-sleep (- pause delta)))))
 
 (defun clear-echo-area ()
   "You guessed it."

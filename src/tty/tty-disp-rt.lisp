@@ -115,7 +115,7 @@
   (unix:unix-write 1 *redisplay-output-buffer* 0 count)
   (let ((speed *terminal-baud-rate*))
     (when speed
-      (sleep (/ (* (float count) 10.0) (float speed))))))
+      (editor-sleep (/ (* (float count) 10.0) (float speed))))))
 
 
 ;;; TTY-WRITE-STRING blasts the string into the redisplay output buffer.
