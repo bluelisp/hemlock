@@ -278,8 +278,8 @@
 (bind-key "Beginning of Parse" #k"meta-\<" :mode "Echo Area")
 (bind-key "Echo Area Backward Character" #k"control-b" :mode "Echo Area")
 (bind-key "Echo Area Backward Word" #k"meta-b" :mode "Echo Area")
-(bind-key "Next Parse" #k"control-n" :mode "Echo Area")
-(bind-key "Previous Parse" #k"control-p" :mode "Echo Area")
+(bind-key "Next Parse" #k"meta-n" :mode "Echo Area")
+(bind-key "Previous Parse" #k"meta-p" :mode "Echo Area")
 
 ;;; Remove some dangerous standard bindings.
 ;;;
