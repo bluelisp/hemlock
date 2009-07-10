@@ -2,6 +2,35 @@
 
 (in-package :qt-hemlock)
 
+(defvar *settings-organization* "Hemlock")
+(defvar *settings-application* "Hemlock")
+
+(defun qsettings ()
+  (#_new QSettings
+         *settings-organization*
+         *settings-application*))
+
+(defun save-window-geometry (window)
+  (#_setValue (qsettings)
+              "geometry"
+              (#_new QVariant (#_saveGeometry window))))
+
+(defcommand "Save Window Geometry" (p)
+  "Save current window's geometry in Qt settings." ""
+  (declare (ignore p))
+  (save-window-geometry
+   (#_window (qt-hunk-widget (window-hunk (current-window))))))
+
+(defun restore-window-geometry (window)
+  (#_restoreGeometry window
+                     (#_toByteArray (#_value (qsettings) "geometry"))))
+
+(defcommand "Restore Window Geometry" (p)
+  "Restore the current window's geometry from Qt settings." ""
+  (declare (ignore p))
+  (restore-window-geometry
+   (#_window (qt-hunk-widget (window-hunk (current-window))))))
+
 (named-readtables:defreadtable :qt-hemlock
     (:merge :qt)
   (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))
@@ -139,7 +168,7 @@
 (defun offset-on-each-side (widget)
   (let ((white-width (standard-width-in-pixels))
         (full-width (#_width widget)))
-    (/ (- full-width white-width) 2.0d0)))
+    (max 0.0d0 (/ (- full-width white-width) 2.0d0))))
 
 (defun invoke-with-hunk-painter (fun widget)
   (let ((painter (#_new QPainter widget)))
@@ -293,6 +322,7 @@
             (#_fromString font *font-family*)
             (#_setPixelSize font *font-size*)
             font))
+         (*font* font)
          (metrics (#_new QFontMetrics font)))
     (#_addWidget vbox tabs)
     (#_addWidget vbox main)
@@ -306,7 +336,7 @@
     (#_setMargin vbox 0)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize wrapper
-                      (standard-column-width-in-pixels)
+                      (standard-width-in-pixels)
                       (* 25 (#_height metrics)))
     (#_setMaximumWidth tabs (#_width wrapper))
     (#_setMaximumHeight echo 100)
@@ -417,6 +447,9 @@
       (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
         (add-command-action menu "Bufed")
         (add-command-action menu "Select Buffer"))
+      (let ((menu (#_addMenu (#_menuBar window) "Preferences")))
+        (add-command-action menu "Save Window Geometry")
+        (add-command-action menu "Restore Window Geometry"))
       (setf hi::*real-editor-input* *editor-input*)
       (redraw-all-widgets main echo nil)
       (when init-fun
@@ -430,7 +463,11 @@
                (lambda (index)
                  (change-to-buffer (find-buffer (#_tabText *tabs* index)))
                  (hi::internal-redisplay)))
+      (restore-window-geometry window)
       (#_show window)
+      ;; undo the minimum set before, so that it's only a default
+      ;; (fixme: it still overrides a saved geometry):
+      (#_setMinimumSize widget 0 0)
       (unwind-protect
            (progn                       ;catch 'hi::hemlock-exit
              (funcall command-loop-fun))
