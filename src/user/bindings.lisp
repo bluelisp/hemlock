@@ -258,6 +258,7 @@
 ;;;
 (bind-key "Help on Parse" #k"home" :mode "Echo Area")
 (bind-key "Help on Parse" #k"control-_" :mode "Echo Area")
+(bind-key "Help on Parse" #k"control-Delete" :mode "Echo Area")
 
 (bind-key "Complete Keyword" #k"escape" :mode "Echo Area")
 (bind-key "Complete Field" #k"space" :mode "Echo Area")
@@ -883,6 +884,7 @@
 (bind-key "Just One Space"     #k"meta-space")
 (bind-key "Mark Form"          #k"control-meta-space")
 (bind-key "New Undo"           #k"control-_")
+(bind-key "New Undo"           #k"control-Delete")
 (bind-key "New Undo"           #k"control-x u")
 
 ;;;; Logical characters.
