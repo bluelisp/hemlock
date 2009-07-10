@@ -131,17 +131,35 @@
   (call-next-qmethod)
   (note-sheet-region-changed instance))
 
+(defvar *standard-column-width* 80)
+
+(defun standard-width-in-pixels ()
+  (* *standard-column-width* (#_width (#_new QFontMetrics *font*) "m")))
+
+(defun offset-on-each-side (widget)
+  (let ((white-width (standard-width-in-pixels))
+        (full-width (#_width widget)))
+    (/ (- full-width white-width) 2.0d0)))
+
+(defun invoke-with-hunk-painter (fun widget)
+  (let ((painter (#_new QPainter widget)))
+    (#_translate painter (offset-on-each-side widget) 0.0d0)
+    (funcall fun painter)
+    (#_end painter)))
+
 (defmethod paint-event ((instance hunk-widget) paint-event)
   (let* ((painter (#_new QPainter instance)))
     (#_setPen painter (#_Qt::NoPen))
-    (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
     (#_fillRect painter
                 (#_new QRectF (#_rect instance))
-                (#_new QBrush (#_new QColor 255 200 200)))
-    (let ((left (#_new QRectF (#_rect instance))))
-      (#_setWidth left (* 80 (#_width (#_new QFontMetrics *font*) "m")))
-      (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255))))
+                (#_new QBrush (#_new QColor 220 255 255)))
     (#_end painter))
+  (let ((left (#_new QRectF (#_rect instance))))
+    (invoke-with-hunk-painter
+     (lambda (painter)
+       (#_setWidth left (standard-width-in-pixels))
+       (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255))))
+     instance))
   (let* ((hunk (slot-value instance 'hunk))
          (device (device-hunk-device hunk)))
     #+(or)
@@ -288,7 +306,7 @@
     (#_setMargin vbox 0)
     ;; fixme: should be a default, not a strict minimum:
     (#_setMinimumSize wrapper
-                      (* 80 (#_width metrics "m"))
+                      (standard-column-width-in-pixels)
                       (* 25 (#_height metrics)))
     (#_setMaximumWidth tabs (#_width wrapper))
     (#_setMaximumHeight echo 100)
@@ -437,6 +455,9 @@
 
 ;;;;
 
+(defun effective-hunk-widget-width (widget)
+  (- (#_width widget) (offset-on-each-side widget)))
+
 (defun qt-window-changed (hunk)
   (let ((window (device-hunk-window hunk)))
     ;;
@@ -452,7 +473,7 @@
     ;; reallocate the dis-line-chars.
     (let* ((res (window-spare-lines window))
            (new-width
-            (max 5 (floor (- (#_width (qt-hunk-widget hunk))
+            (max 5 (floor (- (effective-hunk-widget-width (qt-hunk-widget hunk))
                              (* 2 *gutter*))
                           (slot-value hunk 'cw))))
            (new-height
@@ -665,14 +686,16 @@
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
 
 (defun qt-draw-text (hunk string x y start end font)
-  (let* ((instance (qt-hunk-widget hunk))
-         (painter (#_new QPainter instance)))
-    (#_setPen painter (#_black "Qt"))
-    (#_setFont painter *font*)
-    (incf y (#_ascent (#_fontMetrics painter)))
-    (#_setRenderHint painter (#_QPainter::Antialiasing) t)
-    (#_drawText painter x y (subseq string start end))
-    (#_end painter)))
+  (declare (ignore font))
+  (let ((instance (qt-hunk-widget hunk)))
+    (invoke-with-hunk-painter
+     (lambda (painter)
+       (#_setPen painter (#_black "Qt"))
+       (#_setFont painter *font*)
+       (incf y (#_ascent (#_fontMetrics painter)))
+       (#_setRenderHint painter (#_QPainter::Antialiasing) t)
+       (#_drawText painter x y (subseq string start end)))
+     instance)))
 
 (defun qt-drop-cursor (hunk)
   hunk
@@ -681,23 +704,24 @@
 (defun qt-put-cursor (hunk)
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
-      (let* ((instance (qt-hunk-widget hunk))
-             (painter (#_new QPainter instance)))
-        (#_setPen painter (#_Qt::NoPen) #+nil (#_new QColor 0 0 255 16))
-        (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
-        (#_drawRect painter
-                    (+ *gutter* (* cx cw))
-                    (+ *gutter* (* cy ch))
-                    cw ch)
-        #+(or)
-        (#_setPen painter (#_new QColor 0 0 255))
-        #+(or)
-        (#_drawLine painter
-                    (+ *gutter* (* cx cw))
-                    (+ *gutter* (* cy ch))
-                    (+ *gutter* (* cx cw) 0)
-                    (+ *gutter* (* cy ch) ch))
-        (#_end painter)))))
+      (let* ((instance (qt-hunk-widget hunk)))
+        (invoke-with-hunk-painter
+         (lambda (painter)
+           (#_setPen painter (#_Qt::NoPen) #+nil (#_new QColor 0 0 255 16))
+           (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
+           (#_drawRect painter
+                       (+ *gutter* (* cx cw))
+                       (+ *gutter* (* cy ch))
+                       cw ch)
+           #+(or)
+           (#_setPen painter (#_new QColor 0 0 255))
+           #+(or)
+           (#_drawLine painter
+                       (+ *gutter* (* cx cw))
+                       (+ *gutter* (* cy ch))
+                       (+ *gutter* (* cx cw) 0)
+                       (+ *gutter* (* cy ch) ch)))
+         instance)))))
 
 (defun hi::editor-sleep (time)
   "Sleep for approximately Time seconds."
