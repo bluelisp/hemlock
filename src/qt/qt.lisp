@@ -31,6 +31,13 @@
   (restore-window-geometry
    (#_window (qt-hunk-widget (window-hunk (current-window))))))
 
+(defcommand "Select Font" (p)
+  "Open a font dialog and change the current display font." ""
+  (declare (ignore p))
+  (setf *font*
+        (cffi:with-foreign-object (arg :char)
+          (#_QFontDialog::getFont (qt::bool* arg)))))
+
 (named-readtables:defreadtable :qt-hemlock
     (:merge :qt)
   (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))
@@ -315,12 +322,9 @@
          (main (make-instance 'hunk-widget))
          (echo (make-instance 'hunk-widget))
          (font
-          #+nil (#_new QFont *font-family* 10)
-          #+nil (cffi:with-foreign-object (arg :char)
-                  (#_QFontDialog::getFont (qt::bool* arg)))
           (let ((font (#_new QFont)))
             (#_fromString font *font-family*)
-            (#_setPixelSize font *font-size*)
+            (#_setPointSize font *font-size*)
             font))
          (*font* font)
          (metrics (#_new QFontMetrics font)))
@@ -448,6 +452,8 @@
         (add-command-action menu "Bufed")
         (add-command-action menu "Select Buffer"))
       (let ((menu (#_addMenu (#_menuBar window) "Preferences")))
+        (add-command-action menu "Select Font")
+        (#_addSeparator menu)
         (add-command-action menu "Save Window Geometry")
         (add-command-action menu "Restore Window Geometry"))
       (setf hi::*real-editor-input* *editor-input*)
@@ -581,11 +587,11 @@
         ))))
 
 (defvar *font-family*
-  #+nil "Nimbus Mono L"
-  "Courier New")
+  "Fixed [Sony]"
+  #+nil "Courier New")
 
 (defvar *font-size*
-  13)
+  11)
 
 (defun redraw-widget (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-widget hunk) 'hunk)
