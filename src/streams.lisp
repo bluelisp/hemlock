@@ -20,16 +20,22 @@
 (in-package :hemlock-internals)
 
 (defclass hemlock-output-stream (#-scl fundamental-character-output-stream
-                                 #+scl character-output-stream)
+                                 #+scl character-output-stream
+
+                                 #-scl fundamental-character-input-stream
+                                 #+scl character-input-stream)
   ((mark
     :initform nil
     :accessor hemlock-output-stream-mark
     :documentation "The mark we insert at.")
+   (input-string
+    :initform nil)
+   (input-pos
+    :initform 0)
    (out
     :accessor old-lisp-stream-out)
    (sout
-    :accessor old-lisp-stream-sout)
-   ) )
+    :accessor old-lisp-stream-sout)))
 
 ;; this should suffice for now:
 (defmethod stream-write-char ((stream hemlock-output-stream) char)
@@ -133,6 +139,57 @@
 (defmethod stream-line-column ((stream hemlock-output-stream))
   (mark-charpos (hemlock-output-stream-mark stream)))
 
+
+;;; input methods: although called HEMLOCK-OUTPUT-STREAM, the following
+;;; methods allow the stream to used for input, too.  Don't do this
+;;; at home, because it enters the command loop recursively in a potentially
+;;; bad way, but it can be very useful for debugging purposes;
+
+(defvar hi::*reading-lispbuf-input* nil)
+
+(defun ensure-output-stream-input (stream)
+  (with-slots (input-string input-pos mark) stream
+    (unless (and input-string (< input-pos (length input-string)))
+      (setf input-string
+            (catch 'hi::lispbuf-input
+              (let ((hi::*reading-lispbuf-input* t)
+                    (buffer (line-buffer (mark-line mark))))
+                (move-mark
+                 (variable-value 'hemlock::buffer-input-mark :buffer buffer)
+                 (buffer-point buffer))
+                (%command-loop))))
+      (check-type input-string string)
+      (setf input-pos 0))))
+
+(defmethod stream-read-char ((stream hemlock-output-stream))
+  (ensure-output-stream-input stream)
+  (sb-gray:stream-read-char-no-hang stream))
+
+(defmethod sb-gray:stream-read-char-no-hang ((stream hemlock-output-stream))
+  (with-slots (input-string input-pos) stream
+    (if (and input-string (< input-pos (length input-string)))
+        (prog1
+            (elt input-string input-pos)
+          (incf input-pos))
+        :eof)))
+
+(defmethod stream-listen ((stream hemlock-output-stream))
+  (with-slots (input-string input-pos) stream
+    (and input-string (< input-pos (length input-string)))))
+
+(defmethod stream-unread-char ((stream hemlock-output-stream) char)
+  (with-slots (input-pos) stream
+    (unless (plusp input-pos)
+      (error "nothing to unread"))
+    (decf input-pos)))
+
+(defmethod stream-clear-input ((stream hemlock-output-stream))
+  (with-slots (input-string input-pos) stream
+    (unless (and input-string (< input-pos (length input-string)))
+      (setf input-string nil)))
+  nil)
+
+;;; end of input methods, back in sane code
 
 
 (defclass hemlock-region-stream (#-scl fundamental-character-input-stream

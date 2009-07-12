@@ -62,6 +62,12 @@
   #+sbcl (funcall sb-int:*repl-prompt-fun* stream))
 
 
+(defparameter *eval-welcome-message*
+  "Welcome to the low-level Eval buffer.~@
+
+   This buffer is useful for debugging purposes, but be careful:~@
+   You are running code directly in Hemlock's GUI loop.~%~%")
+
 (defun setup-eval-mode (buffer)
   (let ((point (buffer-point buffer)))
     (setf (buffer-minor-mode buffer "Eval") t)
@@ -97,11 +103,11 @@
         :value 0))
     (let ((*standard-output*
            (variable-value 'eval-output-stream :buffer buffer)))
-      (fresh-line)
+      (format *standard-output* *eval-welcome-message*)
       (show-prompt))
     (move-mark (variable-value 'buffer-input-mark :buffer buffer) point)))
 
-(defmode "Eval" :major-p nil :setup-function #'setup-eval-mode)
+(defmode "Eval" :major-p nil :setup-function 'setup-eval-mode)
 
 (defun eval-mode-lisp-mode-hook (buffer on)
   "Turn on Lisp mode when we go into Eval Mode."
@@ -164,41 +170,63 @@
   "Evaluate Eval Mode input between point and last prompt."
   "Evaluate Eval Mode input between point and last prompt."
   (declare (ignore p))
+  (buffer-end (current-point))
+  (insert-string (current-point) (string #\newline))
   (let ((input-region (get-interactive-input)))
     (when input-region
-      (let* ((output (value eval-output-stream))
-             (*standard-output* output)
-             (*error-output* output)
-             (*trace-output* output))
-        (fresh-line)
-        (in-lisp
-         ;; Copy the region to keep the output and input streams from interacting
-         ;; since input-region is made of permanent marks into the buffer.
-         (with-input-from-region (stream (copy-region input-region))
-           (loop
-             (let ((form (read stream nil lispbuf-eof)))
-               (when (eq form lispbuf-eof)
-                 ;; Move the buffer's input mark to the end of the buffer.
-                 (move-mark (region-start input-region)
-                            (region-end input-region))
-                 (return))
-               (setq +++ ++ ++ + + - - form)
-               (let ((buffer (current-buffer))
-                     (ok nil))
-                 (unwind-protect
-                      (let ((this-eval (multiple-value-list (eval form))))
-                        (fresh-line)
-                        (dolist (x this-eval) (prin1 x) (terpri))
-                        (show-prompt)
-                        (setq /// // // / / this-eval)
-                        (setq *** ** ** * * (car this-eval))
-                        (setq ok t))
-                   (unless ok
-                     (format t "; Something went wrong; resetting prompt.~%")
-                     (show-prompt)
-                     (move-mark
-                      (variable-value 'buffer-input-mark :buffer buffer)
-                      (buffer-point buffer)))))))))))))
+      (if hi::*reading-lispbuf-input*
+          (throw 'hi::lispbuf-input
+            (let ((line (concatenate 'string
+                                     (region-to-string input-region))))
+              (print line sb-sys:*tty*)
+              (force-output sb-sys:*tty*)
+              line))
+          (let* ((output (value eval-output-stream))
+                 (*terminal-io* output)
+                 (*standard-output* output)
+                 (*standard-input* output)
+                 (*error-output* output)
+                 (*trace-output* output)
+                 (*debug-io* output)
+                 (*query-io* output))
+            (fresh-line)
+            (in-lisp
+             ;; Copy the region to keep the output and input streams from interacting
+             ;; since input-region is made of permanent marks into the buffer.
+             (with-input-from-region (stream (copy-region input-region))
+               (loop
+                  (let ((form (read stream nil lispbuf-eof)))
+                    (when (eq form lispbuf-eof)
+                      ;; Move the buffer's input mark to the end of the buffer.
+                      (move-mark (region-start input-region)
+                                 (region-end input-region))
+                      (return))
+                    (setq +++ ++ ++ + + - - form)
+                    (let ((buffer (current-buffer))
+                          (ok nil))
+                      (move-mark
+                       (variable-value 'buffer-input-mark :buffer buffer)
+                       (buffer-point buffer))
+                      (unwind-protect
+                           (let ((this-eval
+                                  (multiple-value-list
+                                   (let ((hi::*trap-errors-p* nil)
+                                         (sb-ext:*invoke-debugger-hook* nil)
+                                         (*debugger-hook* nil))
+                                     (sb-thread:with-new-session ()
+                                       (eval form))))))
+                             (fresh-line)
+                             (dolist (x this-eval) (prin1 x) (terpri))
+                             (show-prompt)
+                             (setq /// // // / / this-eval)
+                             (setq *** ** ** * * (car this-eval))
+                             (setq ok t))
+                        (unless ok
+                          (fresh-line)
+                          (show-prompt)
+                          (move-mark
+                           (variable-value 'buffer-input-mark :buffer buffer)
+                           (buffer-point buffer))))))))))))))
 
 (defcommand "Abort Eval Input" (p)
   "Move to the end of the buffer and prompt."
