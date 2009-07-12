@@ -829,8 +829,8 @@
   (funcall cont *trace-output*)
   (finish-output *trace-output*))
 
-(defun make-virtual-buffer (name widget)
-  (let ((buffer (make-buffer name)))
+(defun make-virtual-buffer (name widget &rest args)
+  (let ((buffer (apply #'make-buffer name args)))
     (when buffer
       (setf (buffer-writable buffer) nil)
       (setf (hi::buffer-widget buffer) widget)
@@ -843,7 +843,7 @@
   (unless (getstring name hi::*buffer-names*)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
-      (make-virtual-buffer name widget))))
+      (make-virtual-buffer name widget :modes '("QWebView")))))
 
 (defcommand "Browse Qt Documentation" (p)
   "" ""
@@ -854,3 +854,84 @@
           "file:///home/david/src/qt4-x11-4.4.3/doc/html/index.html")))
     (when buffer
       (change-to-buffer buffer))))
+
+(defmode "QWebView" :major-p t)
+
+(defun qwebview-scroll-page (f view)
+  (let ((frame (#_currentFrame (#_page view))))
+    (#_setScrollBarValue frame
+                         (#_Qt::Vertical)
+                         (+ (#_scrollBarValue frame (#_Qt::Vertical))
+                            (* f (#_height view))))))
+
+(defcommand "QWebView Page Down" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-page 1 (hi::buffer-widget (current-buffer))))
+
+(defcommand "QWebView Page Up" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-page -1 (hi::buffer-widget (current-buffer))))
+
+(defun qwebview-scroll-fixed (c view)
+  (let ((frame (#_currentFrame (#_page view))))
+    (#_setScrollBarValue frame
+                         (#_Qt::Vertical)
+                         (+ c (#_scrollBarValue frame (#_Qt::Vertical))))))
+
+(defcommand "QWebView Scroll Down" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-fixed 20 (hi::buffer-widget (current-buffer))))
+
+(defcommand "QWebView Scroll Up" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-fixed -20 (hi::buffer-widget (current-buffer))))
+
+(defun qwebview-scroll-to (f view)
+  (let ((frame (#_currentFrame (#_page view))))
+    (#_setScrollBarValue frame
+                         (#_Qt::Vertical)
+                         (* f
+                            (max 0
+                                 (- (#_height (#_contentsSize frame))
+                                    (#_height view)))))))
+
+(defcommand "QWebView Scroll Top" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-to 0 (hi::buffer-widget (current-buffer))))
+
+(defcommand "QWebView Scroll Bottom" (p)
+  "" ""
+  (declare (ignore p))
+  (qwebview-scroll-to 1 (hi::buffer-widget (current-buffer))))
+
+(defcommand "QWebView Back" (p)
+  "" ""
+  (declare (ignore p))
+  (#_back (hi::buffer-widget (current-buffer))))
+
+(defcommand "QWebView Forward" (p)
+  "" ""
+  (declare (ignore p))
+  (#_forward (hi::buffer-widget (current-buffer))))
+
+(defcommand "Foo" (p)
+  "" ""
+  (declare (ignore p))
+  (message "~A" (buffer-modes (current-buffer))))
+
+(bind-key "QWebView Page Down" #k"control-v" :mode "QWebView")
+(bind-key "QWebView Page Up" #k"meta-v" :mode "QWebView")
+
+(bind-key "QWebView Scroll Down" #k"control-n" :mode "QWebView")
+(bind-key "QWebView Scroll Up" #k"control-p" :mode "QWebView")
+
+(bind-key "QWebView Scroll Top" #k"meta-\<" :mode "QWebView")
+(bind-key "QWebView Scroll Bottom" #k"meta-\>" :mode "QWebView")
+
+(bind-key "QWebView Back" #k"meta-p" :mode "QWebView")
+(bind-key "QWebView Forward" #k"meta-n" :mode "QWebView")
