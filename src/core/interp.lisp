@@ -456,7 +456,7 @@
             (etypecase res
               (command
                (let ((punt t))
-                 (with-simple-restart (abort-to-hemlock
+                 (with-simple-restart (abort
                                        "Abort to Hemlock command loop")
                    (catch 'command-loop-catcher
                      (dolist (c t-bindings)
