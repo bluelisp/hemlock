@@ -243,6 +243,18 @@
 
 ;;;; General interactive commands used in eval and typescript buffers.
 
+(defun fresh-prompt (&aux (*standard-output* (value eval-output-stream)))
+  (let ((buffer (current-buffer)))
+    (show-prompt)
+    (move-mark (variable-value 'buffer-input-mark :buffer buffer)
+               (buffer-point buffer))))
+
+(defcommand "Clear Eval Buffer" (p)
+  "" ""
+  (declare (ignore p))
+  (delete-region (buffer-region (current-buffer)))
+  (fresh-prompt))
+
 (defun get-interactive-input ()
   "Tries to return a region.  When the point is not past the input mark, and
    the user has \"Unwedge Interactive Input Confirm\" set, the buffer is

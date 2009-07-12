@@ -310,6 +310,7 @@
 (bind-key "Abort Eval Input" #k"control-meta-i" :mode "Eval")
 (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Eval")
 (bind-key "Reenter Interactive Input" #k"control-return" :mode "Eval")
+(bind-key "Clear Eval Buffer" #k"control-c meta-o" :mode "Eval")
 
 (bind-key "Editor Evaluate Expression" #k"control-meta-escape")
 (bind-key "Editor Evaluate Expression" #k"meta-escape"  :mode "Editor")
