@@ -85,6 +85,8 @@
   (:override ("paintEvent" paint-event)
              ("resizeEvent" resize-event)
              ("keyPressEvent" key-press-event)
+             ("focusOutEvent" (lambda (this event)
+                                (#_setFocus this)))
              #+nil ("mousePressEvent" mouse-press-event)
              #+nil ("mouseMoveEvent" mouse-move-event)
              #+nil ("mouseReleaseEvent" mouse-release-event)))
