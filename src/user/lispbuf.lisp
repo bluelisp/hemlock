@@ -48,23 +48,20 @@
 ;;;; Eval Mode Interaction.
 
 (defun get-prompt ()
-  #+cmu (locally (declare (special ext:*prompt*))
-          (if (functionp ext:*prompt*)
-              (funcall ext:*prompt*)
-              ext:*prompt*))
-  #+sbcl (with-output-to-string (out)
-           (funcall sb-int:*repl-prompt-fun* out))
-  #-(or cmu sbcl) "* ")
-
+  (let* ((p (in-lisp *package*))
+         (short-nick
+          (iterate:iter
+           (iterate:for nick in (cons (package-name p) (package-nicknames p)))
+           (iterate:finding nick minimizing (length nick)))))
+    (format nil "~A> " short-nick)))
 
 (defun show-prompt (&optional (stream *standard-output*))
-  #-sbcl (princ (get-prompt) stream)
-  #+sbcl (funcall sb-int:*repl-prompt-fun* stream))
+  (princ (get-prompt) stream))
 
 
 (defparameter *eval-welcome-message*
   "Welcome to the low-level Eval buffer.~@
-
+   ~@
    This buffer is useful for debugging purposes, but be careful:~@
    You are running code directly in Hemlock's GUI loop.~%~%")
 
@@ -104,7 +101,9 @@
     (let ((*standard-output*
            (variable-value 'eval-output-stream :buffer buffer)))
       (format *standard-output* *eval-welcome-message*)
-      (show-prompt))
+      #+nil (show-prompt)
+      ;; hack:
+      (format *standard-output* "CL-USER> "))
     (move-mark (variable-value 'buffer-input-mark :buffer buffer) point)))
 
 (defmode "Eval" :major-p nil :setup-function 'setup-eval-mode)
