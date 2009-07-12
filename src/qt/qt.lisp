@@ -511,7 +511,7 @@
       ;; (fixme: it still overrides a saved geometry):
       (#_setMinimumSize widget 0 0)
       (unwind-protect
-           (progn                       ;catch 'hi::hemlock-exit
+           (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero)
              (funcall command-loop-fun))
         (#_hide window)))))
 
