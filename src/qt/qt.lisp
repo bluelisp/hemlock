@@ -41,9 +41,11 @@
 (defcommand "Select Font" (p)
   "Open a font dialog and change the current display font." ""
   (declare (ignore p))
-  (setf *font*
-        (cffi:with-foreign-object (arg :char)
-          (#_QFontDialog::getFont (qt::bool* arg)))))
+  (cffi:with-foreign-object (arg :char)
+    (let ((font (#_QFontDialog::getFont (qt::bool* arg) *font*)))
+      (when (zerop (cffi:mem-ref arg :char))
+        (editor-error "Font dialog cancelled"))
+      (setf *font* font))))
 
 (defparameter *gutter* 10
   "The gutter to place between between the matter in a hemlock pane and its
