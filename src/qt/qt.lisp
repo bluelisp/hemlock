@@ -2,6 +2,13 @@
 
 (in-package :qt-hemlock)
 
+(named-readtables:defreadtable :qt-hemlock
+    (:merge :qt)
+  (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))
+
+(named-readtables:in-readtable :qt-hemlock)
+
+
 (defvar *settings-organization* "Hemlock")
 (defvar *settings-application* "Hemlock")
 
@@ -37,12 +44,6 @@
   (setf *font*
         (cffi:with-foreign-object (arg :char)
           (#_QFontDialog::getFont (qt::bool* arg)))))
-
-(named-readtables:defreadtable :qt-hemlock
-    (:merge :qt)
-  (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))
-
-(named-readtables:in-readtable :qt-hemlock)
 
 (defparameter *gutter* 10
   "The gutter to place between between the matter in a hemlock pane and its
