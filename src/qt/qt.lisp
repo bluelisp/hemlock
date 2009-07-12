@@ -73,7 +73,13 @@
 (defclass hunk-widget ()
     ((hunk :accessor widget-hunk)
      (modeline :initarg :modeline
-               :accessor widget-modeline))
+               :accessor widget-modeline)
+     (centerize :initform nil
+                :initarg :centerize
+                :accessor centerize-widget-p)
+     (paint-margin :initform nil
+                   :initarg :paint-margin
+                   :accessor paint-widget-margin-p))
   (:metaclass qt-class)
   (:qt-superclass "QWidget")
   (:override ("paintEvent" paint-event)
@@ -179,9 +185,11 @@
   (* *standard-column-width* (#_width (#_new QFontMetrics *font*) "m")))
 
 (defun offset-on-each-side (widget)
-  (let ((white-width (standard-width-in-pixels))
-        (full-width (#_width widget)))
-    (max 0.0d0 (/ (- full-width white-width) 2.0d0))))
+  (if (centerize-widget-p widget)
+      (let ((white-width (standard-width-in-pixels))
+            (full-width (#_width widget)))
+        (max 0.0d0 (/ (- full-width white-width) 2.0d0)))
+      0.0d0))
 
 (defun invoke-with-hunk-painter (fun widget)
   (let ((painter (#_new QPainter widget)))
@@ -190,16 +198,19 @@
     (#_end painter)))
 
 (defmethod paint-event ((instance hunk-widget) paint-event)
-  (let* ((painter (#_new QPainter instance)))
-    (#_setPen painter (#_Qt::NoPen))
-    (#_fillRect painter
-                (#_new QRectF (#_rect instance))
-                (#_new QBrush (#_new QColor 220 255 255)))
-    (#_end painter))
+  (when (or (paint-widget-margin-p instance)
+            (centerize-widget-p instance))
+    (let ((painter (#_new QPainter instance)))
+      (#_setPen painter (#_Qt::NoPen))
+      (#_fillRect painter
+                  (#_new QRectF (#_rect instance))
+                  (#_new QBrush (#_new QColor 220 255 255)))
+      (#_end painter)))
   (let ((left (#_new QRectF (#_rect instance))))
     (invoke-with-hunk-painter
      (lambda (painter)
-       (#_setWidth left (standard-width-in-pixels))
+       (when (paint-widget-margin-p instance)
+         (#_setWidth left (standard-width-in-pixels)))
        (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255))))
      instance))
   (let* ((hunk (slot-value instance 'hunk))
@@ -327,7 +338,9 @@
   (let* ((wrapper (#_new QSplitter))
          (vbox (#_new QVBoxLayout))
          (tabs (#_new QTabBar))
-         (main (make-instance 'hunk-widget))
+         (main (make-instance 'hunk-widget
+                              :centerize t
+                              :paint-margin t))
          (echo (make-instance 'hunk-widget))
          (font
           (let ((font (#_new QFont)))
