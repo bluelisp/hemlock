@@ -196,7 +196,7 @@
                #+port-user-ts-buf (:file "ts-buf")
                #+port-user-ts-stream (:file "ts-stream")
                #+port-user-eval-server (:file "eval-server")
-               (:file "lispbuf")
+               (:file "lispbuf" :depends-on ("filecoms"))
                #+port-user-lispeval (:file "lispeval")
                #+port-user-spell-rt (:file "spell-rt")
                #+port-user-spell-corr (:file "spell-corr")
