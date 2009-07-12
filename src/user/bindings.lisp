@@ -261,14 +261,13 @@
 (bind-key "Help on Parse" #k"control-Delete" :mode "Echo Area")
 
 (bind-key "Complete Keyword" #k"escape" :mode "Echo Area")
+(bind-key "Complete Field" #k"control-i" :mode "Echo Area")
 (bind-key "Complete Field" #k"space" :mode "Echo Area")
 (bind-key "Confirm Parse" #k"return" :mode "Echo Area")
 
 ;;; Rebind some standard commands to behave better.
 ;;;
 (bind-key "Kill Parse" #k"control-u" :mode "Echo Area")
-(bind-key "Insert Parse Default" #k"control-i" :mode "Echo Area")
-(bind-key "Insert Parse Default" #k"tab" :mode "Echo Area")
 (bind-key "Echo Area Delete Previous Character" #k"delete" :mode "Echo Area")
 (bind-key "Echo Area Delete Previous Character" #k"backspace" :mode "Echo Area")
 (bind-key "Echo Area Kill Previous Word" #k"meta-h" :mode "Echo Area")
@@ -861,11 +860,11 @@
   (bind-key "Completion Self Insert" (car c) :mode "Completion"))
 
 (bind-key "Completion Self Insert" #k"space" :mode "Completion")
-(bind-key "Completion Self Insert" #k"tab" :mode "Completion")
+;; (bind-key "Completion Self Insert" #k"tab" :mode "Completion")
 (bind-key "Completion Self Insert" #k"return" :mode "Completion")
 (bind-key "Completion Self Insert" #k"linefeed" :mode "Completion")
 
-(bind-key "Completion Complete Word" #k"end")
+(bind-key "Completion Complete Word" #k"tab")
 (bind-key "Completion Rotate Completions" #k"meta-end")
 
 
