@@ -70,6 +70,8 @@
    (ch)
    (ts)))
 
+(defvar *steal-focus-out* t)
+
 (defclass hunk-widget ()
     ((hunk :accessor widget-hunk)
      (modeline :initarg :modeline
@@ -86,10 +88,26 @@
              ("resizeEvent" resize-event)
              ("keyPressEvent" key-press-event)
              ("focusOutEvent" (lambda (this event)
-                                (#_setFocus this)))
+                                (when *steal-focus-out*
+                                  (let ((*steal-focus-out* nil))
+                                    (#_setFocus this)))))
+             ("event" intercept-event)
              #+nil ("mousePressEvent" mouse-press-event)
              #+nil ("mouseMoveEvent" mouse-move-event)
              #+nil ("mouseReleaseEvent" mouse-release-event)))
+
+(defun intercept-event (instance event)
+  (cond
+    ((and (enum= (#_type event) (#_QEvent::KeyPress))
+          ;; argh:
+          (setf event (make-instance 'qobject
+                                     :class (qt:find-qclass "QKeyEvent")
+                                     :pointer (qt::qobject-pointer event)))
+          (eql (#_key event) (primitive-value (#_Qt::Key_Tab))))
+     (key-press-event instance event)
+     t)
+    (t
+     (call-next-qmethod))))
 
 (defmethod initialize-instance :after ((instance hunk-widget) &key)
   (new instance)
