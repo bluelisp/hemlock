@@ -8,6 +8,9 @@
 
 (named-readtables:in-readtable :qt-hemlock)
 
+(defun enable-syntax ()
+  (named-readtables:in-readtable :qt-hemlock)
+  nil)
 
 (defvar *settings-organization* "Hemlock")
 (defvar *settings-application* "Hemlock")
