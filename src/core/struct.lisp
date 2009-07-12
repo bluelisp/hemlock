@@ -92,7 +92,11 @@
   write-date                  ; File-Write-Date for pathname.
   display-start               ; Window display start when switching to buf.
   %modeline-fields            ; List of modeline-field-info's.
-  (delete-hook nil))          ; List of functions to call upon deletion.
+  (delete-hook nil)           ; List of functions to call upon deletion.
+  (widget nil))
+
+(defun virtual-buffer-p (buffer)
+  (and (buffer-widget buffer) t))
 
 (setf (documentation 'buffer-modes 'function)
   "Return the list of the names of the modes active in a given buffer.")

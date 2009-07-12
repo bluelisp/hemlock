@@ -320,6 +320,8 @@
 (defvar *font*)
 (defvar *tabs*)
 (defvar *buffers-to-tabs*)
+(defvar *main-stack*)
+(defvar *main-hunk-widget*)
 
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QSplitter))
@@ -335,7 +337,11 @@
          (*font* font)
          (metrics (#_new QFontMetrics font)))
     (#_addWidget vbox tabs)
-    (#_addWidget vbox main)
+    (let ((main-stack (#_new QStackedWidget)))
+      (setf *main-stack* main-stack)
+      (setf *main-hunk-widget* main)
+      (#_addWidget vbox main-stack)
+      (#_addWidget main-stack main))
     (let ((x (#_new QWidget)))
       (#_setLayout x vbox)
       (#_addWidget wrapper x))
@@ -371,10 +377,19 @@
 (defun set-buffer-tab-hook (buffer)
   (#_setCurrentIndex *tabs* (buffer-tab-index buffer)))
 
+(defun set-stack-widget-hook (buffer)
+  (format t "setting widget ~A~%"
+          (or (hi::buffer-widget buffer)
+              *main-hunk-widget*))
+  (#_setCurrentWidget *main-stack*
+                      (or (hi::buffer-widget buffer)
+                          *main-hunk-widget*)))
+
 (add-hook hemlock::make-buffer-hook 'add-buffer-tab-hook)
 (add-hook hemlock::delete-buffer-hook 'delete-buffer-tab-hook)
 (add-hook hemlock::buffer-name-hook 'update-buffer-tab-hook)
 (add-hook hemlock::set-buffer-hook 'set-buffer-tab-hook)
+(add-hook hemlock::set-buffer-hook 'set-stack-widget-hook)
 
 (defun signal-receiver (function)
   (make-instance 'signal-receiver :function function))
@@ -798,3 +813,29 @@
 (defun hi::invoke-with-pop-up-display (cont buffer-name height)
   (funcall cont *trace-output*)
   (finish-output *trace-output*))
+
+(defun make-virtual-buffer (name widget)
+  (let ((buffer (make-buffer name)))
+    (when buffer
+      (setf (buffer-writable buffer) nil)
+      (setf (hi::buffer-widget buffer) widget)
+      (#_addWidget *main-stack* widget)
+      buffer)))
+
+;;
+
+(defun make-browser-buffer (name url)
+  (unless (getstring name hi::*buffer-names*)
+    (let ((widget (#_new QWebView)))
+      (#_setUrl widget (#_new QUrl url))
+      (make-virtual-buffer name widget))))
+
+(defcommand "Browse Qt Documentation" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((buffer
+         (make-browser-buffer
+          "*Webkit*"
+          "file:///home/david/src/qt4-x11-4.4.3/doc/html/index.html")))
+    (when buffer
+      (change-to-buffer buffer))))
