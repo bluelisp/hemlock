@@ -103,7 +103,6 @@
               ((:file "rompsite")
                (:file "input")
                (:file "macros")
-               (:file "typeout")
                (:file "line")
                (:file "ring")
                (:file "htext1") ; buffer depends on it --amb
@@ -162,6 +161,14 @@
                (:file "main")
                (:file "echo")
                (:file "new-undo")))
+     (:module core-3
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "core"))
+                           *hemlock-base-directory*)
+              :depends-on (bitmap-1 core-1)
+              :components
+              ((:file "typeout")))
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
