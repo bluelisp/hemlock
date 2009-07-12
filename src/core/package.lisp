@@ -866,8 +866,9 @@
   )
 
 (defpackage :qt-hemlock
-    (:use :common-lisp :hemlock-interface :qt)
-  )
+  (:use :common-lisp :hemlock-interface :qt)
+  (:shadow #:enable-syntax)
+  (:export #:enable-syntax))
 
 ;; $Log: package.lisp,v $
 ;; Revision 1.4  2004-09-03 23:06:51  abakic
