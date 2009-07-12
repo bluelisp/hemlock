@@ -858,18 +858,61 @@
 ;;
 
 (defun make-browser-buffer (name url)
-  (unless (getstring name hi::*buffer-names*)
+  (unless (find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
       (make-virtual-buffer name widget :modes '("QWebView")))))
+
+(defun ensure-browser-buffer (name url &aux *)
+  (cond
+    ((setf * (find-buffer name))
+     (#_setUrl (hi::buffer-widget *) (#_new QUrl url))
+     *)
+    (t
+     (make-browser-buffer name url))))
 
 (defcommand "Browse Qt Documentation" (p)
   "" ""
   (declare (ignore p))
   (let ((buffer
-         (make-browser-buffer
+         (ensure-browser-buffer
           "*Webkit*"
           "file:///home/david/src/qt4-x11-4.4.3/doc/html/index.html")))
+    (when buffer
+      (change-to-buffer buffer))))
+
+(defcommand "Browse" (p &optional url)
+  "" ""
+  (declare (ignore p))
+  (let ((buffer
+         (ensure-browser-buffer
+          "*Webkit*"
+          (or url (hi::prompt-for-string :prompt "URL: ")))))
+    (when buffer
+      (change-to-buffer buffer))))
+
+(defcommand "Google" (p &optional search-term)
+  "" ""
+  (declare (ignore p))
+  (let ((buffer
+         (ensure-browser-buffer
+          "*Webkit*"
+          (concatenate 'string
+                       "http://google.com/search?q="
+                       (or search-term (hi::prompt-for-string))))))
+    (when buffer
+      (change-to-buffer buffer))))
+
+(defcommand "clhs" (p &optional search-term)
+  "" ""
+  (declare (ignore p))
+  (let ((buffer
+         (ensure-browser-buffer
+          "*Webkit*"
+          (concatenate 'string
+                       "http://l1sp.org/cl/"
+                       (or search-term (hi::prompt-for-string
+                                        :prompt "Symbol: "))))))
     (when buffer
       (change-to-buffer buffer))))
 
@@ -937,13 +980,29 @@
   (declare (ignore p))
   (#_forward (hi::buffer-widget (current-buffer))))
 
+(defhvar "Previous Search Term" "QWebView Search Term" :mode "QWebView")
+
+(defcommand "QWebView Find Text"
+    (p &optional (search-term
+                  (hi::prompt-for-string
+                   :default (value hemlock::previous-search-term))))
+  "" ""
+  (declare (ignore p))
+  (setf (value hemlock::previous-search-term) search-term)
+  (#_findText (hi::buffer-widget (current-buffer))
+              search-term
+              (#_QWebPage::FindWrapsAroundDocument)))
+
 (defcommand "Foo" (p)
   "" ""
   (declare (ignore p))
-  (message "~A" (buffer-modes (current-buffer))))
+  (#_triggerPageAction (hi::buffer-widget (current-buffer))
+                       (#_QWebPage::MoveToNextChar)))
 
+(bind-key "QWebView Page Down" #k"space" :mode "QWebView")
 (bind-key "QWebView Page Down" #k"control-v" :mode "QWebView")
 (bind-key "QWebView Page Up" #k"meta-v" :mode "QWebView")
+(bind-key "QWebView Page Up" #k"backspace" :mode "QWebView")
 
 (bind-key "QWebView Scroll Down" #k"control-n" :mode "QWebView")
 (bind-key "QWebView Scroll Up" #k"control-p" :mode "QWebView")
@@ -953,3 +1012,5 @@
 
 (bind-key "QWebView Back" #k"meta-p" :mode "QWebView")
 (bind-key "QWebView Forward" #k"meta-n" :mode "QWebView")
+
+(bind-key "QWebView Find Text" #k"control-s" :mode "QWebView")
