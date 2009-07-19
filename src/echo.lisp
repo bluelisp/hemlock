@@ -425,6 +425,20 @@
                                 string)))))
     (parse-for-something)))
 
+(defun prompt-for-url (&key ((:default *parse-default*))
+                       ((:default-string *parse-default-string*))
+                       (trim ())
+                       ((:prompt *parse-prompt*) "URL: ")
+                       ((:help *parse-help*) "Type a URL."))
+  "Prompts for a URL.  If :trim is t, then leading and trailing whitespace
+   is removed from input, otherwise it is interpreted as a Char-Bag argument
+   to String-Trim.  Since URL syntax is hard to validate, any input is
+   accepted as if by PROMPT-FOR-STRING.  The prompt is different, however."
+  (let ((*parse-verification-function*
+         #'(lambda (string)
+             (list (string-trim (if (eq trim t) '(#\space #\tab) trim)
+                                string)))))
+    (parse-for-something)))
 
 
 ;;;; Yes-or-no and y-or-n prompting.
