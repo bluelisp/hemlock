@@ -970,7 +970,7 @@
         (invoke-with-hunk-painter
          (lambda (painter)
            (#_setPen painter (#_Qt::NoPen) #+nil (#_new QColor 0 0 255 16))
-           (#_setBrush painter (#_new QBrush (#_new QColor 0 255 255 64)))
+           (#_setBrush painter (#_new QBrush (#_new QColor 0 180 180 64)))
            (#_drawRect painter
                        (+ *gutter* (* cx cw))
                        (+ *gutter* (* cy ch))
