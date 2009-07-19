@@ -15,73 +15,28 @@
 ;;; Written by William Lott.
 ;;;
 
-(defpackage :hemlock.wire
-  (:use :common-lisp)
-  (:nicknames :wire)
-  (:export
-   ;; wire.lisp
-   #:remote-object-p
-   #:remote-object
-   #:remote-object-local-p
-   #:remote-object-eq
-   #:remote-object-value
-   #:make-remote-object
-   #:forget-remote-translation
-   #:make-wire
-   #:wire-p
-   #:wire-fd
-   #:wire-listen
-   #:wire-get-byte
-   #:wire-get-number
-   #:wire-get-string
-   #:wire-get-object
-   #:wire-force-output
-   #:wire-output-byte
-   #:wire-output-number
-   #:wire-output-string
-   #:wire-output-object
-   #:wire-output-funcall
-   #:wire-error
-   #:wire-eof
-   #:wire-io-error
-   #:*current-wire*
-   #:wire-get-bignum
-   #:wire-output-bignum
-   ;; remote.lisp
-   #:remote
-   #:remote-value
-   #:remote-value-bind
-   #:create-request-server
-   #:destroy-request-server
-   #:connect-to-remote-server))
-
 (in-package :hemlock.wire)
 
 ;;; Stuff that needs to be ported:
 
-(eval-when (compile load eval) ;For macros in remote.lisp.
-
-(defconstant buffer-size 2048)
-
-(defconstant initial-cache-size 16)
-
-(defconstant funcall0-op 0)
-(defconstant funcall1-op 1)
-(defconstant funcall2-op 2)
-(defconstant funcall3-op 3)
-(defconstant funcall4-op 4)
-(defconstant funcall5-op 5)
-(defconstant funcall-op 6)
-(defconstant number-op 7)
-(defconstant string-op 8)
-(defconstant symbol-op 9)
-(defconstant save-op 10)
-(defconstant lookup-op 11)
-(defconstant remote-op 12)
-(defconstant cons-op 13)
-(defconstant bignum-op 14)
-
-) ;eval-when
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defconstant buffer-size 2048)
+  (defconstant initial-cache-size 16)
+  (defconstant funcall0-op 0)
+  (defconstant funcall1-op 1)
+  (defconstant funcall2-op 2)
+  (defconstant funcall3-op 3)
+  (defconstant funcall4-op 4)
+  (defconstant funcall5-op 5)
+  (defconstant funcall-op 6)
+  (defconstant number-op 7)
+  (defconstant string-op 8)
+  (defconstant symbol-op 9)
+  (defconstant save-op 10)
+  (defconstant lookup-op 11)
+  (defconstant remote-op 12)
+  (defconstant cons-op 13)
+  (defconstant bignum-op 14))
 
 
 (defvar *current-wire* nil
@@ -537,24 +492,4 @@ object in the cache for future reference."
          (error "Error: Cannot output objects of type ~s across a wire."
                 (type-of object)))))))
   (values))
-
-;;; WIRE-OUTPUT-FUNCALL -- public
-;;;
-;;;   Send the funcall down the wire. Arguments are evaluated locally in the
-;;; lexical environment of the WIRE-OUTPUT-FUNCALL.
-
-(defmacro wire-output-funcall (wire-form function &rest args)
-  "Send the function and args down the wire as a funcall."
-  (let ((num-args (length args))
-        (wire (gensym)))
-    `(let ((,wire ,wire-form))
-       ,@(if (> num-args 5)
-            `((wire-output-byte ,wire funcall-op)
-              (wire-output-byte ,wire ,num-args))
-            `((wire-output-byte ,wire ,(+ funcall0-op num-args))))
-       (wire-output-object ,wire ,function)
-       ,@(mapcar #'(lambda (arg)
-                     `(wire-output-object ,wire ,arg))
-                 args)
-       (values))))
 

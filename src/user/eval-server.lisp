@@ -219,7 +219,7 @@
                   (find-if-not #'null array
                                :from-end t
                                :end current)))))
-    (delete nil array)
+    (setf array (delete nil array))
     (setf (server-info-error-index server)
           (position current array))))
 
@@ -236,7 +236,7 @@
 
 
 (defvar *editor-name* nil "Name of this editor.")
-(defvar *accept-connections* nil
+(defvar *accept-connections* t ;was: nil, but that's annoying while testing
   "When set, allow slaves to connect to the editor.")
 
 ;;; GET-EDITOR-NAME -- Internal.
@@ -253,14 +253,15 @@
       (let ((random-state (make-random-state t)))
         (dotimes (tries 10 (error "Could not create an internet listener."))
           (let ((port (+ 2000 (random 10000 random-state))))
-            (setf port 4711)            ;###
             (when (handler-case (hemlock.wire:create-request-server
                                  port
                                  #'(lambda (wire addr)
                                      (declare (ignore addr))
                                      (values *accept-connections*
                                              #'(lambda () (wire-died wire)))))
-                    (error () nil))
+                    (error (c)
+                      (warn "error on port ~D, retrying: ~A" port c)
+                      nil))
               (return (setf *editor-name*
                             (format nil "~A:~D" (machine-instance) port)))))))))
 
@@ -314,7 +315,6 @@
 
 ;;; CREATE-SLAVE -- Public.
 ;;;
-#+NILGB
 (defun create-slave (&optional name)
   "This creates a slave that tries to connect to the editor.  When the slave
    connects to the editor, this returns a slave-information structure.  Name is
@@ -324,8 +324,10 @@
    timeout and signal an editor-error."
   (when (and name (getstring name *buffer-names*))
     (editor-error "Buffer ~A is already in use." name))
-  (let ((lisp (unix-namestring (merge-pathnames (value slave-utility) "path:")
+  (let (#+some-day-we-will-have-real-remotes
+        (lisp (unix-namestring (merge-pathnames (value slave-utility) "path:")
                                t t)))
+    #+some-day-we-will-have-real-remotes
     (unless lisp
       (editor-error "Can't find ``~S'' in your path to run."
                     (value slave-utility)))
@@ -346,6 +348,7 @@
           (editor-error "Buffer ~A is already in use." background)))
       (message "Spawning slave ... ")
       (let ((proc
+             #+some-day-we-will-have-real-remotes
              (ext:run-program lisp
                               `("-slave" ,(get-editor-name)
                                 ,@(if slave (list "-slave-buffer" slave))
@@ -354,17 +357,32 @@
                                 ,@(value slave-utility-switches))
                               :wait nil
                               :output "/dev/null"
-                              :if-output-exists :append))
+                              :if-output-exists :append)
+             #-some-day-we-will-have-real-remotes
+             (bt:make-thread
+              (let ((editor-name (get-editor-name)))
+                (lambda ()
+                  (start-slave editor-name slave background)
+                  (loop
+                     (print :test *terminal-io*)
+                     (force-output *terminal-io*)
+                     (print (read-line *terminal-io*) *terminal-io*)
+                     (force-output *terminal-io*)
+                     (sleep 1))))
+              :name "Slave thread"
+              :initial-bindings `((*print-readably* . ,(constantly nil))
+                                  ,@bt:*default-special-bindings*)))
             (*accept-connections* t)
             (*newly-created-slave* nil))
         (unless proc
           (editor-error "Could not start slave."))
+        #+some-day-we-will-have-real-remotes
         (dotimes (i *slave-connect-wait*
                     (editor-error
                      "Client Lisp is still unconnected.  ~
                       You must use \"Accept Slave Connections\" to ~
                       allow the slave to connect at this point."))
-          (system:serve-event 1)
+          ;; (system:serve-event 1)
           (case (ext:process-status proc)
             (:exited
              (editor-error "The slave lisp exited before connecting."))
@@ -453,7 +471,8 @@
    slave."
   "Switch to the current slave's buffer.  When given an argument, create a new
    slave."
-  (let* ((info (if p (create-slave) (get-current-eval-server)))
+  (let* ((info (or (if p (create-slave) (get-current-eval-server))
+                   (editor-error "No current eval server yet")))
          (slave (server-info-slave-buffer info)))
     (unless slave
       (editor-error "The current eval server doesn't have a slave buffer!"))
@@ -607,7 +626,7 @@
         (connect-stream slave-info)
         *terminal-io*
         (connect-stream background-info))
-  (sleep 3)
+  #+nil (sleep 3)
   (macrolet ((frob (symbol new-value)
                `(setf ,(intern (concatenate 'simple-string
                                             "*ORIGINAL-"
@@ -719,7 +738,7 @@
 ;;;
 ;;; Initiate the process by which a lisp becomes a slave.
 ;;;
-(defun start-slave (editor)
+(defun start-slave (editor &optional slave-buffer background-buffer)
   (declare (simple-string editor))
   (let ((seperator (position #\: editor :test #'char=)))
     (unless seperator
@@ -729,7 +748,7 @@
     (let ((machine (subseq editor 0 seperator))
           (port (parse-integer editor :start (1+ seperator))))
       (format t "Connecting to ~A:~D~%" machine port)
-      (connect-to-editor machine port))))
+      (connect-to-editor machine port slave-buffer background-buffer))))
 
 
 ;;; PRINT-SLAVE-STATUS  --  Internal
@@ -770,11 +789,7 @@
 ;;;
 ;;; Do the actual connect to the editor.
 ;;;
-(defun connect-to-editor (machine port
-                          &optional
-                          (slave (find-eval-server-switch "slave-buffer"))
-                          (background (find-eval-server-switch
-                                       "background-buffer")))
+(defun connect-to-editor (machine port &optional (slave nil) (background nil))
   (let ((wire (hemlock.wire:connect-to-remote-server machine port 'editor-died)))
     #+NILGB
     (progn
@@ -831,7 +846,8 @@
                                (eval-form-error (format nil "~A~&" condition)))
                   (return-from server-eval-form nil))))
     (let ((*package* (if package
-                         (lisp::package-or-lose package)
+                         (or (find-package package)
+                             (error "no such package: ~A" package))
                          *package*))
           (*terminal-io* *eval-form-stream*))
       (stringify-list (multiple-value-list (eval (read-from-string form)))))))

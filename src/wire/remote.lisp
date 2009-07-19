@@ -16,9 +16,6 @@
 ;;; Written by William Lott.
 ;;;
 
-(defpackage :hemlock.wire
-  (:use :common-lisp))
-
 (in-package :hemlock.wire)
 
 (defstruct remote-wait
@@ -59,6 +56,26 @@ evaluation is asyncronus."
                                            ',(car form)
                                            ,@(cdr form)))
            forms)
+       (values))))
+
+;;; WIRE-OUTPUT-FUNCALL -- public
+;;;
+;;;   Send the funcall down the wire. Arguments are evaluated locally in the
+;;; lexical environment of the WIRE-OUTPUT-FUNCALL.
+
+(defmacro wire-output-funcall (wire-form function &rest args)
+  "Send the function and args down the wire as a funcall."
+  (let ((num-args (length args))
+        (wire (gensym)))
+    `(let ((,wire ,wire-form))
+       ,@(if (> num-args 5)
+            `((wire-output-byte ,wire funcall-op)
+              (wire-output-byte ,wire ,num-args))
+            `((wire-output-byte ,wire ,(+ funcall0-op num-args))))
+       (wire-output-object ,wire ,function)
+       ,@(mapcar #'(lambda (arg)
+                     `(wire-output-object ,wire ,arg))
+                 args)
        (values))))
 
 ;;; REMOTE-VALUE-BIND -- public
@@ -135,42 +152,6 @@ to aborting due to a throw."
            (maybe-nuke-remote-wait ,remote)))))))
 
 
-;;; REMOTE-VALUE -- public
-;;;
-;;; Alternate interface to getting the single return value of a remote
-;;; function. Works pretty much just the same, except the single value is
-;;; returned.
-;;;
-(defmacro remote-value (wire-form form &optional
-                                  (on-server-unwind
-                                   `(error "Remote server unwound")))
-  "Execute the single form remotly. The value of the form is returned.
-  The optional form on-server-unwind is only evaluated if the server unwinds
-  instead of returning."
-  (let ((remote (gensym))
-        (wire (gensym)))
-    `(let* ((,remote (make-remote-wait))
-            (,wire ,wire-form)
-            (*pending-returns* (cons (cons ,wire ,remote)
-                                     *pending-returns*)))
-       (unwind-protect
-           (progn
-             (remote ,wire
-               (do-1-value-call (make-remote-object ,remote))
-               ,form)
-             (wire-force-output ,wire)
-             (loop
-               #+:hemlock.serve-event
-               (serve-all-events)
-               #-:hemlock.serve-event
-               (wire-get-object ,wire)
-               (when (remote-wait-finished ,remote)
-                 (return))))
-         (maybe-nuke-remote-wait ,remote))
-       (if (remote-wait-abort ,remote)
-         ,on-server-unwind
-         (remote-wait-value1 ,remote)))))
-
 ;;; DEFINE-FUNCTIONS -- internal
 ;;;
 ;;;   Defines two functions, one that the client runs in the server, and one
@@ -228,6 +209,43 @@ to aborting due to a throw."
 (define-functions 3)
 (define-functions 4)
 (define-functions 5)
+
+
+;;; REMOTE-VALUE -- public
+;;;
+;;; Alternate interface to getting the single return value of a remote
+;;; function. Works pretty much just the same, except the single value is
+;;; returned.
+;;;
+(defmacro remote-value (wire-form form &optional
+                                  (on-server-unwind
+                                   `(error "Remote server unwound")))
+  "Execute the single form remotly. The value of the form is returned.
+  The optional form on-server-unwind is only evaluated if the server unwinds
+  instead of returning."
+  (let ((remote (gensym))
+        (wire (gensym)))
+    `(let* ((,remote (make-remote-wait))
+            (,wire ,wire-form)
+            (*pending-returns* (cons (cons ,wire ,remote)
+                                     *pending-returns*)))
+       (unwind-protect
+           (progn
+             (remote ,wire
+               (do-1-value-call (make-remote-object ,remote))
+               ,form)
+             (wire-force-output ,wire)
+             (loop
+               #+:hemlock.serve-event
+               (serve-all-events)
+               #-:hemlock.serve-event
+               (wire-get-object ,wire)
+               (when (remote-wait-finished ,remote)
+                 (return))))
+         (maybe-nuke-remote-wait ,remote))
+       (if (remote-wait-abort ,remote)
+         ,on-server-unwind
+         (remote-wait-value1 ,remote)))))
 
 
 ;;; DO-N-VALUE-CALL -- internal
@@ -296,6 +314,8 @@ to aborting due to a throw."
 ;;; Supplied a function, close the socket if it returns NIL. Otherwise, install
 ;;; the wire.
 ;;;
+(declaim (ftype (function (t t t) t) magically-get-object-in-different-thread))
+
 (defun new-connection (socket addr on-connect)
   (let ((wire (make-wire socket))
         (on-death nil))
@@ -310,9 +330,16 @@ to aborting due to a throw."
                             (declare (ignore socket))
                             (serve-requests wire on-death)))
         #-:hemlock.serve-event
-        (make-process (lambda ()
-                        (loop (wire-get-object wire)))
-                      :name (format nil "Wire process for ~S." wire))
+        (let ((lock (bt:make-recursive-lock "wire cv lock"))
+              (cv (bt:make-condition-variable)))
+          (make-process (lambda ()
+                          (loop
+                             (bt:with-recursive-lock-held (lock)
+                               (peek-char nil (wire-stream wire))
+                               (magically-get-object-in-different-thread
+                                lock cv wire)
+                               (bt:condition-wait cv lock))))
+                        :name (format nil "Wire process for ~A." wire)))
         (ext-close-connection socket))))
 
 ;;; REQUEST-SERVER structure
@@ -366,7 +393,8 @@ to aborting due to a throw."
                          (multiple-value-bind
                                (newconn addr)
                              (ext-accept-tcp-connection socket)
-                           (new-connection newconn addr on-connect)))))))
+                           (new-connection newconn addr on-connect))))
+                   :name "request server")))
     (make-request-server :socket socket
                          :handler handler)))
 
@@ -388,8 +416,8 @@ to aborting due to a throw."
 ;;; Just like the doc string says, connect to a remote server. A handler is
 ;;; installed to handle return values, etc.
 ;;;
-#-NIL
 (defun connect-to-remote-server (hostname port &optional on-death)
+  (declare (ignore on-death))           ;fixme?
   "Connect to a remote request server addressed with the given host and port
    pair.  This returns the created wire."
   (let* ((socket (ext-connect-to-inet-socket hostname port))

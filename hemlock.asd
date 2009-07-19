@@ -64,7 +64,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (qt)
+     :depends-on (:qt :bordeaux-threads :usocket :qt-repl)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
@@ -169,12 +169,24 @@
               :depends-on (bitmap-1 core-1)
               :components
               ((:file "typeout")))
+     (:module wire
+              :pathname #.(merge-pathnames
+                           (make-pathname
+                            :directory '(:relative "src" "wire"))
+                           *hemlock-base-directory*)
+              :depends-on ()
+              :serial t
+              :components
+              ((:file "package")
+               (:file "port")
+               (:file "remote")
+               (:file "wire")))
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
                             :directory '(:relative "src" "user"))
                            *hemlock-base-directory*)
-              :depends-on (root-2 core-1)
+              :depends-on (root-2 core-1 wire)
               :components
               ((:file "echocoms")
 
@@ -193,11 +205,11 @@
                (:file "text")
 
                (:file "lispmode")
-               #+port-user-ts-buf (:file "ts-buf")
-               #+port-user-ts-stream (:file "ts-stream")
-               #+port-user-eval-server (:file "eval-server")
+               (:file "ts-buf")
+               (:file "ts-stream")
+               (:file "eval-server")
                (:file "lispbuf" :depends-on ("filecoms"))
-               #+port-user-lispeval (:file "lispeval")
+               (:file "lispeval")
                #+port-user-spell-rt (:file "spell-rt")
                #+port-user-spell-corr (:file "spell-corr")
                #+port-user-spell-aug (:file "spell-aug")

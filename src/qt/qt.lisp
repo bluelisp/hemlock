@@ -361,6 +361,14 @@
 (defvar *main-stack*)
 (defvar *main-hunk-widget*)
 (defvar *echo-hunk-widget*)
+(defvar *executor*)
+(defvar *notifier*)
+
+(defun wire::magically-get-object-in-different-thread (lock cv wire)
+  (qt-repl::%eval-in-gui-thread *notifier*
+                                `(progn ;bt:with-recursive-lock-held (,lock)
+                                   (wire:wire-get-object ,wire)
+                                   (bt:condition-notify ,cv))))
 
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QSplitter))
@@ -593,6 +601,10 @@
       ;; undo the minimum set before, so that it's only a default
       ;; (fixme: it still overrides a saved geometry):
       (#_setMinimumSize widget 0 0)
+      (setf *notifier* (make-instance 'qt-repl::repl-notifier))
+      (setf *executor* (make-instance 'qt-repl::repl-executer
+                                      :notifier *notifier*))
+      (setf *editor-name* nil)          ;reinit slave stuff
       (unwind-protect
            (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero)
              (funcall command-loop-fun))
@@ -630,11 +642,11 @@
 
 (defun find-background-svg ()
   (or (probe-namestring *background-svg*)
+      (probe-namestring (merge-pathnames ".hemlock/background.svg"
+                                         (user-homedir-pathname)))
       (probe-namestring (merge-pathnames "background.svg"
                                          (asdf:component-pathname
-                                          (asdf:find-system :hemlock))))
-      (probe-namestring (merge-pathnames ".hemlock/background.svg"
-                                         (user-homedir-pathname)))))
+                                          (asdf:find-system :hemlock))))))
 
 (defun qt-window-changed (hunk)
   (setf (hunk-widget-background-pixmap (qt-hunk-widget hunk))
