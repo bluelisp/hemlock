@@ -634,6 +634,7 @@
   (cond
     (*trap-errors-p*
      (warn "ignoring error: ~A" condition)
+     #+sbcl (print (sb-debug:backtrace-as-list))
      (throw 'command-loop-catcher nil))
     (t
      (invoke-debugger condition))))
