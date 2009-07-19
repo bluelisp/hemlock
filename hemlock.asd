@@ -249,4 +249,5 @@
                            *hemlock-base-directory*)
               :depends-on (bitmap-2 core-1)
               :components
-              ((:file "qt")))))
+              ((:file "qt")
+               (:file "browser")))))
