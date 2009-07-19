@@ -121,7 +121,6 @@
 (defmethod device-exit ((device qt-device)))
 
 (defmethod device-smart-redisplay ((device qt-device) window)
-  ;; We aren't smart by any margin.
   (device-dumb-redisplay device window))
 
 (defmethod device-after-redisplay ((device qt-device))
@@ -247,11 +246,7 @@
      instance))
   (let* ((hunk (slot-value instance 'hunk))
          (device (device-hunk-device hunk)))
-    #+(or)
-    (with-slots (cursor-hunk) device
-      (when cursor-hunk
-        (qt-drop-cursor cursor-hunk)))
-    (dumb-repaint device (device-hunk-window hunk))
+    (redraw-lines device (device-hunk-window hunk) (#_region paint-event))
     ;; draw contents here
     (with-slots (cursor-hunk) device
       (when cursor-hunk
@@ -840,20 +835,22 @@
          (h (slot-value hunk 'ch)))
     (#_new QRect x y w h)))
 
-(defmethod dumb-repaint ((device qt-device) window)
+(defun redraw-lines (device window repaint-region)
+  (declare (ignore device))
   (qt-drop-cursor (window-hunk window))
   (let* ((widget (qt-hunk-widget (window-hunk window)))
          (hunk (window-hunk window))
-         (first  (window-first-line window)
-                #+nil(window-first-changed window)))
+         (first (window-first-line window))
+         (offset (truncate (offset-on-each-side widget))))
     (do ((i 0 (1+ i))
          (dl (cdr first) (cdr dl)))
         ((eq dl the-sentinel)
          (setf (window-old-lines window) (1- i)))
-      (when (or (plusp (dis-line-flags (car dl)))
-                (eql (dis-line-position (car dl))
-                     (slot-value hunk 'cy)))
-        (qt-dumb-line-redisplay hunk (car dl))))
+      (let* ((rect (dis-line-rect hunk (car dl)))
+             (region (#_new QRegion rect)))
+        (#_translate region offset 0)
+        (when (#_intersects region repaint-region)
+          (qt-dumb-line-redisplay hunk (car dl)))))
     (setf (window-first-changed window) the-sentinel
           (window-last-changed window) first)
     (when (window-modeline-buffer window)
@@ -862,11 +859,6 @@
                      (subseq (window-modeline-buffer window)
                              0
                              (window-modeline-buffer-len window)))
-      (#_update (widget-modeline widget))
-      #+(or)
-      (qt-dumb-line-redisplay hunk
-                              (window-modeline-dis-line window)
-                              t)
       (setf (dis-line-flags (window-modeline-dis-line window))
             unaltered-bits))
     (qt-put-cursor (window-hunk window))))
@@ -920,7 +912,7 @@
       (#_translate region (truncate (offset-on-each-side widget)) 0)
 
       ;; do it
-      (#_update widget region))))
+      (#_update widget #-really-dumb-redisplay region))))
 
 (defun qt-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((h (slot-value hunk 'ch))
