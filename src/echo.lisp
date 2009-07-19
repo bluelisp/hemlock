@@ -179,14 +179,14 @@
 
 ;;;; DISPLAY-PROMPT-NICELY and PARSE-FOR-SOMETHING.
 
-(defun display-prompt-nicely (&optional (prompt *parse-prompt*)
-                                        (default (or *parse-default-string*
-                                                     *parse-default*)))
+(defun display-prompt-nicely (&optional (prompt *parse-prompt*) default)
+  (declare (ignore default))
   (clear-echo-area)
   (let ((point (buffer-point *echo-area-buffer*)))
     (if (listp prompt)
         (apply #'format *echo-area-stream* prompt)
         (insert-string point prompt))
+    #+(or)                              ;we insert the default directly now
     (when default
       (insert-character point #\[)
       (insert-string point default)
@@ -194,8 +194,10 @@
 
 (defun parse-for-something ()
   (display-prompt-nicely)
-  (let ((start-window (current-window)))
-    (move-mark *parse-starting-mark* (buffer-point *echo-area-buffer*))
+  (let ((start-window (current-window))
+        (point (buffer-point *echo-area-buffer*)))
+    (move-mark *parse-starting-mark* point)
+    (insert-string point (or *parse-default-string* *parse-default*))
     (setf (current-window) *echo-area-window*)
     (unwind-protect
      (use-buffer *echo-area-buffer*
