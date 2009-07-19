@@ -87,14 +87,17 @@
   (:override ("paintEvent" paint-event)
              ("resizeEvent" resize-event)
              ("keyPressEvent" key-press-event)
-             ("focusOutEvent" (lambda (this event)
-                                (when *steal-focus-out*
-                                  (let ((*steal-focus-out* nil))
-                                    (#_setFocus this)))))
+             ("focusOutEvent" focus-out-event)
              ("event" intercept-event)
              #+nil ("mousePressEvent" mouse-press-event)
              #+nil ("mouseMoveEvent" mouse-move-event)
              #+nil ("mouseReleaseEvent" mouse-release-event)))
+
+(defun focus-out-event (this event)
+  (declare (ignore event))
+  (when *steal-focus-out*
+    (let ((*steal-focus-out* nil))
+      (#_setFocus this))))
 
 (defun intercept-event (instance event)
   (cond
@@ -197,6 +200,7 @@
 
 (defmethod resize-event ((instance hunk-widget) resize-event)
   (call-next-qmethod)
+  #+nil (#_setMaximumWidth *tabs* (#_width wrapper))
   (note-sheet-region-changed instance))
 
 (defvar *standard-column-width* 80)
@@ -353,6 +357,7 @@
 (defvar *buffers-to-tabs*)
 (defvar *main-stack*)
 (defvar *main-hunk-widget*)
+(defvar *echo-hunk-widget*)
 
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QSplitter))
@@ -379,6 +384,7 @@
       (#_setLayout x vbox)
       (#_addWidget wrapper x))
     (#_addWidget wrapper echo)
+    (setf *echo-hunk-widget* echo)
     (#_setOrientation wrapper (#_Qt::Vertical))
     (#_setFocusPolicy tabs (#_Qt::NoFocus))
     (#_setSpacing vbox 0)
@@ -387,7 +393,6 @@
     (#_setMinimumSize wrapper
                       (standard-width-in-pixels)
                       (* 25 (#_height metrics)))
-    (#_setMaximumWidth tabs (#_width wrapper))
     (#_setMaximumHeight echo 100)
     (values main echo font wrapper tabs)))
 
@@ -430,7 +435,28 @@
 (defun connect (source signal cont)
   (let ((receiver (signal-receiver cont)))
     (push receiver *do-not-gc-list*)
+    (#_QObject::connect source signal receiver (QSLOT "invoke()"))))
+
+(defun connect/int (source signal cont)
+  (let ((receiver (signal-receiver cont)))
+    (push receiver *do-not-gc-list*)
     (#_QObject::connect source signal receiver (QSLOT "invoke(int)"))))
+
+(defun connect/string (source signal cont)
+  (let ((receiver (signal-receiver cont)))
+    (push receiver *do-not-gc-list*)
+    (#_QObject::connect source
+                        signal
+                        receiver
+                        (QSLOT "invoke(const QString&)"))))
+
+(defun connect/boolean (source signal cont)
+  (let ((receiver (signal-receiver cont)))
+    (push receiver *do-not-gc-list*)
+    (#_QObject::connect source
+                        signal
+                        receiver
+                        (QSLOT "invoke(bool)"))))
 
 (defclass signal-receiver ()
   ((function :initarg :function
@@ -442,7 +468,13 @@
                                args)))
           ("invoke(int)" (lambda (this &rest args)
                            (apply (signal-receiver-function this)
-                                  args)))))
+                                  args)))
+          ("invoke(const QString&)" (lambda (this &rest args)
+                                      (apply (signal-receiver-function this)
+                                             args)))
+          ("invoke(bool)" (lambda (this &rest args)
+                            (apply (signal-receiver-function this)
+                                   args)))))
 
 (defmethod initialize-instance :after ((instance signal-receiver) &key)
   (new instance))
@@ -480,6 +512,24 @@
 (defun find-buffer (name)
   (getstring name hi::*buffer-names*))
 
+#+(or)
+(defun control-g-handler (&rest *)
+  (let ((widget *echo-hunk-widget*))
+    (cond
+      ((#_hasFocus widget)
+       (hi::q-event *editor-input* #k"control-g"))
+      (t
+       (setf *steal-focus-out* t)
+       (#_setFocus *echo-hunk-widget*)
+       (clear-echo-area)
+       (message "Focus restored.  Welcome back to Hemlock.")))))
+
+(defun control-g-handler (&rest *)
+  (setf *steal-focus-out* t)
+  (#_setFocus *echo-hunk-widget*)
+  (clear-echo-area)
+  (hi::q-event *editor-input* #k"control-g"))
+
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
   (multiple-value-bind (main echo *font* widget *tabs*)
@@ -489,8 +539,7 @@
            (*editor-input*
             (let ((e (hi::make-input-event)))
               (make-instance 'qt-editor-input :head e :tail e)))
-           (*do-not-gc-list* '())
-           (*buffers-in-tab-order* '()))
+           (*do-not-gc-list* '()))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
       (let ((menu (#_addMenu (#_menuBar window) "File")))
@@ -505,6 +554,14 @@
       (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
         (add-command-action menu "Bufed")
         (add-command-action menu "Select Buffer"))
+      (let ((menu (#_addMenu (#_menuBar window) "Browser")))
+        (add-command-action menu "Browse")
+        (add-command-action menu "Browse Qt Documentation")
+        (add-command-action menu "CLHS")
+        (add-command-action menu "Google")
+        (#_addSeparator menu)
+        (add-command-action menu "Enter Foreign Widget")
+        (add-command-action menu "Leave Foreign Widget"))
       (let ((menu (#_addMenu (#_menuBar window) "Preferences")))
         (add-command-action menu "Select Font")
         (#_addSeparator menu)
@@ -518,11 +575,16 @@
       (dolist (buffer hi::*buffer-list*)
         (unless (eq buffer *echo-area-buffer*)
           (add-buffer-tab-hook buffer)))
-      (connect *tabs*
-               (qsignal "currentChanged(int)")
-               (lambda (index)
-                 (change-to-buffer (find-buffer (#_tabText *tabs* index)))
-                 (hi::internal-redisplay)))
+      (connect/int *tabs*
+                   (qsignal "currentChanged(int)")
+                   (lambda (index)
+                     (change-to-buffer (find-buffer (#_tabText *tabs* index)))
+                     (hi::internal-redisplay)))
+      (connect (#_new QShortcut
+                      (#_new QKeySequence "Ctrl+G")
+                      (#_window *main-hunk-widget*))
+               (QSIGNAL "activated()")
+               'control-g-handler)
       (restore-window-geometry window)
       (#_show window)
       ;; undo the minimum set before, so that it's only a default
@@ -717,18 +779,46 @@
 
 (defvar *tick* 0)
 
+;;; (defun dis-line-rect (hunk dl)
+;;;   (let* ((h (slot-value hunk 'ch))
+;;;          (w (slot-value hunk 'cw))
+;;;          (xo *gutter*)
+;;;          (yo *gutter*)
+;;;      (chrs (dis-line-chars dl))
+;;;      (start 0)                      ;...
+;;;      (end (dis-line-length dl))     ;...
+;;;      (x1 (+ xo (* w start)))
+;;;      (y1 (+ 1 yo (* (dis-line-position dl) h)))
+;;;      (m (#_new QFontMetrics *font*))
+;;;      (ww (#_width m (subseq chrs start end)))
+;;;      (hh (#_ascent m)))
+;;;     (#_new QRect x1 y1 ww (* 2 hh))))
+
+(defun dis-line-rect (hunk dl)
+  (nth-line-rect hunk (dis-line-position dl)))
+
+(defun nth-line-rect (hunk i)
+  (let* ((x *gutter*)
+         (y (+ *gutter* (* i (slot-value hunk 'ch))))
+         (w (- (#_width (qt-hunk-widget hunk))
+               (ceiling (offset-on-each-side (qt-hunk-widget hunk)))))
+         (h (slot-value hunk 'ch)))
+    (#_new QRect x y w h)))
+
 (defmethod dumb-repaint ((device qt-device) window)
   (qt-drop-cursor (window-hunk window))
   (let* ((widget (qt-hunk-widget (window-hunk window)))
-         (w (#_width widget))
-         (h (#_height widget))
          (hunk (window-hunk window))
-         (first (window-first-line window)))
+         (first  (window-first-line window)
+                #+nil(window-first-changed window)))
     (do ((i 0 (1+ i))
          (dl (cdr first) (cdr dl)))
         ((eq dl the-sentinel)
          (setf (window-old-lines window) (1- i)))
-      (qt-dumb-line-redisplay hunk (car dl)))
+      (when (or (plusp (dis-line-flags (car dl)))
+                (eql (dis-line-position (car dl))
+                     (slot-value hunk 'cy)))
+        (qt-dumb-line-redisplay hunk (car dl))))
     (setf (window-first-changed window) the-sentinel
           (window-last-changed window) first)
     (when (window-modeline-buffer window)
@@ -746,8 +836,56 @@
             unaltered-bits))
     (qt-put-cursor (window-hunk window))))
 
+(defun cursor-rect (hunk x y)
+  (with-slots (cw ch) hunk
+    (when (and x y cw ch)
+      (#_new QRect
+             (+ *gutter* (* x cw))
+             (+ *gutter* (* y ch))
+             (1+ cw) (1+ ch)))))
+
 (defmethod device-dumb-redisplay ((device qt-device) window)
-  (#_update (qt-hunk-widget (window-hunk window))))
+  ;; compute the region that has changed:
+  (let* ((hunk (window-hunk window))
+         (first (window-first-line window))
+         (region (#_new QRegion))
+         (widget (qt-hunk-widget (window-hunk window))))
+    (flet ((join-rect (rect)
+             (when rect
+               (setf region (#_unite region (#_new QRegion rect))))))
+
+      ;; add "changed" lines
+      ;;
+      (do ((dl (cdr first) (cdr dl)))
+          ((eq dl the-sentinel))
+        (when (plusp (dis-line-flags (car dl)))
+          (join-rect (dis-line-rect hunk (car dl)))))
+
+      ;; add the cusor
+      (with-slots (cursor-hunk) device
+        (multiple-value-bind (x y)
+            (mark-to-cursorpos (window-point *current-window*)
+                               *current-window*)
+          (join-rect (cursor-rect hunk x y)))
+        (multiple-value-bind (x y)
+            (mark-to-cursorpos (buffer-point (window-buffer *current-window*))
+                               *current-window*)
+          (join-rect (cursor-rect hunk x y)))
+        (setf cursor-hunk hunk))
+
+      ;; add "emptied" lines
+      (let ((pos (dis-line-position (car (window-last-line window))))
+            (old (window-old-lines window)))
+        (when (and pos old)
+          (iter:iter (iter:for i from (1+ pos) to old)
+                     (join-rect (nth-line-rect hunk i))))
+        (setf (window-old-lines window) pos))
+
+      ;; oops, wrong coordinate system
+      (#_translate region (truncate (offset-on-each-side widget)) 0)
+
+      ;; do it
+      (#_update widget region))))
 
 (defun qt-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((h (slot-value hunk 'ch))
@@ -857,11 +995,46 @@
 
 ;;
 
+(defun maybe-rename-buffer (buffer new-name)
+  (unless (find-buffer new-name)
+    (setf (buffer-name buffer) new-name)))
+
+(defun rename-buffer-uniquely (buffer new-name)
+  (or (maybe-rename-buffer buffer new-name)
+      (iter:iter
+       (iter:for i from 2)
+       (iter:until
+        (maybe-rename-buffer buffer (format nil "~A<~D>" new-name i))))))
+
+(defun note-webkit-title-changed (buffer title)
+  (rename-buffer-uniquely buffer
+                          (format nil "*Webkit* [~A]" title)))
+
 (defun make-browser-buffer (name url)
   (unless (find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
-      (make-virtual-buffer name widget :modes '("QWebView")))))
+      (let ((buffer
+             (make-virtual-buffer name widget :modes '("QWebView"))))
+        (connect/string widget
+                        (QSIGNAL "titleChanged(const QString&)")
+                        (lambda (title)
+                          (note-webkit-title-changed buffer title)))
+        (connect widget
+                 (QSIGNAL "loadStarted()")
+                 (lambda ()
+                   (message "Loading page...")))
+        (connect/boolean widget
+                         (QSIGNAL "loadFinished(bool)")
+                         (lambda (ok)
+                           (message (if ok
+                                        "Page loaded."
+                                        "Failed to load page."))))
+        (connect/int widget
+                     (QSIGNAL "loadProgress(int)")
+                     (lambda (p)
+                       (message "Loading page... ~D%" p)))
+        buffer))))
 
 (defun ensure-browser-buffer (name url &aux *)
   (cond
@@ -871,13 +1044,25 @@
     (t
      (make-browser-buffer name url))))
 
+(defvar *qt-documentation-root*
+  "file:///home/david/src/qt4-x11-4.4.3/doc/html/")
+
 (defcommand "Browse Qt Documentation" (p)
   "" ""
   (declare (ignore p))
   (let ((buffer
-         (ensure-browser-buffer
-          "*Webkit*"
-          "file:///home/david/src/qt4-x11-4.4.3/doc/html/index.html")))
+         (ensure-browser-buffer "*Webkit*" *qt-documentation-root*)))
+    (when buffer
+      (change-to-buffer buffer))))
+
+(defcommand "Browse Qt Class"
+    (p &optional (class-name (hi::prompt-for-string :prompt "Class: ")))
+  "" ""
+  (declare (ignore p))
+  (let* ((url (format nil "~A/~A.html"
+                      *qt-documentation-root*
+                      (string-downcase class-name)))
+         (buffer (ensure-browser-buffer "*Webkit*" url)))
     (when buffer
       (change-to-buffer buffer))))
 
@@ -887,7 +1072,7 @@
   (let ((buffer
          (ensure-browser-buffer
           "*Webkit*"
-          (or url (hi::prompt-for-string :prompt "URL: ")))))
+          (or url (hi::prompt-for-url :prompt "URL: ")))))
     (when buffer
       (change-to-buffer buffer))))
 
@@ -915,6 +1100,12 @@
                                         :prompt "Symbol: "))))))
     (when buffer
       (change-to-buffer buffer))))
+
+(defcommand "Toggle Full Screen" (p)
+  "" ""
+  (declare (ignore p))
+  (print (#_window *main-stack*))
+  (#_showFullScreen (#_window *main-stack*)))
 
 (defmode "QWebView" :major-p t)
 
@@ -993,11 +1184,13 @@
               search-term
               (#_QWebPage::FindWrapsAroundDocument)))
 
-(defcommand "Foo" (p)
+(defcommand "QWebView Change URL" (p)
   "" ""
   (declare (ignore p))
-  (#_triggerPageAction (hi::buffer-widget (current-buffer))
-                       (#_QWebPage::MoveToNextChar)))
+  (let ((widget (hi::buffer-widget (current-buffer))))
+    (#_load widget
+            (#_new QUrl (hi::prompt-for-url
+                         :default (#_toString (#_url widget)))))))
 
 (bind-key "QWebView Page Down" #k"space" :mode "QWebView")
 (bind-key "QWebView Page Down" #k"control-v" :mode "QWebView")
@@ -1014,3 +1207,39 @@
 (bind-key "QWebView Forward" #k"meta-n" :mode "QWebView")
 
 (bind-key "QWebView Find Text" #k"control-s" :mode "QWebView")
+(bind-key "QWebView Change URL" #k"control-l" :mode "QWebView")
+
+(defcommand "Enter Foreign Widget" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((widget (hi::buffer-widget (current-buffer))))
+    (unless widget
+      (editor-error "Not a foreign widget."))
+    (setf *steal-focus-out* nil)
+    (#_setFocus widget)
+    (clear-echo-area)
+    (message "Focus set to foreign widget. Type C-g to go back.")))
+
+(defcommand "Leave Foreign Widget" (p)
+  "Like control-g-handler, except for the C-g behaviour." ""
+  (declare (ignore p))
+  (let ((echo *echo-hunk-widget*))
+    (unless (#_hasFocus echo)
+      (setf *steal-focus-out* t)
+      (#_setFocus echo)
+      (clear-echo-area)
+      (message "Focus restored.  Welcome back to Hemlock."))))
+
+(bind-key "Enter Foreign Widget" #k"enter" :mode "QWebView")
+
+(defcommand "Disable Steal Focus" (p)
+  "" ""
+  (declare (ignore p))
+  (setf *steal-focus-out* nil)
+  (message "Focus stealing disabled"))
+
+(defcommand "Enable Steal Focus" (p)
+  "" ""
+  (declare (ignore p))
+  (setf *steal-focus-out* t)
+  (#_setFocus *echo-hunk-widget*))
