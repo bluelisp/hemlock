@@ -81,7 +81,9 @@
                 :accessor centerize-widget-p)
      (paint-margin :initform nil
                    :initarg :paint-margin
-                   :accessor paint-widget-margin-p))
+                   :accessor paint-widget-margin-p)
+     (background-pixmap :initform nil
+                        :accessor hunk-widget-background-pixmap))
   (:metaclass qt-class)
   (:qt-superclass "QWidget")
   (:override ("paintEvent" paint-event)
@@ -218,17 +220,23 @@
 (defun invoke-with-hunk-painter (fun widget)
   (let ((painter (#_new QPainter widget)))
     (#_translate painter (offset-on-each-side widget) 0.0d0)
+    (#_setOpacity painter 0.9)
     (funcall fun painter)
     (#_end painter)))
 
 (defmethod paint-event ((instance hunk-widget) paint-event)
   (when (or (paint-widget-margin-p instance)
             (centerize-widget-p instance))
-    (let ((painter (#_new QPainter instance)))
-      (#_setPen painter (#_Qt::NoPen))
-      (#_fillRect painter
-                  (#_new QRectF (#_rect instance))
-                  (#_new QBrush (#_new QColor 220 255 255)))
+    (let ((painter (#_new QPainter instance))
+          (pixmap (hunk-widget-background-pixmap instance)))
+      (cond
+        (pixmap
+         (#_drawPixmap painter 0 0 pixmap))
+        (t
+         (#_setPen painter (#_Qt::NoPen))
+         (#_fillRect painter
+                     (#_new QRectF (#_rect instance))
+                     (#_new QBrush (#_new QColor 230 230 230)))))
       (#_end painter)))
   (let ((left (#_new QRectF (#_rect instance))))
     (invoke-with-hunk-painter
@@ -617,7 +625,34 @@
 (defun effective-hunk-widget-width (widget)
   (- (#_width widget) (offset-on-each-side widget)))
 
+(defvar *background-svg* nil)
+
+(defun probe-namestring (x)
+  (when (and x (probe-file x))
+    (etypecase x
+      (string x)
+      (pathname (namestring x)))))
+
+(defun find-background-svg ()
+  (or (probe-namestring *background-svg*)
+      (probe-namestring (merge-pathnames "background.svg"
+                                         (asdf:component-pathname
+                                          (asdf:find-system :hemlock))))
+      (probe-namestring (merge-pathnames ".hemlock/background.svg"
+                                         (user-homedir-pathname)))))
+
 (defun qt-window-changed (hunk)
+  (setf (hunk-widget-background-pixmap (qt-hunk-widget hunk))
+        (let ((file (find-background-svg)))
+          (if file
+              (let* ((renderer (#_new QSvgRenderer file))
+                     (w (qt-hunk-widget hunk))
+                     (pixmap (#_new QPixmap (#_width w) (#_height w))))
+                (let ((painter (#_new QPainter pixmap)))
+                  (#_render renderer painter)
+                  (#_end painter))
+                pixmap)
+              nil)))
   (let ((window (device-hunk-window hunk)))
     ;;
     ;; Nuke all the lines in the window image.
