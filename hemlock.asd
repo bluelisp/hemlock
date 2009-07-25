@@ -179,8 +179,8 @@
               :components
               ((:file "package")
                (:file "port")
-               (:file "remote")
-               (:file "wire")))
+               (:file "wire")
+               (:file "remote")))
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname

@@ -493,3 +493,22 @@ object in the cache for future reference."
                 (type-of object)))))))
   (values))
 
+;;; WIRE-OUTPUT-FUNCALL -- public
+;;;
+;;;   Send the funcall down the wire. Arguments are evaluated locally in the
+;;; lexical environment of the WIRE-OUTPUT-FUNCALL.
+
+(defmacro wire-output-funcall (wire-form function &rest args)
+  "Send the function and args down the wire as a funcall."
+  (let ((num-args (length args))
+        (wire (gensym)))
+    `(let ((,wire ,wire-form))
+       ,@(if (> num-args 5)
+            `((wire-output-byte ,wire funcall-op)
+              (wire-output-byte ,wire ,num-args))
+            `((wire-output-byte ,wire ,(+ funcall0-op num-args))))
+       (wire-output-object ,wire ,function)
+       ,@(mapcar #'(lambda (arg)
+                     `(wire-output-object ,wire ,arg))
+                 args)
+       (values))))
