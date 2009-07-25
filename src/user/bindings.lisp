@@ -799,8 +799,6 @@
 
 ;;;; Dired.
 
-#+port-user-diredcoms
-(progn
 (bind-key "Dired" #k"control-x control-meta-d")
 
 (bind-key "Dired Delete File and Down Line" #k"d" :mode "Dired")
@@ -840,7 +838,6 @@
 (bind-key "View Help" #k"?" :mode "View")
 (bind-key "Beginning of Buffer" #k"\<" :mode "View")
 (bind-key "End of Buffer" #k"\>" :mode "View")
-)
 
 ;;;; Lisp Library.
 
