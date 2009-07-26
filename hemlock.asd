@@ -69,7 +69,7 @@
     ((:module core-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "core"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :components
               ((:file "package")
@@ -86,7 +86,7 @@
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "bitmap"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (core-1)
               :components
@@ -96,7 +96,7 @@
      (:module core-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "core"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-1 core-1)
               :components
@@ -164,7 +164,7 @@
      (:module core-3
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "core"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-1 core-1)
               :components
@@ -172,19 +172,19 @@
      (:module wire
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "wire"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on ()
               :serial t
               :components
-              ((:file "package")
+              ((:file "wire-package")
                (:file "port")
                (:file "wire")
                (:file "remote")))
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "user"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (root-2 core-1 wire)
               :components
@@ -245,19 +245,19 @@
      (:module bitmap-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "bitmap"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (user-1 core-1)
               :components
-              ((:file "rompsite")
-               (:file "input")
+              ((:file "bitmap-rompsite")
+               (:file "bitmap-input")
                #+hemlock-clx (:file "bit-screen")
                #+hemlock-clx (:file "bit-display")
-               (:file "pop-up-stream")))
+               (:file "bitmap-pop-up-stream")))
      (:module qthemlock
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "qt"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-2 core-1)
               :components
