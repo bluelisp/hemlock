@@ -6,8 +6,6 @@
 ;;;
 (in-package :hemlock-internals)
 
-#+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/linimage.lisp,v 1.1 2004-07-09 15:00:36 gbaumann Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;

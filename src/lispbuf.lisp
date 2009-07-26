@@ -6,8 +6,6 @@
 ;;;
 (in-package :hemlock)
 
-#+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/lispbuf.lisp,v 1.2 2004-12-15 12:16:50 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;

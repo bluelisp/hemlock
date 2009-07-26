@@ -6,8 +6,6 @@
 ;;;
 (in-package :hemlock-internals)
 
-#+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/input.lisp,v 1.2 2004-09-03 23:06:51 abakic Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;

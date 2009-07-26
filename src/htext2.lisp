@@ -4,8 +4,6 @@
 ;;; This code was written as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
-#+CMU (ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/htext2.lisp,v 1.4 2004-12-15 12:13:26 crhodes Exp $")
 ;;;
 ;;; **********************************************************************
 ;;;
