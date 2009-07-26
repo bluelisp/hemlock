@@ -255,6 +255,13 @@
   (delete-region (buffer-region (current-buffer)))
   (fresh-prompt))
 
+(defun region-chop-newline (region)
+  (let ((end (region-end region)))
+    (when (zerop (mark-charpos end))
+      (let ((line (line-previous (mark-line end))))
+        (move-to-position end (line-length line) line)))
+    region))
+
 (defun get-interactive-input ()
   "Tries to return a region.  When the point is not past the input mark, and
    the user has \"Unwedge Interactive Input Confirm\" set, the buffer is
@@ -272,7 +279,7 @@
         (when (and (or (zerop (ring-length ring))
                        (string/= string (region-to-string (ring-ref ring 0))))
                    (> (length string) (value minimum-interactive-input-length)))
-          (ring-push (copy-region input-region) ring))
+          (ring-push (region-chop-newline (copy-region input-region)) ring))
         input-region))
      ((value unwedge-interactive-input-confirm)
       (beep)
