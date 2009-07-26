@@ -64,7 +64,8 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:qt :bordeaux-threads :usocket :qt-repl)
+     :depends-on (:qt :bordeaux-threads :usocket :qt-repl
+                      :trivial-gray-streams)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
@@ -82,7 +83,7 @@
                (:file "struct" :depends-on ("package"))
                #+port-core-struct-ed (:file "struct-ed" :depends-on ("package"))
                (hemlock-system:iso-8859-1-file "charmacs" :depends-on ("package"))
-               (:file "key-event" :depends-on ("package"))))
+               (:file "key-event" :depends-on ("package" "charmacs"))))
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -99,6 +100,7 @@
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-1 core-1)
+              :serial t                 ;...
               :components
               ((:file "rompsite")
                (:file "input")

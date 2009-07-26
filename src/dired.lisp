@@ -91,6 +91,7 @@
           (wild-match-file obj) (wild-match-substitute obj)))
 
 
+#+sbcl
 (defun copy-file (spec1 spec2 &key (update *update-default*)
                                    (clobber *clobber-default*)
                                    (directory () directoryp))
@@ -300,6 +301,7 @@
 
 ;;;; Rename-File
 
+#+sbcl
 (defun rename-file (spec1 spec2 &key (clobber *clobber-default*)
                           (directory () directoryp))
   "Rename file spec1 to spec2.  A single wildcard is acceptable, and spec2 may
@@ -440,6 +442,7 @@
 ;;; down through, letting LISP:DELETE-FILE signal an error if the directory
 ;;; is not empty.
 ;;;
+#+sbcl
 (defun delete-file (spec &key (recursive *recursive-default*)
                               (clobber *clobber-default*))
   "Delete spec asking confirmation on each file if clobber is nil.  A single
@@ -561,6 +564,7 @@
 
 ;;;; Miscellaneous Utilities (e.g., MAKEDIR).
 
+#+sbcl
 (defun make-directory (name)
   "Creates directory name.  If name exists, then an error is signaled."
   (let ((ses-name (sb-int:unix-namestring name nil)))
@@ -629,6 +633,7 @@
         (funcall *error-function* "Couldn't set write date of file ~S: ~A"
                  ses-name (sb-unix:get-unix-error-msg err))))))
 
+#+sbcl
 (defun get-write-date (ses-name)
   (multiple-value-bind (winp dev-or-err ino mode nlink uid gid rdev size
                         atime mtime)
@@ -651,6 +656,7 @@
       (funcall *error-function* "Failed to rename ~A to ~A: ~A."
                ses-name1 ses-name2 (sb-unix:get-unix-error-msg err)))))
 
+#+sbcl
 (defun directory-existsp (ses-name)
   (eq (sb-unix:unix-file-kind ses-name) :directory))
 

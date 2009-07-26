@@ -550,12 +550,7 @@
   (:shadow #:char-code-limit)
   (:import-from
    ;; gray streams
-   #+EXCL  :excl
-   #+CLISP :gray
-   #+CMU   :ext
-   #+sbcl  :sb-gray
-   #+scl   :ext
-   #+openmcl :gray
+   :trivial-gray-streams
    ;;
    ;; Note the pacth i received from DTC mentions character-output and
    ;; character-input-stream here, so we actually see us faced to
@@ -574,7 +569,8 @@
    #:stream-clear-input
    #:stream-finish-output
    #:stream-force-output
-   #:stream-line-column)
+   #:stream-line-column
+   #:stream-read-char-no-hang)
   (:import-from :hemlock-ext
                 #:delq #:memq #:assq)
   ;;
@@ -829,13 +825,7 @@
    #:SERVE-UNMAP-NOTIFY)
 
   (:import-from
-   ;; gray streams
-   #+EXCL  :excl
-   #+CLISP :gray
-   #+CMU   :ext
-   #+sbcl  :sb-gray
-   #+scl   :ext
-   #+openmcl :gray
+   :trivial-gray-streams
    ;;
    ;; Note the pacth i received from DTC mentions character-output and
    ;; character-input-stream here, so we actually see us faced to

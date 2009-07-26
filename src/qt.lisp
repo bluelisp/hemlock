@@ -606,7 +606,9 @@
                                       :notifier *notifier*))
       (setf *editor-name* nil)          ;reinit slave stuff
       (unwind-protect
-           (sb-int:with-float-traps-masked (:overflow :invalid :divide-by-zero)
+           (#+sbcl sb-int:with-float-traps-masked
+                   #+sbcl (:overflow :invalid :divide-by-zero)
+                   #-sbcl progn
              (funcall command-loop-fun))
         (#_hide window)))))
 

@@ -912,6 +912,7 @@
              #+cmu #+cmu :check-for-subdirs nil
              #+cmu #+cmu :truenamep nil))
 
+#+sbcl
 (defun print-directory-verbose (pathname all return-list)
   (let ((contents (%directory pathname all))
         (result nil))
@@ -987,6 +988,7 @@
                    (1- month))
             day (= current-year year) year hour min)))
 
+#+sbcl
 (defun print-directory-formatted (pathname all return-list)
   (let ((width (or (line-length *standard-output*) 80))
         (names ())

@@ -163,6 +163,10 @@
   :value "Prompt again at the end of the buffer? "
   :mode "Eval")
 
+(defmacro with-nonbroken-debugger (&rest forms)
+  #+sbcl `(sb-thread:with-new-session () ,@forms)
+  #-sbcl `(progn ,@forms))
+
 (defcommand "Confirm Eval Input" (p)
   "Evaluate Eval Mode input between point and last prompt."
   "Evaluate Eval Mode input between point and last prompt."
@@ -173,11 +177,8 @@
     (when input-region
       (if hi::*reading-lispbuf-input*
           (throw 'hi::lispbuf-input
-            (let ((line (concatenate 'string
-                                     (region-to-string input-region))))
-              (print line sb-sys:*tty*)
-              (force-output sb-sys:*tty*)
-              line))
+            (concatenate 'string
+                         (region-to-string input-region)))
           (let* ((output (value eval-output-stream))
                  (*terminal-io* output)
                  (*standard-output* output)
@@ -208,10 +209,10 @@
                            (let ((this-eval
                                   (multiple-value-list
                                    (let ((hi::*trap-errors-p* nil)
-                                         (sb-ext:*invoke-debugger-hook* nil)
+                                         #+sbcl (sb-ext:*invoke-debugger-hook* nil)
                                          (*debugger-hook* nil))
-                                     (sb-thread:with-new-session ()
-                                       (eval form))))))
+                                     (with-nonbroken-debugger
+                                      (eval form))))))
                              (fresh-line)
                              (dolist (x this-eval) (prin1 x) (terpri))
                              (show-prompt)

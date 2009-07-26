@@ -26,7 +26,7 @@
       (sb-bsd-sockets:socket-listen socket 2)
       socket)
     #-(OR CMU EXCL CLISP SBCL)
-    #.(error "Configure")))
+    (error "Configure")))
 
 (defun ext-accept-tcp-connection (socket)
   #+HEMLOCK-USE-USOCKET
@@ -54,7 +54,7 @@
                :external-format :iso-8859-1)
               peer-host))
     #-(OR CMU EXCL CLISP SBCL)
-    #.(error "Configure")
+    (error "Configure")
     ))
 
 (defun ext-connect-to-inet-socket (host port)
@@ -91,7 +91,7 @@
     #+CLISP
     (socket:socket-connect port host)
     #-(OR CMU EXCL CLISP SBCL)
-    #.(error "Configure")))
+    (error "Configure")))
 
 (defun ext-close-socket (socket)
   #+HEMLOCK-USE-USOCKET
@@ -103,7 +103,7 @@
     #+CLISP (socket:socket-server-close socket)
     #+SBCL  (sb-bsd-sockets:socket-close socket)
     #-(OR CMU EXCL CLISP SBCL)
-    #.(error "Configure")))
+    (error "Configure")))
 
 (defun ext-close-connection (connection)
   #+HEMLOCK-USE-USOCKET
@@ -115,7 +115,7 @@
     #+CLISP (close connection)
     #+SBCL  (close connection)
     #-(OR CMU EXCL CLISP SBCL)
-    #.(error "Configure")))
+    (error "Configure")))
 
 (defun unix-gethostid ()
   #.(or

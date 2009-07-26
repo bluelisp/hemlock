@@ -356,12 +356,18 @@ GB
                          (%command-loop)))))
              (invoke-hook hemlock::exit-hook))))))))
 
-#+sbcl
 (defun hemlock-ed-function (x)
   (hemlock x)
   t)
+
 #+sbcl
 (pushnew 'hemlock-ed-function sb-ext:*ed-functions*)
+
+#+ccl
+(unless (eq ccl:*resident-editor-hook* 'hemlock-ed-function)
+  (if ccl:*resident-editor-hook*
+      (warn "*resident-editor-hook* already bound, not installing hemlock")
+      (setf ccl:*resident-editor-hook* 'hemlock-ed-function)))
 
 (defun maybe-load-hemlock-init (init)
   (when init

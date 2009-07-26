@@ -161,9 +161,9 @@
 
 (defmethod stream-read-char ((stream hemlock-output-stream))
   (ensure-output-stream-input stream)
-  (sb-gray:stream-read-char-no-hang stream))
+  (stream-read-char-no-hang stream))
 
-(defmethod sb-gray:stream-read-char-no-hang ((stream hemlock-output-stream))
+(defmethod stream-read-char-no-hang ((stream hemlock-output-stream))
   (with-slots (input-string input-pos) stream
     (if (and input-string (< input-pos (length input-string)))
         (prog1

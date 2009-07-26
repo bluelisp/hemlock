@@ -784,6 +784,7 @@
 ;;; names, so "Dired" can map various strings naming one directory to that
 ;;; one directory.
 ;;;
+#+sbcl
 (defun dired-directorify (pathname)
   (let ((directory (sb-int:unix-namestring pathname)))
     (if (directoryp directory)
