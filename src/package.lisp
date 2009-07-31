@@ -856,7 +856,7 @@
   )
 
 (defpackage :qt-hemlock
-  (:use :common-lisp :hemlock-interface :qt)
+  (:use :common-lisp :hemlock-interface :qt :iterate)
   (:shadow #:enable-syntax)
   (:export #:enable-syntax))
 
