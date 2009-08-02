@@ -440,7 +440,6 @@
           (when (buffer-modified *echo-area-buffer*) (clear-echo-area))
           (unless (or (zerop (length cmd))
                       #+nil (not (value hemlock::key-echo-delay)))
-            #+nil (editor-sleep (value hemlock::key-echo-delay))
             (unless (listen-editor-input *editor-input*)
               (clear-echo-area)
               (dotimes (i (length cmd))

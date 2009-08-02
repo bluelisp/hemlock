@@ -93,31 +93,20 @@
 (defvar *last-message-time* 0
   "Internal-Real-Time the last time we displayed a message.")
 
-(defun maybe-wait ()
-  (let* ((now (get-internal-real-time))
-         (delta (/ (float (- now *last-message-time*))
-                   (float internal-time-units-per-second)))
-         (pause (value hemlock::message-pause)))
-    (when (< delta pause)
-      (editor-sleep (- pause delta)))))
-
 (defun clear-echo-area ()
   "You guessed it."
-  (maybe-wait)
   (delete-region *echo-area-region*)
   (setf (buffer-modified *echo-area-buffer*) nil))
 
 ;;; Message  --  Public
 ;;;
-;;;    Display the stuff on *echo-area-stream* and then wait.  Editor-Sleep
-;;; will do a redisplay if appropriate.
+;;;    Display the stuff on *echo-area-stream*.
 ;;;
 (defun message (string &rest args)
   "Nicely display a message in the echo-area.
   Put the message on a fresh line and wait for \"Message Pause\" seconds
   to give the luser a chance to see it.  String and Args are a format
   control string and format arguments, respectively."
-  (maybe-wait)
   (cond ((eq *current-window* *echo-area-window*)
          (let ((point (buffer-point *echo-area-buffer*)))
            (with-mark ((m point :left-inserting))

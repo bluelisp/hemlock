@@ -398,13 +398,15 @@
 ;;;; from rompsite.lisp
 
 (defun tty-show-mark (window x y time)
+  (declare (ignore time))
   (cond ((listen-editor-input *editor-input*))
         (x (internal-redisplay)
            (let* ((hunk (window-hunk window))
                   (device (device-hunk-device hunk)))
              (device-put-cursor device hunk x y)
              (device-force-output device)
-             (sleep-for-time time))
+             ;; the original code had a delay for TIME here
+             )
            t)
         (t nil)))
 

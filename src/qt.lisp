@@ -996,28 +996,6 @@
                        (+ *gutter* (* cy ch) ch)))
          instance)))))
 
-(defun hi::editor-sleep (time)
-  "Sleep for approximately Time seconds."
-  (unless (zerop time)
-    (hi::internal-redisplay)
-    (hi::sleep-for-time time)
-    nil))
-
-(defun hi::sleep-for-time (time)
-  #+(or)
-  (let ((device (device-hunk-device (window-hunk (current-window))))
-        (end (+ (get-internal-real-time)
-                (truncate (* time internal-time-units-per-second)))))
-    (loop
-       (when (listen-editor-input *editor-input*)
-         (return))
-       (let ((left (- end (get-internal-real-time))))
-         (unless (plusp left) (return nil))
-         (device-note-read-wait device t)
-         (sleep .1)))
-    (device-note-read-wait device nil))
-  (format t "ignoring hi::sleep-for-time ~A~%" time))
-
 #+(or)
 (defun hi::invoke-with-pop-up-display (cont buffer-name height)
   (funcall cont *trace-output*)

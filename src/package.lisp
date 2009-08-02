@@ -238,7 +238,6 @@
    #:unget-key-event
    #:clear-editor-input
    #:listen-editor-input
-   #:editor-sleep
    #:make-hemlock-output-stream
    #:hemlock-output-stream-p
    #:make-hemlock-region-stream
@@ -578,7 +577,7 @@
    #:*FAST*                             ;hmm not sure about this one
 
    ;; rompsite.lisp
-   #:show-mark #:editor-sleep #:*input-transcript* #:fun-defined-from-pathname
+   #:show-mark #:*input-transcript* #:fun-defined-from-pathname
    #:editor-describe-function #:pause-hemlock #:store-cut-string
    #:fetch-cut-string #:schedule-event #:remove-scheduled-event
    #:enter-window-autoraise #:directoryp #:merge-relative-pathnames

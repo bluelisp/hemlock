@@ -474,33 +474,6 @@
 
 
 
-;;;; Editor sleeping.
-
-#+nil                                   ;overwritten by qt.lisp
-(defun editor-sleep (time)
-  "Sleep for approximately Time seconds."
-  (unless (or (zerop time) (listen-editor-input *editor-input*))
-    (internal-redisplay)
-    (sleep-for-time time)
-    nil))
-
-#+nil                                   ;overwritten by qt.lisp
-(defun sleep-for-time (time)
-  (let ((device (device-hunk-device (window-hunk (current-window))))
-        (end (+ (get-internal-real-time)
-                (truncate (* time internal-time-units-per-second)))))
-    (loop
-      (when (listen-editor-input *editor-input*)
-        (return))
-      (let ((left (- end (get-internal-real-time))))
-        (unless (plusp left) (return nil))
-        (device-note-read-wait device t)
-        (hemlock-ext:serve-event (/ (float left)
-                                    (float internal-time-units-per-second)))))
-    (device-note-read-wait device nil)))
-
-
-
 ;;;; Showing a mark.
 
 (defun show-mark (mark window time)
