@@ -1064,3 +1064,12 @@
   (declare (ignore p))
   (setf *steal-focus-out* t)
   (#_setFocus *echo-hunk-widget*))
+
+(defcommand "Shell Command"
+    (p &optional (command (hi::prompt-for-string :prompt "Command: ")))
+  "" ""
+  (declare (ignore p))
+  (change-to-buffer
+   (connection-buffer (make-process-connection command :buffer t))))
+
+(bind-key "Shell Command" #k"meta-!")

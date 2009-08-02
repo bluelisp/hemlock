@@ -105,7 +105,7 @@
 (bind-key "New Window" #k"control-x control-n")
 (bind-key "Delete Window" #k"control-x d")
 (bind-key "Delete Next Window" #k"control-x 1")
-(bind-key "Line to Top of Window" #k"meta-!")
+#+nil (bind-key "Line to Top of Window" #k"meta-!")
 (bind-key "Line to Center of Window" #k"meta-#")
 (bind-key "Top of Window" #k"meta-,")
 (bind-key "Bottom of Window" #k"meta-.")
