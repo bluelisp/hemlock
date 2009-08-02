@@ -1022,6 +1022,16 @@
        (iter:until
         (maybe-rename-buffer buffer (format nil "~A<~D>" new-name i))))))
 
+(defun make-buffer-with-unique-name (name &rest keys)
+  (or (apply #'make-buffer name keys)
+      (iter:iter
+       (iter:for i from 2)
+       (let ((buffer (apply #'make-buffer
+                            (format nil "~A<~D>" name i)
+                            keys)))
+         (when buffer
+           (return buffer))))))
+
 (defcommand "Enter Foreign Widget" (p)
   "" ""
   (declare (ignore p))
