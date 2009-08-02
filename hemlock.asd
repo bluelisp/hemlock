@@ -264,5 +264,5 @@
               :depends-on (bitmap-2 core-1)
               :components
               ((:file "qt")
-               (:file "browser")
-               (:file "connections")))))
+               (:file "browser" :depends-on ("qt"))
+               (:file "connections" :depends-on ("qt"))))))
