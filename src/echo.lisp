@@ -225,6 +225,16 @@
 (defun buffer-verification-function (string)
   (declare (simple-string string))
   (cond ((string= string "") nil)
+        (;; fixme: this probably isn't the right place for this check,
+         ;; but COMPLETE-STRING, called below, does something weird on
+         ;; strings tokenized into words, and misses exact matches for
+         ;; some strings.  So let's check for correct buffer names first,
+         ;; before wandering off into the land of incorrect completion
+         ;; functions.  The right place to fix things is _probably_ in
+         ;; COMPLETE-STRING.
+         (let ((buffer (getstring string *buffer-names*)))
+           (when buffer
+             (list buffer))))
         (*parse-value-must-exist*
          (multiple-value-bind
              (prefix key value field ambig)
