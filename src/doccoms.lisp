@@ -176,9 +176,11 @@
   "Print out the command documentation for a key
   which is prompted for."
   (declare (ignore p))
-  (let ((old-window (current-window)))
+  (let (#+echo-area-is-separate-window
+        (old-window (current-window)))
     (unwind-protect
         (progn
+          #+echo-area-is-separate-window
           (setf (current-window) hi::*echo-area-window*)
           (hi::display-prompt-nicely "Describe key: " nil)
           (setf (fill-pointer hi::*prompt-key*) 0)
@@ -200,6 +202,7 @@
                          (hemlock-ext:print-pretty-key (copy-seq hi::*prompt-key*) s)
                          (write-string " is not bound to anything." s))
                        (return)))))))
+      #+echo-area-is-separate-window
       (setf (current-window) old-window))))
 
 (defcommand "Describe Pointer" (p)
