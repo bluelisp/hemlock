@@ -17,21 +17,25 @@
         (connect/string widget
                         (QSIGNAL "titleChanged(const QString&)")
                         (lambda (title)
-                          (note-webkit-title-changed buffer title)))
+                          (note-webkit-title-changed buffer title)
+                          (redraw-needed)))
         (connect widget
                  (QSIGNAL "loadStarted()")
                  (lambda ()
-                   (message "Loading page...")))
+                   (message "Loading page...")
+                   (redraw-needed)))
         (connect/boolean widget
                          (QSIGNAL "loadFinished(bool)")
                          (lambda (ok)
                            (message (if ok
                                         "Page loaded."
-                                        "Failed to load page."))))
+                                        "Failed to load page."))
+                           (redraw-needed)))
         (connect/int widget
                      (QSIGNAL "loadProgress(int)")
                      (lambda (p)
-                       (message "Loading page... ~D%" p)))
+                       (message "Loading page... ~D%" p)
+                       (redraw-needed)))
         buffer))))
 
 (defun ensure-browser-buffer (name url &aux *)

@@ -329,14 +329,22 @@
     (when keysym
       (hemlock-ext:make-key-event keysym mask))))
 
+(defvar *redraw-needed* nil)
+
 (defmethod get-key-event ((stream qt-editor-input) &optional ignore-abort-attempts-p)
   (declare (ignorable ignore-abort-attempts-p))
-  (hi::internal-redisplay)
-  (loop
-     (let ((event (hi::dq-event stream)))
-       (when event
-         (return event)))
-     (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))))
+  (let ((*redraw-needed* t))
+    (loop
+       (when *redraw-needed*
+         (hi::internal-redisplay))
+       (let ((event (hi::dq-event stream)))
+         (when event
+           (return event)))
+       (setf *redraw-needed* nil)
+       (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents)))))
+
+(defun redraw-needed ()
+  (setf *redraw-needed* t))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
@@ -536,7 +544,8 @@
   (setf *steal-focus-out* t)
   (#_setFocus *echo-hunk-widget*)
   (clear-echo-area)
-  (hi::q-event *editor-input* #k"control-g"))
+  (hi::q-event *editor-input* #k"control-g")
+  (redraw-needed))
 
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
@@ -587,7 +596,7 @@
                    (qsignal "currentChanged(int)")
                    (lambda (index)
                      (change-to-buffer (find-buffer (#_tabText *tabs* index)))
-                     (hi::internal-redisplay)))
+                     (redraw-needed)))
       (connect (#_new QShortcut
                       (#_new QKeySequence "Ctrl+G")
                       (#_window *main-hunk-widget*))
