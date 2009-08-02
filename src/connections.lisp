@@ -171,14 +171,65 @@
 ;;;; PROCESS-CONNECTION
 ;;;;
 
-(defclass process-connection ()
+#-(or windows mswindows)
+(cffi:defcfun (foreign-openpty "openpty") :int
+  (amaster :pointer)
+  (aslave :pointer)
+  (name :pointer)
+  (termp :pointer)
+  (winsize :pointer))
+
+(defun openpty ()
+  (cffi:with-foreign-objects ((amaster :int)
+                              (aslave :int)
+                              (name :char 256))
+    (assert (zerop (foreign-openpty amaster
+                                    aslave
+                                    name
+                                    (cffi-sys:null-pointer)
+                                    (cffi-sys:null-pointer))))
+    (values (cffi:foreign-string-to-lisp name)
+            (cffi:mem-ref amaster :int)
+            (cffi:mem-ref aslave :int))))
+
+(defclass process-connection (connection)
   ((command :initarg :command
             :accessor connection-command)))
+
+#+(or)
+(defmethod initialize-instance :after ((instance process-connection) &key)
+  (let ((process (#_new QProcess)))
+    (multiple-value-bind (pty amaster aslave)
+        (openpty)
+;;;       (#_setStandardInputFile process pty)
+;;;       (#_setStandardOutputFile process pty)
+;;;       (#_setStandardErrorFile process pty)
+      (setf (connection-io-device instance) process)
+      (make-descriptor-connection aslave :buffer t)
+      (#_start process
+               (format nil
+                       "~A ~A ~A"
+                       "/home/david/clbuild/source/hemlock/c/setpty"
+                       pty
+                       (connection-command instance))))))
 
 (defmethod initialize-instance :after ((instance process-connection) &key)
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
     (#_start process (connection-command instance))))
+
+(defmethod (setf connection-io-device)
+    :after
+    (newval (connection process-connection))
+  (connect newval
+           (QSIGNAL "finished(int,QProcess::ExitStatus)")
+           (lambda (&optional code status)
+             (note-finished connection code status)
+             (redraw-needed))))
+
+(defun note-finished (connection code status)
+  (declare (ignore connection))
+  (print (list :note-finished code status) *trace-output*))
 
 (defun make-process-connection
     (command &rest args &key name buffer filter sentinel)
