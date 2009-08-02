@@ -174,11 +174,26 @@
 
 
 ;;;;
-;;;; CONNECTION-CONNECTION
+;;;; PROCESS-CONNECTION
 ;;;;
 
-(defclass connection-connection ()
-  ())
+(defclass process-connection ()
+  ((command :initarg :command
+            :accessor connection-command)))
+
+(defmethod initialize-instance :after ((instance process-connection) &key)
+  (let ((process (#_new QProcess)))
+    (setf (connection-io-device instance) process)
+    (#_start process (connection-command instance))))
+
+(defun make-process-connection
+    (command &rest args &key name buffer filter sentinel)
+  (declare (ignore buffer filter sentinel))
+  (apply #'make-instance
+         'process-connection
+         :name (or name command)
+         :command command
+         args))
 
 
 ;;;;
