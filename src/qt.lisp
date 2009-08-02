@@ -427,9 +427,6 @@
   (#_setCurrentIndex *tabs* (buffer-tab-index buffer)))
 
 (defun set-stack-widget-hook (buffer)
-  (format t "setting widget ~A~%"
-          (or (hi::buffer-widget buffer)
-              *main-hunk-widget*))
   (#_setCurrentWidget *main-stack*
                       (or (hi::buffer-widget buffer)
                           *main-hunk-widget*)))
