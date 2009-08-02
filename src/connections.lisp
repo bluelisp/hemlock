@@ -154,18 +154,12 @@
 
 (defun connect-io-device-signals (connection)
   (let ((device (connection-io-device connection)))
-    (connect device
-             (QSIGNAL "connected()")
-             (lambda ()
-               (note-connected connection)))
-    (connect device
-             (QSIGNAL "disconnected()")
-             (lambda ()
-               (note-disconnected connection)))
+    ;; ...
     (connect device
              (QSIGNAL "readyRead()")
              (lambda ()
-               (process-incoming-data connection)))))
+               (process-incoming-data connection)
+               (redraw-needed)))))
 
 (defmethod (setf connection-io-device)
     :after
@@ -213,6 +207,20 @@
                      (connection-host instance)
                      (connection-port instance))))
 
+(defmethod (setf connection-io-device)
+    :after
+    (newval (connection tcp-connection))
+  (connect newval
+           (QSIGNAL "connected()")
+           (lambda ()
+             (note-connected connection)
+             (redraw-needed)))
+  (connect newval
+           (QSIGNAL "disconnected()")
+           (lambda ()
+             (note-disconnected connection)
+             (redraw-needed))))
+
 (defun make-tcp-connection
     (name host port &rest args &key buffer filter sentinel)
   (declare (ignore buffer filter sentinel))
@@ -238,3 +246,63 @@
     (make-tcp-connection "test" "localhost" 80
                          :buffer t
                          :sentinel #'connected)))
+
+
+;;;;
+;;;; FILE-CONNECTION
+;;;;
+
+(defclass file-connection (connection)
+  ((filename :initarg :filename
+             :accessor connection-filename)))
+
+(defmethod initialize-instance :after ((instance file-connection) &key)
+  (let ((socket (#_new QFile (connection-filename instance))))
+    (setf (connection-io-device instance) socket)
+    (#_open socket (#_QIODevice::ReadWrite))))
+
+#+(or)
+(defmethod (setf connection-io-device)
+    :after
+    (newval (connection file-connection))
+  )
+
+(defun make-file-connection
+    (filename &rest args &key name buffer filter sentinel)
+  (declare (ignore buffer filter sentinel))
+  (apply #'make-instance
+         'file-connection
+         :filename filename
+         :name (or name filename)
+         args))
+
+
+
+;;;;
+;;;; DESCRIPTOR-CONNECTION
+;;;;
+
+(defclass descriptor-connection (connection)
+  ((descriptor :initarg :descriptor
+             :accessor connection-descriptor)))
+
+(defmethod initialize-instance :after ((instance descriptor-connection) &key)
+  (let ((socket (#_new QFile)))
+    (setf (connection-io-device instance) socket)
+    (#_open socket (connection-descriptor instance) (#_QIODevice::ReadWrite))))
+
+#+(or)
+(defmethod (setf connection-io-device)
+    :after
+    (newval (connection descriptor-connection))
+  )
+
+(defun make-descriptor-connection
+    (descriptor &rest args &key name buffer filter sentinel)
+  (declare (ignore buffer filter sentinel))
+  (apply #'make-instance
+         'descriptor-connection
+         :descriptor descriptor
+         :name (or name (format nil "descriptor ~D" descriptor))
+         args))
+
