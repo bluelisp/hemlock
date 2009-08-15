@@ -795,6 +795,22 @@
 
 
 
+;;;; Coned.
+
+(bind-key "Coned" #k"control-x control-meta-b")
+(bind-key "Coned Delete" #k"d" :mode "Coned")
+(bind-key "Coned Delete" #k"control-d" :mode "Coned")
+(bind-key "Coned Undelete" #k"u" :mode "Coned")
+(bind-key "Coned Expunge" #k"!" :mode "Coned")
+(bind-key "Coned Quit" #k"q" :mode "Coned")
+(bind-key "Coned Goto" #k"space" :mode "Coned")
+(bind-key "Coned Refresh" #k"g" :mode "Coned")
+(bind-key "Next Line" #k"n" :mode "Coned")
+(bind-key "Previous Line" #k"p" :mode "Coned")
+(bind-key "Coned Help" #k"?" :mode "Coned")
+
+
+
 ;;;; Dired.
 
 (bind-key "Dired" #k"control-x control-meta-d")

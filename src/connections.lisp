@@ -5,6 +5,9 @@
 
 (defvar *all-connections* nil)
 
+(defun list-all-connections ()
+  (copy-seq *all-connections*))
+
 
 ;;;;
 ;;;; CONNECTION
@@ -38,6 +41,16 @@
   (print-unreadable-object (instance stream :identity nil :type t)
     (format stream "~A" (connection-name instance))))
 
+(defun unique-connection-name (base)
+  (let ((name base))
+    (iter:iter (iter:for i from 1)
+               (iter:while (find name
+                                 *all-connections*
+                                 :test #'equal
+                                 :key #'connection-name))
+               (setf name (format nil "~A<~D>" base i)))
+    name))
+
 (defmethod initialize-instance :after
     ((instance connection) &key buffer)
   (flet ((delete-hook (buffer)
@@ -52,17 +65,11 @@
               :delete-hook (list #'delete-hook))))
       (hi::buffer
        (push #'delete-hook (buffer-delete-hook buffer)))
+      (null)
       (t
        (error "expected NIL, T, or a buffer, but found ~A" buffer))))
-  (let* ((base (connection-name instance))
-         (name base))
-    (iter:iter (iter:for i from 1)
-               (iter:while (find name
-                                 *all-connections*
-                                 :test #'equal
-                                 :key #'connection-name))
-               (setf name (format nil "~A<~D>" base i)))
-    (setf (connection-name instance) name))
+  (setf (connection-name instance)
+        (unique-connection-name (connection-name instance)))
   (push instance *all-connections*)
   (let ((enc (connection-encoding instance)))
     (when (symbolp enc)
@@ -72,8 +79,9 @@
     (connect-io-device-signals instance)))
 
 (defun delete-connection-buffer (connection)
-  (delete-buffer (connection-buffer connection))
-  (setf (connection-buffer connection) nil))
+  (when (connection-buffer connection)
+    (delete-buffer (connection-buffer connection))
+    (setf (connection-buffer connection) nil)))
 
 (defun delete-connection (connection)
   (when (connection-io-device connection)

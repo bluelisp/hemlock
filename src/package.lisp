@@ -483,7 +483,28 @@
    #:device-hunk-previous
    #:device-hunk-device
 
-   ))
+   #:list-all-connections
+   #:connection
+   #:connection-name
+   #:connection-buffer
+   #:connection-sentinel
+   #:connection-filter
+   #:connection-encoding
+   #:delete-connection
+   #:connection-write
+   #:tcp-connection
+   #:make-tcp-connection
+   #:process-connection
+   #:connection-command
+   #:make-process-connection
+   #:file-connection
+   #:connection-port
+   #:connection-host
+   #:make-file-connection
+   #:conection-filename
+   #:descriptor-connection
+   #:connection-descriptor
+   #:make-descriptor-connection))
 
 (defpackage :hemlock-ext
   (:use :common-lisp

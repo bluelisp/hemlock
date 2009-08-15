@@ -236,6 +236,7 @@
                (:file "dired")
                (:file "diredcoms")
                (:file "bufed")
+               (:file "coned")
                #+port-user-lisp-lib (:file "lisp-lib")
                (:file "completion")
                #+port-user-shell (:file "shell")
