@@ -96,6 +96,9 @@
     ((array (unsigned-byte 8) (*))
      data)))
 
+(defun connection-listen (connection)
+  (plusp (#_bytesAvailable (connection-io-device connection))))
+
 (defun connection-write (data connection)
   (let ((bytes (filter-connection-output connection data)))
     ;; fixme: with-pointer-to-vector-data isn't portable
@@ -140,8 +143,9 @@
   (connection-note-event connection :disconnected)
   (let ((buffer (connection-buffer connection)))
     (when buffer
-      (insert-string (buffer-point buffer)
-                     (format nil "~&* Connection ~S disconnected." connection)))))
+      (with-writable-buffer (buffer)
+        (insert-string (buffer-point buffer)
+                       (format nil "~&* Connection ~S disconnected." connection))))))
 
 (defun filter-incoming-data (connection bytes)
   (funcall (or (connection-filter connection) #'default-filter)
@@ -153,7 +157,8 @@
          (characters (filter-incoming-data connection bytes))
          (buffer (connection-buffer connection)))
     (when (and characters buffer)
-      (insert-string (buffer-point buffer) characters))))
+      (with-writable-buffer (buffer)
+        (insert-string (buffer-point buffer) characters)))))
 
 (defun default-filter (connection bytes)
   ;; fixme: what about multibyte characters that got split between two
@@ -202,7 +207,13 @@
 
 (defclass process-connection (connection)
   ((command :initarg :command
-            :accessor connection-command)))
+            :accessor connection-command)
+   (exit-code :initform nil
+              :initarg :exit-code
+              :accessor connection-exit-code)
+   (exit-status :initform nil
+                :initarg :exit-status
+                :accessor connection-exit-status)))
 
 #+(or)
 (defmethod initialize-instance :after ((instance process-connection) &key)
@@ -224,6 +235,7 @@
 (defmethod initialize-instance :after ((instance process-connection) &key)
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
+    (connection-note-event instance :initialized)
     (#_start process (connection-command instance))))
 
 (defmethod (setf connection-io-device)
@@ -231,13 +243,26 @@
     (newval (connection process-connection))
   (connect newval
            (QSIGNAL "finished(int,QProcess::ExitStatus)")
-           (lambda (&optional code status)
-             (note-finished connection code status)
+           (lambda (&rest *)
+             (note-finished connection)
              (redraw-needed))))
 
-(defun note-finished (connection code status)
-  (declare (ignore connection))
-  (print (list :note-finished code status) *trace-output*))
+(defun note-finished (connection)
+  (let* ((process (connection-io-device connection))
+         (code (#_exitCode process))
+         (status (#_exitStatus process)))
+    (setf (connection-exit-code connection) code)
+    (setf (connection-exit-status connection) status)
+    (connection-note-event connection :finished)
+    (let ((buffer (connection-buffer connection)))
+      (when buffer
+        (with-writable-buffer (buffer)
+          (insert-string
+           (buffer-point buffer)
+           (format nil "~&* Process ~S finished with code ~A and status ~A."
+                   connection
+                   code
+                   status)))))))
 
 (defun make-process-connection
     (command &rest args &key name buffer filter sentinel)
@@ -262,6 +287,7 @@
 (defmethod initialize-instance :after ((instance tcp-connection) &key)
   (let ((socket (#_new QTcpSocket)))
     (setf (connection-io-device instance) socket)
+    (connection-note-event instance :initialized)
     (#_connectToHost socket
                      (connection-host instance)
                      (connection-port instance))))
@@ -308,6 +334,49 @@
 
 
 ;;;;
+;;;; TCP-CONNECTION
+;;;;
+
+(defclass tcp-listener-connection (connection)
+  ((host :initarg :host
+         :accessor connection-host)
+   (port :initarg :port
+         :accessor connection-port)))
+
+(defmethod initialize-instance :after ((instance tcp-listener-connection) &key)
+  (let ((socket (#_new QTcpSocket)))
+    (setf (connection-io-device instance) socket)
+    (connection-note-event instance :initialized)
+    (#_connectToHost socket
+                     (connection-host instance)
+                     (connection-port instance))))
+
+(defmethod (setf connection-io-device)
+    :after
+    (newval (connection tcp-listener-connection))
+  (connect newval
+           (QSIGNAL "connected()")
+           (lambda ()
+             (note-connected connection)
+             (redraw-needed)))
+  (connect newval
+           (QSIGNAL "disconnected()")
+           (lambda ()
+             (note-disconnected connection)
+             (redraw-needed))))
+
+(defun make-tcp-listener
+    (name host port &rest args &key buffer filter sentinel)
+  (declare (ignore buffer filter sentinel))
+  (apply #'make-instance
+         'tcp-listener-connection
+         :name name
+         :host host
+         :port port
+         args))
+
+
+;;;;
 ;;;; FILE-CONNECTION
 ;;;;
 
@@ -318,6 +387,7 @@
 (defmethod initialize-instance :after ((instance file-connection) &key)
   (let ((socket (#_new QFile (connection-filename instance))))
     (setf (connection-io-device instance) socket)
+    (connection-note-event instance :initialized)
     (#_open socket (#_QIODevice::ReadWrite))))
 
 #+(or)
@@ -348,6 +418,7 @@
 (defmethod initialize-instance :after ((instance descriptor-connection) &key)
   (let ((socket (#_new QFile)))
     (setf (connection-io-device instance) socket)
+    (connection-note-event instance :initialized)
     (#_open socket (connection-descriptor instance) (#_QIODevice::ReadWrite))))
 
 #+(or)
@@ -365,3 +436,48 @@
          :name (or name (format nil "descriptor ~D" descriptor))
          args))
 
+
+;;; wire interaction
+
+(defstruct (connection-device
+             (:include hemlock.wire:device)
+           (:conc-name "DEVICE-")
+           (:constructor %make-connection-device (connection)))
+  (connection (error "missing argument") :type connection)
+  (reading 0 :type integer)
+  (filter-counter 0 :type integer))
+
+(defun make-connection-device (connection)
+  (let ((device (%make-connection-device connection)))
+    (setf (connection-filter connection)
+          (lambda (connection bytes)
+            (connection-device-filter device connection bytes)))
+    (setf (connection-sentinel connection)
+          (lambda (connection event)
+            (connection-device-sentinel device connection event)))
+    device))
+
+(defun connection-device-filter (device connection bytes)
+  (declare (ignore connection))
+  (incf (device-filter-counter device))
+  (hemlock.wire:device-append-to-input-buffer device bytes)
+  (when (zerop (device-reading device))
+    (hemlock.wire:device-serve-requests device)))
+
+(defun connection-device-sentinel (device connection event)
+  (declare (ignore device connection))
+  (print (list :connection-device-sentinel event)))
+
+(defmethod hemlock.wire:device-listen
+    ((device connection-device))
+  (connection-listen (device-connection device)))
+
+(defmethod hemlock.wire:device-read
+    ((device connection-device) buffer)
+  (unwind-protect
+       (let ((previous-counter (device-filter-counter device)))
+         (incf (device-reading device))
+         (iter (process-one-event)
+               (while (eql previous-counter (device-filter-counter device)))))
+    (decf (device-reading device)))
+  0)

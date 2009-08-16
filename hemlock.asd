@@ -209,6 +209,7 @@
                (:file "lispmode")
                (:file "ts-buf")
                (:file "ts-stream")
+               (:file "request")
                (:file "eval-server")
                (:file "lispbuf" :depends-on ("filecoms"))
                (:file "lispeval")

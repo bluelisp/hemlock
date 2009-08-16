@@ -253,12 +253,7 @@
       (let ((random-state (make-random-state t)))
         (dotimes (tries 10 (error "Could not create an internet listener."))
           (let ((port (+ 2000 (random 10000 random-state))))
-            (when (handler-case (hemlock.wire:create-request-server
-                                 port
-                                 #'(lambda (wire addr)
-                                     (declare (ignore addr))
-                                     (values *accept-connections*
-                                             #'(lambda () (wire-died wire)))))
+            (when (handler-case (create-request-server port)
                     (error (c)
                       (warn "error on port ~D, retrying: ~A" port c)
                       nil))
@@ -315,6 +310,13 @@
 
 ;;; CREATE-SLAVE -- Public.
 ;;;
+
+;;;          ,(get-editor-name)
+;;;          ,@(if slave (list "-slave-buffer" slave))
+;;;           ,@(if background
+;;;                 (list "-background-buffer" background))
+;;;           ,@(value slave-utility-switches)
+
 (defun create-slave (&optional name)
   "This creates a slave that tries to connect to the editor.  When the slave
    connects to the editor, this returns a slave-information structure.  Name is
@@ -324,13 +326,7 @@
    timeout and signal an editor-error."
   (when (and name (getstring name *buffer-names*))
     (editor-error "Buffer ~A is already in use." name))
-  (let (#+some-day-we-will-have-real-remotes
-        (lisp (unix-namestring (merge-pathnames (value slave-utility) "path:")
-                               t t)))
-    #+some-day-we-will-have-real-remotes
-    (unless lisp
-      (editor-error "Can't find ``~S'' in your path to run."
-                    (value slave-utility)))
+  (let ()
     (multiple-value-bind (slave background)
                          (if name
                              (values name (format nil "Background ~A" name))
@@ -348,49 +344,80 @@
           (editor-error "Buffer ~A is already in use." background)))
       (message "Spawning slave ... ")
       (let ((proc
-             #+some-day-we-will-have-real-remotes
-             (ext:run-program lisp
-                              `("-slave" ,(get-editor-name)
-                                ,@(if slave (list "-slave-buffer" slave))
-                                ,@(if background
-                                      (list "-background-buffer" background))
-                                ,@(value slave-utility-switches))
-                              :wait nil
-                              :output "/dev/null"
-                              :if-output-exists :append)
-             #-some-day-we-will-have-real-remotes
-             (bt:make-thread
-              (let ((editor-name (get-editor-name)))
-                (lambda ()
-                  (start-slave editor-name slave background)
-                  (loop
-                     (print :test *terminal-io*)
-                     (force-output *terminal-io*)
-                     (print (read-line *terminal-io*) *terminal-io*)
-                     (force-output *terminal-io*)
-                     (sleep 1))))
-              :name "Slave thread"
-              :initial-bindings `((*print-readably* . ,(constantly nil))
-                                  ,@bt:*default-special-bindings*)))
+             (make-process-connection
+              (format nil "clbuild run hemlock-slave --editor ~A"
+                      (get-editor-name))
+              :buffer t))
             (*accept-connections* t)
             (*newly-created-slave* nil))
         (unless proc
           (editor-error "Could not start slave."))
-        #+some-day-we-will-have-real-remotes
+        #+(or)
         (dotimes (i *slave-connect-wait*
                     (editor-error
                      "Client Lisp is still unconnected.  ~
                       You must use \"Accept Slave Connections\" to ~
                       allow the slave to connect at this point."))
-          ;; (system:serve-event 1)
-          (case (ext:process-status proc)
-            (:exited
-             (editor-error "The slave lisp exited before connecting."))
-            (:signaled
-             (editor-error "The slave lisp was kill before connecting.")))
+          (qt-hemlock::process-one-event)
+          (when (connection-exit-status proc)
+            (editor-error "The slave lisp exited before connecting."))
           (when *newly-created-slave*
             (message "DONE")
             (return *newly-created-slave*)))))))
+
+;;; CREATE-SLAVE-IN-THREAD -- Public.
+;;;
+(defun create-slave-in-thread (&optional name)
+  "This creates a slave that tries to connect to the editor.  When the slave
+   connects to the editor, this returns a slave-information structure.  Name is
+   the name of the interactive buffer.  If name is nil, this generates a name.
+   If name is supplied, and a buffer with that name already exists, this
+   signals an error.  In case the slave never connects, this will eventually
+   timeout and signal an editor-error."
+  (when (and name (getstring name *buffer-names*))
+    (editor-error "Buffer ~A is already in use." name))
+  (multiple-value-bind (slave background)
+      (if name
+          (values name (format nil "Background ~A" name))
+          (pick-slave-buffer-names))
+    (when (value confirm-slave-creation)
+      (setf slave (prompt-for-string
+                   :prompt "New slave name? "
+                   :help "Enter the name to use for the newly created slave."
+                   :default slave
+                   :default-string slave))
+      (setf background (format nil "Background ~A" slave))
+      (when (getstring slave *buffer-names*)
+        (editor-error "Buffer ~A is already in use." slave))
+      (when (getstring background *buffer-names*)
+        (editor-error "Buffer ~A is already in use." background)))
+    (message "Spawning slave ... ")
+    (let ((proc
+            (bt:make-thread
+             (let ((editor-name (get-editor-name)))
+               (lambda ()
+                 (start-slave editor-name slave background)
+                 (loop
+                    (qt-hemlock::process-one-event))))
+             :name "Slave thread"
+             :initial-bindings `((*print-readably* . ,(constantly nil))
+                                 ,@bt:*default-special-bindings*)))
+          (*accept-connections* t)
+          (*newly-created-slave* nil))
+      (unless proc
+        (editor-error "Could not start slave."))
+      #+(or)
+      (dotimes (i *slave-connect-wait*
+                (editor-error
+                 "Client Lisp is still unconnected.  ~
+                      You must use \"Accept Slave Connections\" to ~
+                      allow the slave to connect at this point."))
+        (qt-hemlock::process-one-event)
+        (unless (bt:thread-alive-p proc)
+          (editor-error "The slave thread exited before connecting."))
+        (when *newly-created-slave*
+          (message "DONE")
+          (return *newly-created-slave*))))))
 
 ;;; MAYBE-CREATE-SERVER -- Internal interface.
 ;;;
@@ -472,6 +499,15 @@
   "Switch to the current slave's buffer.  When given an argument, create a new
    slave."
   (let* ((info (or (if p (create-slave) (get-current-eval-server))
+                   (editor-error "No current eval server yet")))
+         (slave (server-info-slave-buffer info)))
+    (unless slave
+      (editor-error "The current eval server doesn't have a slave buffer!"))
+    (change-to-buffer slave)))
+
+(defcommand "Select Self As Slave" (p)
+  "" ""
+  (let* ((info (or (if p (create-slave-in-thread) (get-current-eval-server))
                    (editor-error "No current eval server yet")))
          (slave (server-info-slave-buffer info)))
     (unless slave
@@ -790,35 +826,14 @@
 ;;; Do the actual connect to the editor.
 ;;;
 (defun connect-to-editor (machine port &optional (slave nil) (background nil))
-  (let ((wire (hemlock.wire:connect-to-remote-server machine port 'editor-died)))
-    #+NILGB
-    (progn
-      (ext:add-oob-handler (hemlock.wire:wire-fd wire)
-                           #\B
-                           #'(lambda ()
-                               (system:without-hemlock
-                                (system:with-interrupts
-                                    (break "Software Interrupt")))))
-      (ext:add-oob-handler (hemlock.wire:wire-fd wire)
-                           #\T
-                           #'(lambda ()
-                               (when lisp::*in-top-level-catcher*
-                                 (throw 'lisp::top-level-catcher nil))))
-      (ext:add-oob-handler (hemlock.wire:wire-fd wire)
-                           #\A
-                           #'abort)
-      (ext:add-oob-handler (hemlock.wire:wire-fd wire)
-                           #\N
-                           #'(lambda ()
-                               (setf *abort-operations* t)
-                               (when *inside-operation*
-                                 (throw 'abort-operation
-                                   (if debug::*in-the-debugger*
-                                       :was-in-debugger)))))
-      (ext:add-oob-handler (hemlock.wire:wire-fd wire) #\S #'print-slave-status))
-
-    (hemlock.wire:remote-value wire
-      (make-buffers-for-typescript slave background))))
+  (hemlock.wire:connect-to-remote-server
+   machine
+   port
+   (lambda (wire)
+     (hemlock.wire:remote-value
+      wire
+      (make-buffers-for-typescript slave background)))
+   'editor-died))
 
 
 ;;;; Eval server evaluation functions.

@@ -20,23 +20,23 @@
 ;;; Stuff that needs to be ported:
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defconstant buffer-size 2048)
-  (defconstant initial-cache-size 16)
-  (defconstant funcall0-op 0)
-  (defconstant funcall1-op 1)
-  (defconstant funcall2-op 2)
-  (defconstant funcall3-op 3)
-  (defconstant funcall4-op 4)
-  (defconstant funcall5-op 5)
-  (defconstant funcall-op 6)
-  (defconstant number-op 7)
-  (defconstant string-op 8)
-  (defconstant symbol-op 9)
-  (defconstant save-op 10)
-  (defconstant lookup-op 11)
-  (defconstant remote-op 12)
-  (defconstant cons-op 13)
-  (defconstant bignum-op 14))
+  (defconstant +buffer-size+ 2048)
+  (defconstant +initial-cache-size+ 16)
+  (defconstant +funcall0-op+ 0)
+  (defconstant +funcall1-op+ 1)
+  (defconstant +funcall2-op+ 2)
+  (defconstant +funcall3-op+ 3)
+  (defconstant +funcall4-op+ 4)
+  (defconstant +funcall5-op+ 5)
+  (defconstant +funcall-op+ 6)
+  (defconstant +number-op+ 7)
+  (defconstant +string-op+ 8)
+  (defconstant +symbol-op+ 9)
+  (defconstant +save-op+ 10)
+  (defconstant +lookup-op+ 11)
+  (defconstant +remote-op+ 12)
+  (defconstant +cons-op+ 13)
+  (defconstant +bignum-op+ 14))
 
 
 (defvar *current-wire* nil
@@ -54,19 +54,41 @@
 (defvar *next-id* 0
   "Next available id for remote objects.")
 
+(defstruct device
+  (wire nil))
+
+(defstruct (stream-device
+             (:include device)
+             (:conc-name "DEVICE-")
+             (:constructor make-stream-device (stream)))
+  (stream (error "missing argument") :type stream))
 
 (defstruct (wire
-            (:constructor make-wire (stream))
+            (:constructor %make-wire (device))
             (:print-function
              (lambda (wire stream depth)
                (declare (ignore depth))
-               (format stream
-                       "#<wire ~s>"
-                       (wire-stream wire)))))
-  stream
-  (object-cache (make-array initial-cache-size))
+               (print-unreadable-object (wire stream)
+                 (format stream "~A" (wire-device wire))))))
+  (device (error "missing argument") :type device)
+
+  (ibuf (make-array +buffer-size+ :element-type '(unsigned-byte 8)))
+  (ibuf-offset 0)
+  (ibuf-end 0)
+
+  (obuf (make-array +buffer-size+ :element-type '(unsigned-byte 8)))
+  (obuf-end 0)
+
+  (object-cache (make-array +initial-cache-size+))
   (cache-index 0)
-  (object-hash (make-hash-table :test 'eq)))
+  (object-hash (make-hash-table :test 'eq))
+
+  (encoding :utf-8))
+
+(defun make-wire (device)
+  (let ((wire (%make-wire device)))
+    (setf (device-wire device) wire)
+    wire))
 
 (defstruct (remote-object
             (:constructor %make-remote-object (host pid id))
@@ -205,10 +227,16 @@ object. Passing that remote object to remote-object-value will new return NIL."
 ;;;
 ;;;   If nothing is in the current input buffer, select on the file descriptor.
 
+(defgeneric device-listen (device))
+
 (defun wire-listen (wire)
   "Return T iff anything is in the input buffer or available on the socket."
-  (or
-      (listen (wire-stream wire))))
+  (or (< (wire-ibuf-offset wire)
+         (wire-ibuf-end wire))
+      (device-listen (wire-device wire))))
+
+(defmethod device-listen ((device stream-device))
+  (listen (device-stream device)))
 
 ;;; WIRE-GET-BYTE -- public
 ;;;
@@ -216,11 +244,59 @@ object. Passing that remote object to remote-object-value will new return NIL."
 
 (defun wire-get-byte (wire)
   "Return the next byte from the wire."
-  (let ((c (read-char (wire-stream wire) nil :eof)))
-    (cond ((eql c :eof)
-           (error 'wire-eof :wire wire))
-          (t
-           (char-int c)))))
+  (when (<= (wire-ibuf-end wire)
+            (wire-ibuf-offset wire))
+    (fill-input-buffer wire))
+  (prog1
+      (elt (wire-ibuf wire)
+           (wire-ibuf-offset wire))
+    (incf (wire-ibuf-offset wire))))
+
+;;; FILL-INPUT-BUFFER -- Internal
+;;;
+;;;   Fill the input buffer from the socket. If we get an error reading, signal
+;;; a wire-io-error. If we get an EOF, signal a wire-eof error. If we get any
+;;; data, set the ibuf-end index.
+
+(defun fill-input-buffer (wire)
+  "Read data off the socket, filling the input buffer. The buffer is cleared
+   first. If fill-input-buffer returns, it is guarenteed that there will be at
+   least one byte in the input buffer. If EOF was reached, as wire-eof error
+   is signaled."
+  (setf (wire-ibuf-offset wire) 0
+        (wire-ibuf-end wire) 0)
+  (incf (wire-ibuf-end wire)
+        (device-read (wire-device wire)
+                     (or (wire-ibuf wire)
+                         (error 'wire-eof :wire wire))))
+  (when (zerop (wire-ibuf-end wire))
+    (error 'wire-eof :wire wire))
+  (values))
+
+(defmethod device-read ((device stream-device) buffer)
+  (read-sequence (device-stream device) buffer))
+
+;;; APPEND-TO-INPUT-BUFFER -- Internal
+;;;
+;;;   Add new data to the input buffer.  Used asynchonous devices, where
+;;; fill-input-buffer itself it just there to re-enter the event loop.
+
+(defun append-to-input-buffer (wire bytes)
+  (incf (wire-ibuf-end wire) (length bytes))
+  (when (< (wire-ibuf-end wire) (length (wire-ibuf wire)))
+    (let ((old (wire-ibuf wire)))
+      (setf (wire-ibuf wire)
+            (make-array (wire-ibuf-end wire) :element-type '(unsigned-byte 8)))
+      (replace (wire-ibuf wire) old)
+      (replace (wire-ibuf wire) bytes :start1 (length old)))))
+
+;;; APPEND-TO-INPUT-BUFFER -- External.
+;;;
+;;;   The externally-visible interface of the above function for device
+;;; classes.
+
+(defun device-append-to-input-buffer (device bytes)
+  (append-to-input-buffer (device-wire device) bytes))
 
 ;;; WIRE-GET-NUMBER -- public
 ;;;
@@ -257,17 +333,40 @@ signed (defaults to T)."
 
 ;;; WIRE-GET-STRING -- public
 ;;;
-;;;   Use WIRE-GET-NUMBER to read the length, and then read the string
-;;; contents.
+;;;   Use WIRE-GET-NUMBER to read the length, then keep pulling stuff out of
+;;; the input buffer and re-filling it with FILL-INPUT-BUFFER until we've read
+;;; the entire string.
 
 (defun wire-get-string (wire)
-  "Reads a string from the wire. The first four bytes spec the size."
-  (let* ((length (wire-get-number wire))
-         (result (make-string length)))
-    (declare (simple-string result)
-             (integer length))
-    (read-sequence result (wire-stream wire))
-    result))
+  "Reads a string from the wire. The first four bytes spec the size in bytes."
+  (let* ((nbytes (wire-get-number wire))
+         (bytes (make-string nbytes))
+         (offset 0))
+    (declare (integer nbytes offset))
+    (loop
+      (let ((avail (- (wire-ibuf-end wire)
+                      (wire-ibuf-offset wire)))
+            (ibuf (wire-ibuf wire)))
+        (declare (integer avail))
+        (cond ((<= nbytes avail)
+               (replace bytes
+                        ibuf
+                        :start1 offset
+                        :start2 (wire-ibuf-offset wire))
+               (incf (wire-ibuf-offset wire) nbytes)
+               (return nil))
+              ((zerop avail)
+               (fill-input-buffer wire))
+              (t
+               (replace bytes
+                        ibuf
+                        :start1 offset
+                        :start2 (wire-ibuf-offset wire)
+                        :end2 (wire-ibuf-end wire))
+               (incf offset avail)
+               (decf nbytes avail)
+               (incf (wire-ibuf-offset wire) avail)))))
+    (babel:octets-to-string bytes :encoding (wire-encoding wire))))
 
 ;;; WIRE-GET-OBJECT -- public
 ;;;
@@ -280,20 +379,20 @@ signed (defaults to T)."
   (let ((identifier (wire-get-byte wire))
         (*current-wire* wire))
     (declare (fixnum identifier))
-    (cond ((eql identifier lookup-op)
+    (cond ((eql identifier +lookup-op+)
            (let ((index (wire-get-number wire))
                  (cache (wire-object-cache wire)))
              (declare (integer index))
              (declare (simple-vector cache))
              (when (< index (length cache))
                (svref cache index))))
-          ((eql identifier number-op)
+          ((eql identifier +number-op+)
            (wire-get-number wire))
-          ((eql identifier bignum-op)
+          ((eql identifier +bignum-op+)
            (wire-get-bignum wire))
-          ((eql identifier string-op)
+          ((eql identifier +string-op+)
            (wire-get-string wire))
-          ((eql identifier symbol-op)
+          ((eql identifier +symbol-op+)
            (let* ((symbol-name (wire-get-string wire))
                   (package-name (wire-get-string wire))
                   (package (find-package package-name)))
@@ -302,15 +401,15 @@ signed (defaults to T)."
                        package, ~A."
                       symbol-name package-name))
              (intern symbol-name package)))
-          ((eql identifier cons-op)
+          ((eql identifier +cons-op+)
            (cons (wire-get-object wire)
                  (wire-get-object wire)))
-          ((eql identifier remote-op)
+          ((eql identifier +remote-op+)
            (let ((host (wire-get-number wire nil))
                  (pid (wire-get-number wire))
                  (id (wire-get-number wire)))
              (%make-remote-object host pid id)))
-          ((eql identifier save-op)
+          ((eql identifier +save-op+)
            (let ((index (wire-get-number wire))
                  (cache (wire-object-cache wire)))
              (declare (integer index))
@@ -326,34 +425,34 @@ signed (defaults to T)."
                       (setf (wire-object-cache wire) cache)))))
              (setf (svref cache index)
                    (wire-get-object wire))))
-          ((eql identifier funcall0-op)
+          ((eql identifier +funcall0-op+)
            (funcall (wire-get-object wire)))
-          ((eql identifier funcall1-op)
+          ((eql identifier +funcall1-op+)
            (funcall (wire-get-object wire)
                     (wire-get-object wire)))
-          ((eql identifier funcall2-op)
+          ((eql identifier +funcall2-op+)
            (funcall (wire-get-object wire)
                     (wire-get-object wire)
                     (wire-get-object wire)))
-          ((eql identifier funcall3-op)
-           (funcall (wire-get-object wire)
-                    (wire-get-object wire)
-                    (wire-get-object wire)
-                    (wire-get-object wire)))
-          ((eql identifier funcall4-op)
+          ((eql identifier +funcall3-op+)
            (funcall (wire-get-object wire)
                     (wire-get-object wire)
                     (wire-get-object wire)
-                    (wire-get-object wire)
                     (wire-get-object wire)))
-          ((eql identifier funcall5-op)
+          ((eql identifier +funcall4-op+)
            (funcall (wire-get-object wire)
                     (wire-get-object wire)
                     (wire-get-object wire)
                     (wire-get-object wire)
+                    (wire-get-object wire)))
+          ((eql identifier +funcall5-op+)
+           (funcall (wire-get-object wire)
+                    (wire-get-object wire)
+                    (wire-get-object wire)
+                    (wire-get-object wire)
                     (wire-get-object wire)
                     (wire-get-object wire)))
-          ((eql identifier funcall-op)
+          ((eql identifier +funcall-op+)
            (let ((arg-count (wire-get-byte wire))
                  (function (wire-get-object wire))
                  (args '())
@@ -381,8 +480,16 @@ signed (defaults to T)."
 (defun wire-force-output (wire)
   "Send any info still in the output buffer down the wire and clear it. Nothing
 harmfull will happen if called when the output buffer is empty."
-  (force-output (wire-stream wire))
+  (unless (zerop (wire-obuf-end wire))
+    (device-write (wire-device wire)
+                  (wire-obuf wire)
+                  (wire-obuf-end wire))
+    (setf (wire-obuf-end wire) 0))
   (values))
+
+(defmethod device-write
+    ((device stream-device) buffer &optional (end (length buffer)))
+  (write-sequence (device-stream device) buffer :end end))
 
 ;;; WIRE-OUTPUT-BYTE -- public
 ;;;
@@ -392,7 +499,13 @@ harmfull will happen if called when the output buffer is empty."
 (defun wire-output-byte (wire byte)
   "Output the given (8-bit) byte on the wire."
   (declare (integer byte))
-  (write-char (code-char byte) (wire-stream wire))
+  (let ((fill-pointer (wire-obuf-end wire))
+        (obuf (wire-obuf wire)))
+    (when (>= fill-pointer (length obuf))
+      (wire-force-output wire)
+      (setf fill-pointer 0))
+    (setf (elt obuf fill-pointer) byte)
+    (setf (wire-obuf-end wire) (1+ fill-pointer)))
   (values))
 
 ;;; WIRE-OUTPUT-NUMBER -- public
@@ -435,10 +548,24 @@ harmfull will happen if called when the output buffer is empty."
   "Output the given string. First output the length using WIRE-OUTPUT-NUMBER,
 then output the bytes."
   (declare (simple-string string))
-  (let ((length (length string)))
-    (declare (integer length))
-    (wire-output-number wire length)
-    (write-sequence string (wire-stream wire)))
+  (let* ((bytes (babel:string-to-octets string (wire-encoding wire)))
+         (nbytes (length bytes)))
+    (wire-output-number wire nbytes)
+    (let* ((obuf (wire-obuf wire))
+           (obuf-end (wire-obuf-end wire))
+           (available (- (length obuf) obuf-end)))
+      (declare (simple-string obuf)
+               (integer available))
+      (cond ((>= available nbytes)
+             (replace obuf bytes :start1 obuf-end)
+             (incf (wire-obuf-end wire) nbytes))
+            ((> nbytes (length obuf))
+             (wire-force-output wire)
+             (device-write (wire-device wire) bytes))
+            (t
+             (wire-force-output wire)
+             (replace obuf bytes)
+             (setf (wire-obuf-end wire) nbytes)))))
   (values))
 
 ;;; WIRE-OUTPUT-OBJECT -- public
@@ -447,18 +574,19 @@ then output the bytes."
 ;;; the object to enhance the performance of sending it multiple times.
 ;;; Caching defaults to yes for symbols, and nil for everything else.
 
-(defun wire-output-object (wire object &optional (cache-it (symbolp object)))
+(defun wire-output-object
+    (wire object &optional (cache-it (symbolp object)))
   "Output the given object on the given wire. If cache-it is T, enter this
 object in the cache for future reference."
   (let ((cache-index (gethash object
                               (wire-object-hash wire))))
     (cond
      (cache-index
-      (wire-output-byte wire lookup-op)
+      (wire-output-byte wire +lookup-op+)
       (wire-output-number wire cache-index))
      (t
       (when cache-it
-        (wire-output-byte wire save-op)
+        (wire-output-byte wire +save-op+)
         (let ((index (wire-cache-index wire)))
           (wire-output-number wire index)
           (setf (gethash object (wire-object-hash wire))
@@ -467,24 +595,24 @@ object in the cache for future reference."
       (typecase object
         (integer
          (cond ((typep object '(signed-byte 32))
-                (wire-output-byte wire number-op)
+                (wire-output-byte wire +number-op+)
                 (wire-output-number wire object))
                (t
-                (wire-output-byte wire bignum-op)
+                (wire-output-byte wire +bignum-op+)
                 (wire-output-bignum wire object))))
         (simple-string
-         (wire-output-byte wire string-op)
+         (wire-output-byte wire +string-op+)
          (wire-output-string wire object))
         (symbol
-         (wire-output-byte wire symbol-op)
+         (wire-output-byte wire +symbol-op+)
          (wire-output-string wire (symbol-name object))
          (wire-output-string wire (package-name (symbol-package object))))
         (cons
-         (wire-output-byte wire cons-op)
+         (wire-output-byte wire +cons-op+)
          (wire-output-object wire (car object))
          (wire-output-object wire (cdr object)))
         (remote-object
-         (wire-output-byte wire remote-op)
+         (wire-output-byte wire +remote-op+)
          (wire-output-number wire (remote-object-host object))
          (wire-output-number wire (remote-object-pid object))
          (wire-output-number wire (remote-object-id object)))
@@ -504,9 +632,9 @@ object in the cache for future reference."
         (wire (gensym)))
     `(let ((,wire ,wire-form))
        ,@(if (> num-args 5)
-            `((wire-output-byte ,wire funcall-op)
+            `((wire-output-byte ,wire +funcall-op+)
               (wire-output-byte ,wire ,num-args))
-            `((wire-output-byte ,wire ,(+ funcall0-op num-args))))
+            `((wire-output-byte ,wire ,(+ +funcall0-op+ num-args))))
        (wire-output-object ,wire ,function)
        ,@(mapcar #'(lambda (arg)
                      `(wire-output-object ,wire ,arg))

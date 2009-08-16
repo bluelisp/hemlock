@@ -491,12 +491,15 @@
    #:connection-filter
    #:connection-encoding
    #:delete-connection
+   #:connection-listen
    #:connection-write
    #:tcp-connection
    #:make-tcp-connection
    #:process-connection
    #:connection-command
    #:make-process-connection
+   #:connection-exit-status
+   #:connection-exit-code
    #:file-connection
    #:connection-port
    #:connection-host

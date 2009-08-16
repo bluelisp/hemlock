@@ -173,7 +173,7 @@
   "" ""
   (declare (ignore p))
   (when *coned-buffer*
-    (delete-coned-buffers *coned-buffer*))
+    (delete-buffer-if-possible *coned-buffer*))
   (hemlock::coned-command nil))
 
 (defun coned-write-line (connection s)

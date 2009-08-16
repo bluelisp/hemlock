@@ -43,8 +43,8 @@
 
 ;;; REMOTE -- public
 ;;;
-;;; Execute the body remotly. Subforms are executed locally in the lexical
-;;; envionment of the macro call. No values are returned.
+;;; Execute the body remotely. Subforms are executed locally in the lexical
+;;; environment of the macro call. No values are returned.
 ;;;
 (defmacro remote (wire-form &body forms)
   "Evaluates the given forms remotly. No values are returned, as the remote
@@ -67,9 +67,9 @@ evaluation is asyncronus."
 ;;; return, cause we can kind of guess at what the currect results would be.
 ;;;
 (defmacro remote-value-bind (wire-form vars form &rest body)
-  "Bind vars to the multiple values of form (which is executed remotly). The
-forms in body are only executed if the remote function returned as apposed
-to aborting due to a throw."
+  "Bind VARS to the multiple values of FORM (which is executed remotely). The
+forms in BODY are only executed if the remote function returned (as apposed
+to aborting due to a throw)."
   (cond
    ((null vars)
     `(progn
@@ -256,156 +256,21 @@ to aborting due to a throw."
   (unless (maybe-nuke-remote-wait result)
     (setf (remote-wait-abort result) t)))
 
-#+:hemlock.serve-event
 ;;; SERVE-REQUESTS -- internal
 ;;;
 ;;; Serve all pending requests on the given wire.
 ;;;
-(defun serve-requests (wire on-death)
-  (handler-bind
-      ((wire-eof #'(lambda (condition)
-                     (declare (ignore condition))
-                     (close (wire-stream wire))
-                     #+NILGB(system:invalidate-descriptor (wire-fd wire))
-                     #+NILGB(unix:unix-close (wire-fd wire))
-                     (dolist (pending *pending-returns*)
-                       (when (eq (car pending)
-                                 wire)
-                         (unless (maybe-nuke-remote-wait (cdr pending))
-                           (setf (remote-wait-abort (cdr pending))
-                                 t))))
-                     (when on-death
-                       (funcall on-death))
-                     (return-from serve-requests (values))))
-       (wire-error #'(lambda (condition)
-                       (declare (ignore condition))
-                       #+NILGB
-                       (system:invalidate-descriptor (wire-fd wire)))))
-    (progn #+NILGB loop
-        #+NILGB
-        (unless (wire-listen wire)
-          (return))
-      (wire-get-object wire)))
+;;; On asynchronous connections, the event loop will call this.
+;;;
+;;; On synchronous connections, it is the callers responsibily to call it
+;;; while waiting for requests.
+;;;
+(defun serve-requests (wire)
+  (loop
+     (unless (wire-listen wire)
+       (return))
+     (wire-get-object wire))
   (values))
 
-;;; NEW-CONNECTION -- internal
-;;;
-;;;   Maybe build a new wire and add it to the servers list of fds. If the user
-;;; Supplied a function, close the socket if it returns NIL. Otherwise, install
-;;; the wire.
-;;;
-(declaim (ftype (function (t t t) t) magically-get-object-in-different-thread))
-
-(defun new-connection (socket addr on-connect)
-  (let ((wire (make-wire socket))
-        (on-death nil))
-    (if (or (null on-connect)
-            (multiple-value-bind (okay death-fn)
-                (funcall on-connect wire addr)
-              (setf on-death death-fn)
-              okay))
-        #+:hemlock.serve-event
-        (add-fd-handler socket :input
-                        #'(lambda (socket)
-                            (declare (ignore socket))
-                            (serve-requests wire on-death)))
-        #-:hemlock.serve-event
-        (let ((lock (bt:make-recursive-lock "wire cv lock"))
-              (cv (bt:make-condition-variable)))
-          (make-process (lambda ()
-                          (loop
-                             (bt:with-recursive-lock-held (lock)
-                               (peek-char nil (wire-stream wire))
-                               (magically-get-object-in-different-thread
-                                lock cv wire)
-                               (bt:condition-wait cv lock))))
-                        :name (format nil "Wire process for ~A." wire)))
-        (ext-close-connection socket))))
-
-;;; REQUEST-SERVER structure
-;;;
-;;; Just a simple handle on the socket and system:serve-event handler that make
-;;; up a request server.
-;;;
-(defstruct (request-server
-            (:print-function %print-request-server))
-  socket
-  handler)
-
-(defun %print-request-server (rs stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object (rs stream :type t)
-    (format stream "for ~D" (request-server-socket rs))))
-
-;;; CREATE-REQUEST-SERVER -- Public.
-;;;
-;;; Create a TCP/IP listener on the given port.  If anyone tries to connect to
-;;; it, call NEW-CONNECTION to do the connecting.
-;;;
-#+:hemlock.serve-event
-(defun create-request-server (port &optional on-connect)
-  "Create a request server on the given port.  Whenever anyone connects to it,
-   call the given function with the newly created wire and the address of the
-   connector.  If the function returns NIL, the connection is destroyed;
-   otherwise, it is accepted.  This returns a manifestation of the server that
-   DESTROY-REQUEST-SERVER accepts to kill the request server."
-  (let* ((socket (ext-create-inet-listener port))
-         (handler (add-fd-handler socket :input
-                                  #'(lambda (socket)
-                                      (multiple-value-bind
-                                            (newconn addr)
-                                          (ext-accept-tcp-connection socket)
-                                        (new-connection newconn addr on-connect))))))
-    (make-request-server :socket socket
-                         :handler handler)))
-
-#-:hemlock.serve-event
-(defun create-request-server (port &optional on-connect)
-  "Create a request server on the given port.  Whenever anyone connects to it,
-   call the given function with the newly created wire and the address of the
-   connector.  If the function returns NIL, the connection is destroyed;
-   otherwise, it is accepted.  This returns a manifestation of the server that
-   DESTROY-REQUEST-SERVER accepts to kill the request server."
-  (let* ((socket (ext-create-inet-listener port))
-         (handler (make-process
-                   (lambda ()
-                     (loop
-                         (multiple-value-bind
-                               (newconn addr)
-                             (ext-accept-tcp-connection socket)
-                           (new-connection newconn addr on-connect))))
-                   :name "request server")))
-    (make-request-server :socket socket
-                         :handler handler)))
-
-;;; DESTROY-REQUEST-SERVER -- Public.
-;;;
-;;; Removes the request server from SERVER's list of file descriptors and
-;;; closes the socket behind it.
-;;;
-(defun destroy-request-server (server)
-  "Quit accepting connections to the given request server."
-  #+:hemlock.serve-event
-  (remove-fd-handler (request-server-handler server))
-  ;;
-  (ext-close-socket (request-server-socket server))
-  nil)
-
-;;; CONNECT-TO-REMOTE-SERVER -- Public.
-;;;
-;;; Just like the doc string says, connect to a remote server. A handler is
-;;; installed to handle return values, etc.
-;;;
-(defun connect-to-remote-server (hostname port &optional on-death)
-  (declare (ignore on-death))           ;fixme?
-  "Connect to a remote request server addressed with the given host and port
-   pair.  This returns the created wire."
-  (let* ((socket (ext-connect-to-inet-socket hostname port))
-         (wire (make-wire socket)))
-    #+:hemlock.serve-event
-    ;; hmm, what exactly should this accomplish?
-    (add-fd-handler socket :input
-      #'(lambda (socket)
-          (declare (ignore socket))
-          (serve-requests wire on-death)))
-    wire))
+(defun device-serve-requests (device)
+  (serve-requests (device-wire device)))

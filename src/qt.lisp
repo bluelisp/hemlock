@@ -343,8 +343,17 @@
        (setf *redraw-needed* nil)
        (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents)))))
 
+(defun process-one-event ()
+  (let ((*redraw-needed* nil))
+    (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
+    (when *redraw-needed*
+      (assert *in-main-qthread*)
+      (hi::internal-redisplay))))
+
 (defun redraw-needed ()
-  (setf *redraw-needed* t))
+  (if *in-main-qthread*
+      (setf *redraw-needed* t)
+      (warn "redraw-needed called outside of even loop")))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
@@ -547,6 +556,8 @@
   (hi::q-event *editor-input* #k"control-g")
   (redraw-needed))
 
+(defvar *in-main-qthread* nil)
+
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
   (multiple-value-bind (main echo *font* widget *tabs*)
@@ -556,7 +567,8 @@
            (*editor-input*
             (let ((e (hi::make-input-event)))
               (make-instance 'qt-editor-input :head e :tail e)))
-           (*do-not-gc-list* '()))
+           (*do-not-gc-list* '())
+           (*in-main-qthread* t))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
       (let ((menu (#_addMenu (#_menuBar window) "File")))

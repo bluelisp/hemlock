@@ -38,5 +38,16 @@
    #:remote-value-bind
    #:create-request-server
    #:destroy-request-server
-   #:connect-to-remote-server))
+   #:connect-to-remote-server
+
+   #:device
+   #:stream-device
+   #:make-stream-device
+   #:device-wire
+   #:device-append-to-input-buffer
+   #:device-read
+   #:device-listen
+   #:device-write
+   #:device-close
+   #:device-serve-requests))
 
