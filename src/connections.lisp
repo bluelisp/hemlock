@@ -23,33 +23,11 @@
            :accessor connection-buffer)
    (connection-sentinel :initarg :sentinel
                         :initform nil
-                        :accessor connection-sentinel)
-   (connection-filter :initarg :filter
-                      :initform nil
-                      :accessor connection-filter)
-   (io-device :initarg :io-device
-              :initform nil
-              :accessor connection-io-device)
-   (input-buffer :initform (make-array +input-buffer-size+
-                                       :element-type '(unsigned-byte 8))
-                 :accessor connection-input-buffer)
-   (encoding :initform :utf-8
-             :initarg :encoding
-             :accessor connection-encoding)))
+                        :accessor connection-sentinel)))
 
 (defmethod print-object ((instance connection) stream)
   (print-unreadable-object (instance stream :identity nil :type t)
     (format stream "~A" (connection-name instance))))
-
-(defun unique-connection-name (base)
-  (let ((name base))
-    (iter:iter (iter:for i from 1)
-               (iter:while (find name
-                                 *all-connections*
-                                 :test #'equal
-                                 :key #'connection-name))
-               (setf name (format nil "~A<~D>" base i)))
-    name))
 
 (defmethod initialize-instance :after
     ((instance connection) &key buffer)
@@ -70,7 +48,57 @@
        (error "expected NIL, T, or a buffer, but found ~A" buffer))))
   (setf (connection-name instance)
         (unique-connection-name (connection-name instance)))
-  (push instance *all-connections*)
+  (push instance *all-connections*))
+
+(defun unique-connection-name (base)
+  (let ((name base))
+    (iter:iter (iter:for i from 1)
+               (iter:while (find name
+                                 *all-connections*
+                                 :test #'equal
+                                 :key #'connection-name))
+               (setf name (format nil "~A<~D>" base i)))
+    name))
+
+(defun delete-connection-buffer (connection)
+  (when (connection-buffer connection)
+    (delete-buffer (connection-buffer connection))
+    (setf (connection-buffer connection) nil)))
+
+(defmethod delete-connection ((connection connection))
+  (when (connection-io-device connection)
+    (#_close (connection-io-device connection)))
+  (delete-connection-buffer connection)
+  (setf *all-connections* (remove connection *all-connections*)))
+
+(defun connection-note-event (connection event)
+  (let ((sentinel (connection-sentinel connection)))
+    (when sentinel
+      (funcall sentinel connection event))))
+
+
+;;;;
+;;;; IO-CONNECTION
+;;;;
+
+(defparameter +input-buffer-size+ #x2000)
+
+(defclass io-connection (connection)
+  ((connection-filter :initarg :filter
+                      :initform nil
+                      :accessor connection-filter)
+   (io-device :initarg :io-device
+              :initform nil
+              :accessor connection-io-device)
+   (input-buffer :initform (make-array +input-buffer-size+
+                                       :element-type '(unsigned-byte 8))
+                 :accessor connection-input-buffer)
+   (encoding :initform :utf-8
+             :initarg :encoding
+             :accessor connection-encoding)))
+
+(defmethod initialize-instance :after
+    ((instance io-connection) &key)
   (let ((enc (connection-encoding instance)))
     (when (symbolp enc)
       (setf (connection-encoding instance)
@@ -78,16 +106,9 @@
   (when (connection-io-device instance)
     (connect-io-device-signals instance)))
 
-(defun delete-connection-buffer (connection)
-  (when (connection-buffer connection)
-    (delete-buffer (connection-buffer connection))
-    (setf (connection-buffer connection) nil)))
-
-(defun delete-connection (connection)
+(defmethod delete-connection :before ((connection io-connection))
   (when (connection-io-device connection)
-    (#_close (connection-io-device connection)))
-  (delete-connection-buffer connection)
-  (setf *all-connections* (remove connection *all-connections*)))
+    (#_close (connection-io-device connection))))
 
 (defun filter-connection-output (connection data)
   (etypecase data
@@ -130,11 +151,6 @@
                   (error "error on socket: ~A" connection))
                 (assert (>= n-bytes-read n-bytes-available))
                 n-bytes-read)))))
-
-(defun connection-note-event (connection event)
-  (let ((sentinel (connection-sentinel connection)))
-    (when sentinel
-      (funcall sentinel connection event))))
 
 (defun note-connected (connection)
   (connection-note-event connection :connected))
@@ -205,7 +221,7 @@
             (cffi:mem-ref amaster :int)
             (cffi:mem-ref aslave :int))))
 
-(defclass process-connection (connection)
+(defclass process-connection (io-connection)
   ((command :initarg :command
             :accessor connection-command)
    (exit-code :initform nil
@@ -278,7 +294,7 @@
 ;;;; TCP-CONNECTION
 ;;;;
 
-(defclass tcp-connection (connection)
+(defclass tcp-connection (io-connection)
   ((host :initarg :host
          :accessor connection-host)
    (port :initarg :port
@@ -337,7 +353,7 @@
 ;;;; TCP-CONNECTION
 ;;;;
 
-(defclass tcp-listener-connection (connection)
+(defclass tcp-listener-connection (io-connection)
   ((host :initarg :host
          :accessor connection-host)
    (port :initarg :port
@@ -380,7 +396,7 @@
 ;;;; FILE-CONNECTION
 ;;;;
 
-(defclass file-connection (connection)
+(defclass file-connection (io-connection)
   ((filename :initarg :filename
              :accessor connection-filename)))
 
@@ -411,7 +427,7 @@
 ;;;; DESCRIPTOR-CONNECTION
 ;;;;
 
-(defclass descriptor-connection (connection)
+(defclass descriptor-connection (io-connection)
   ((descriptor :initarg :descriptor
              :accessor connection-descriptor)))
 
