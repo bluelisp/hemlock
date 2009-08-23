@@ -66,8 +66,6 @@
     (setf (connection-buffer connection) nil)))
 
 (defmethod delete-connection ((connection connection))
-  (when (connection-io-device connection)
-    (#_close (connection-io-device connection)))
   (delete-connection-buffer connection)
   (setf *all-connections* (remove connection *all-connections*)))
 
@@ -118,9 +116,11 @@
      data)))
 
 (defun connection-listen (connection)
+  (check-type connection io-connection)
   (plusp (#_bytesAvailable (connection-io-device connection))))
 
 (defun connection-write (data connection)
+  (check-type connection io-connection)
   (let ((bytes (filter-connection-output connection data)))
     ;; fixme: with-pointer-to-vector-data isn't portable
     (cffi-sys:with-pointer-to-vector-data (ptr bytes)
@@ -153,15 +153,29 @@
                 n-bytes-read)))))
 
 (defun note-connected (connection)
+  (print :note-connected)
+  (force-output)
   (connection-note-event connection :connected))
 
 (defun note-disconnected (connection)
+  (print :note-disconnected)
+  (force-output)
   (connection-note-event connection :disconnected)
   (let ((buffer (connection-buffer connection)))
     (when buffer
       (with-writable-buffer (buffer)
         (insert-string (buffer-point buffer)
                        (format nil "~&* Connection ~S disconnected." connection))))))
+
+(defun note-error (connection)
+  (print :note-error)
+  (force-output)
+  (connection-note-event connection :error)
+  (let ((buffer (connection-buffer connection)))
+    (when buffer
+      (with-writable-buffer (buffer)
+        (insert-string (buffer-point buffer)
+                       (format nil "~&* Error on connection ~S." connection))))))
 
 (defun filter-incoming-data (connection bytes)
   (funcall (or (connection-filter connection) #'default-filter)
@@ -192,7 +206,7 @@
 
 (defmethod (setf connection-io-device)
     :after
-    ((newval t) (connection connection))
+    ((newval t) (connection io-connection))
   (connect-io-device-signals connection))
 
 
@@ -301,12 +315,20 @@
          :accessor connection-port)))
 
 (defmethod initialize-instance :after ((instance tcp-connection) &key)
-  (let ((socket (#_new QTcpSocket)))
-    (setf (connection-io-device instance) socket)
-    (connection-note-event instance :initialized)
-    (#_connectToHost socket
-                     (connection-host instance)
-                     (connection-port instance))))
+  (unless (connection-io-device instance)
+    (let ((socket (#_new QTcpSocket)))
+      (setf (connection-io-device instance) socket)
+      (connection-note-event instance :initialized)
+      (#_connectToHost socket
+                       (connection-host instance)
+                       (connection-port instance)))))
+
+(defmethod print-object ((instance tcp-connection) stream)
+  (print-unreadable-object (instance stream :identity nil :type t)
+    (format stream "~A, connected to ~A:~D"
+            (connection-name instance)
+            (connection-host instance)
+            (connection-port instance))))
 
 (defmethod (setf connection-io-device)
     :after
@@ -320,6 +342,11 @@
            (QSIGNAL "disconnected()")
            (lambda ()
              (note-disconnected connection)
+             (redraw-needed)))
+  (connect newval
+           (QSIGNAL "error()")
+           (lambda ()
+             (note-error connection)
              (redraw-needed))))
 
 (defun make-tcp-connection
@@ -347,49 +374,6 @@
     (make-tcp-connection "test" "localhost" 80
                          :buffer t
                          :sentinel #'connected)))
-
-
-;;;;
-;;;; TCP-CONNECTION
-;;;;
-
-(defclass tcp-listener-connection (io-connection)
-  ((host :initarg :host
-         :accessor connection-host)
-   (port :initarg :port
-         :accessor connection-port)))
-
-(defmethod initialize-instance :after ((instance tcp-listener-connection) &key)
-  (let ((socket (#_new QTcpSocket)))
-    (setf (connection-io-device instance) socket)
-    (connection-note-event instance :initialized)
-    (#_connectToHost socket
-                     (connection-host instance)
-                     (connection-port instance))))
-
-(defmethod (setf connection-io-device)
-    :after
-    (newval (connection tcp-listener-connection))
-  (connect newval
-           (QSIGNAL "connected()")
-           (lambda ()
-             (note-connected connection)
-             (redraw-needed)))
-  (connect newval
-           (QSIGNAL "disconnected()")
-           (lambda ()
-             (note-disconnected connection)
-             (redraw-needed))))
-
-(defun make-tcp-listener
-    (name host port &rest args &key buffer filter sentinel)
-  (declare (ignore buffer filter sentinel))
-  (apply #'make-instance
-         'tcp-listener-connection
-         :name name
-         :host host
-         :port port
-         args))
 
 
 ;;;;
@@ -453,6 +437,111 @@
          args))
 
 
+;;;;
+;;;; LISTENING-CONNECTION
+;;;;
+
+(defclass listening-connection (connection)
+  ((server :initarg :server
+           :initform nil
+           :accessor connection-server)
+   (acceptor :initarg :acceptor
+             :initform nil
+             :accessor connection-acceptor)
+   (initargs :initarg :initargs
+             :initform nil
+             :accessor connection-initargs)))
+
+(defmethod initialize-instance :after
+    ((instance listening-connection) &key)
+  (when (connection-server instance)
+    (connect-server-signals instance)))
+
+(defmethod delete-connection :before ((connection listening-connection))
+  (when (connection-server connection)
+    (#_close (connection-server connection))))
+
+(defmethod (setf connection-server)
+    :after
+    ((newval t) (connection listening-connection))
+  (connect-server-signals connection))
+
+(defun connect-server-signals (connection)
+  (let ((server (connection-server connection)))
+    ;; ...
+    (connect server
+             (QSIGNAL "newConnection()")
+             (lambda ()
+               (process-incoming-connection connection)))))
+
+(defun %tcp-connection-from-io-device (name io-device initargs)
+  (apply #'make-instance
+         'tcp-connection
+         :name name
+         :io-device io-device
+         :host (#_peerName io-device)
+         :port (#_peerPort io-device)
+         initargs))
+
+(defgeneric convert-pending-connection (listener))
+
+(defun process-incoming-connection (listener)
+  (let ((connection (convert-pending-connection listener)))
+    (let ((buffer (connection-buffer listener)))
+      (when buffer
+        (with-writable-buffer (buffer)
+          (insert-string (buffer-point buffer)
+                         (format nil "~&* ~A." connection)))))
+    (funcall (connection-acceptor listener) connection)))
+
+
+;;;;
+;;;; TCP-LISTENER
+;;;;
+
+(defclass tcp-listener (listening-connection)
+  ((host :initarg :host
+         :accessor connection-host)
+   (port :initarg :port
+         :accessor connection-port)))
+
+(defmethod initialize-instance :after ((instance tcp-listener) &key)
+  (check-type (connection-host instance) string)
+  (check-type (connection-port instance)
+              (or null (unsigned-byte 16)))
+  (let ((server (#_new QTcpServer)))
+    (setf (connection-server instance) server)
+    (connection-note-event instance :initialized)
+    (unless (#_listen server
+                      (#_new QHostAddress (connection-host instance))
+                      (or (connection-port instance) 0))
+      (error "failed to listen on connection ~A" instance))
+    (setf (connection-port instance) (#_serverPort server))))
+
+(defmethod print-object ((instance tcp-listener) stream)
+  (print-unreadable-object (instance stream :identity nil :type t)
+    (format stream "~A ~A:~D"
+            (connection-name instance)
+            (connection-host instance)
+            (connection-port instance))))
+
+(defun make-tcp-listener
+    (name host port &rest args &key buffer acceptor sentinel initargs)
+  (declare (ignore buffer acceptor sentinel initargs))
+  (apply #'make-instance
+         'tcp-listener
+         :name name
+         :host host
+         :port port
+         args))
+
+(defmethod convert-pending-connection ((connection tcp-listener))
+  (%tcp-connection-from-io-device
+   (format nil "Accepted for: ~A" (connection-name connection))
+   (#_nextPendingConnection (connection-server connection))
+   (connection-initargs connection)))
+
+
 ;;; wire interaction
 
 (defstruct (connection-device
@@ -487,6 +576,10 @@
 (defmethod hemlock.wire:device-listen
     ((device connection-device))
   (connection-listen (device-connection device)))
+
+(defmethod hemlock.wire:device-write
+    ((device connection-device) buffer &optional (end (length buffer)))
+  (connection-write (subseq buffer 0 end) (device-connection device)))
 
 (defmethod hemlock.wire:device-read
     ((device connection-device) buffer)

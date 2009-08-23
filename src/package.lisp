@@ -507,7 +507,10 @@
    #:conection-filename
    #:descriptor-connection
    #:connection-descriptor
-   #:make-descriptor-connection))
+   #:make-descriptor-connection
+   #:listening-connection
+   #:make-tcp-listener
+   #:make-connection-device))
 
 (defpackage :hemlock-ext
   (:use :common-lisp
