@@ -396,7 +396,10 @@
              (let ((editor-name (get-editor-name)))
                (lambda ()
                  (let ((*print-readably* nil)) ;?!
-                   (start-slave editor-name slave background))))
+                   (handler-case
+                       (start-slave editor-name slave background)
+                     (error (c)
+                       (warn "error in slave process, quitting: ~A" c))))))
              :name "Slave thread"))
           (*accept-connections* t)
           (*newly-created-slave* nil))
@@ -652,13 +655,13 @@
 ;;; since the editor calls this in the slave for value.  The editor does this
 ;;; for synch'ing, not for values.
 ;;;
+(defvar cl-user::*io*)
 (defun made-buffers-for-typescript (slave-info background-info)
   (setf *original-terminal-io* *terminal-io*)
   (warn "made-buffers-for-typescript ~S ~S ~S."
         (connect-stream slave-info)
         *terminal-io*
         (connect-stream background-info))
-  #+nil (sleep 3)
   (macrolet ((frob (symbol new-value)
                `(setf ,(intern (concatenate 'simple-string
                                             "*ORIGINAL-"
@@ -692,30 +695,15 @@
                            ~:D bytes are in use.]~%"
                                               bytes-retained bytes-freed new-trigger)))
                 (hemlock.wire:wire-force-output wire))))
-    (warn "#7")(sleep 1)
     (frob *terminal-io* (connect-stream slave-info))
-    #+NIL
-    (progn
-        (setf cl-user::*io* (connect-stream slave-info))
-        (let ((*terminal-io* *original-terminal-io*))
-          (warn "#8")(sleep 1))
-        (frob *standard-input* (make-synonym-stream '*terminal-io*))
-        (let ((*terminal-io* *original-terminal-io*))
-          (warn "#9")(sleep 1))
-        (frob *standard-output* *standard-input*)
-        (let ((*terminal-io* *original-terminal-io*))
-          (warn "#10")(sleep 1))
-        ;;###
-        ;;(frob *error-output* *standard-input*)
-        ;;(frob *debug-io* *standard-input*)
-        (let ((*terminal-io* *original-terminal-io*))
-          (warn "#11")(sleep 1))
-        (frob *query-io* *standard-input*)
-        (let ((*terminal-io* *original-terminal-io*))
-          (warn "#12")(sleep 1)))
-    (frob *trace-output* *original-terminal-io*)
-    )
-  #+NILGB (setf *background-io* (connect-stream background-info))
+    (frob *standard-input* (make-synonym-stream '*terminal-io*))
+    (frob *standard-output* (make-synonym-stream '*terminal-io*))
+    (frob *error-output* (make-synonym-stream '*terminal-io*))
+    (frob *debug-io* (make-synonym-stream '*terminal-io*))
+    (frob *query-io* (make-synonym-stream '*terminal-io*))
+    (frob *trace-output* (make-synonym-stream '*terminal-io*)))
+  (setf *background-io* (connect-stream background-info))
+  (setf cl-user::*io* *terminal-io*)
   nil)
 
 ;;; SLAVE-GC-NOTIFY-BEFORE and SLAVE-GC-NOTIFY-AFTER -- internal
@@ -778,7 +766,17 @@
               Must be of the form \"MachineName:PortNumber\"."
              editor))
     (let ((machine (subseq editor 0 seperator))
-          (port (parse-integer editor :start (1+ seperator))))
+          (port (parse-integer editor :start (1+ seperator)))
+          ;; override --disable-debugger from this point on:
+          (*debugger-hook*
+           (lambda (c orig)
+             (declare (ignore orig))
+             (invoke-debugger c)))
+          #+sbcl
+          (sb-ext:*invoke-debugger-hook*
+           (lambda (c orig)
+             (declare (ignore orig))
+             (invoke-debugger c))))
       (format t "Connecting to ~A:~D~%" machine port)
       (qt-hemlock::qthread-event-loop
        (lambda ()

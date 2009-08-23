@@ -96,12 +96,9 @@ to aborting due to a throw)."
                  ,form)
                (wire-force-output ,wire)
                (loop
-                 #+:hemlock.serve-event
-                 (serve-all-events)
-                 #-:hemlock.serve-event
-                 (wire-get-object ,wire)
-                 (when (remote-wait-finished ,remote)
-                   (return)))
+                  (process-one-event/qt)
+                  (when (remote-wait-finished ,remote)
+                    (return)))
                (unless (remote-wait-abort ,remote)
                  ,(case (length vars)
                     (1 `(setf ,(first vars) (remote-wait-value1 ,remote)))
@@ -197,32 +194,57 @@ to aborting due to a throw)."
 ;;; function. Works pretty much just the same, except the single value is
 ;;; returned.
 ;;;
-(defmacro remote-value (wire-form form &optional
-                                  (on-server-unwind
-                                   `(error "Remote server unwound")))
+(defun invoke-with-wire-and-remote (wire fun &optional on-server-unwind)
   "Execute the single form remotly. The value of the form is returned.
   The optional form on-server-unwind is only evaluated if the server unwinds
   instead of returning."
-  (let ((remote (gensym))
-        (wire (gensym)))
-    `(let* ((,remote (make-remote-wait))
-            (,wire ,wire-form)
-            (*pending-returns* (cons (cons ,wire ,remote)
-                                     *pending-returns*)))
-       (unwind-protect
-           (progn
-             (remote ,wire
-               (do-1-value-call (make-remote-object ,remote))
-               ,form)
-             (wire-force-output ,wire)
-             (loop
-               (wire-get-object ,wire)
-               (when (remote-wait-finished ,remote)
-                 (return))))
-         (maybe-nuke-remote-wait ,remote))
-       (if (remote-wait-abort ,remote)
-         ,on-server-unwind
-         (remote-wait-value1 ,remote)))))
+  (print :invoke-with)
+  (force-output)
+  (let* ((remote (make-remote-wait))
+         (*pending-returns* (cons (cons wire remote)
+                                  *pending-returns*)))
+  (print :invoke-with-2)
+  (force-output)
+    (unwind-protect
+         (progn
+  (print :invoke-with-3)
+  (force-output)
+           (funcall fun wire remote)
+  (print :invoke-with-4)
+  (force-output)
+           (wire-force-output wire)
+           (loop
+              (wire-get-object wire)
+              (when (remote-wait-finished remote)
+                (return))))
+  (print :invoke-with-5)
+  (force-output)
+      (maybe-nuke-remote-wait remote))
+  (print :invoke-with-6)
+  (force-output)
+    (cond
+      ((not (remote-wait-abort remote))
+       (remote-wait-value1 remote))
+      (on-server-unwind
+       (funcall on-server-unwind))
+      (t
+       (error "Remote server unwound")))))
+
+(defmacro remote-value (wire-form form &optional on-server-unwind)
+  "Execute the single form remotely. The value of the form is returned.
+  The optional form on-server-unwind is only evaluated if the server unwinds
+  instead of returning."
+  (let ((wire (gensym))
+        (remote (gensym)))
+    `(invoke-with-wire-and-remote
+      ,wire-form
+      (lambda (,wire ,remote)
+        (remote ,wire
+                (do-1-value-call (make-remote-object ,remote))
+                ,form))
+      ,@(when on-server-unwind
+          `((lambda ()
+              ,on-server-unwind))))))
 
 
 ;;; DO-N-VALUE-CALL -- internal
@@ -259,7 +281,7 @@ to aborting due to a throw)."
 ;;;
 ;;; On asynchronous connections, the event loop will call this.
 ;;;
-;;; On synchronous connections, it is the callers responsibily to call it
+;;; On synchronous connections, it is the caller's responsibility to call it
 ;;; while waiting for requests.
 ;;;
 (defun serve-requests (wire)

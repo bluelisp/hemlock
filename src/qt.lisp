@@ -277,7 +277,7 @@
 
 (defvar *alt-is-meta* t)
 
-(defvar *qapp*)
+(defvar *qapp* nil)
 
 (defmethod key-press-event ((instance hunk-widget) event)
   (call-next-qmethod)
@@ -341,21 +341,23 @@
          (when event
            (return event)))
        (setf *redraw-needed* nil)
-       (unless (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
-         (warn "processEvents failed")))))
+       (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents)))))
+
+(defvar *in-main-qthread* nil)
 
 (defun process-one-event ()
   (let ((*redraw-needed* nil))
-    (unless (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
-      (warn "processEvents failed"))
+    (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
     (when *redraw-needed*
       (assert *in-main-qthread*)
       (hi::internal-redisplay))))
 
+(defun hemlock.wire::process-one-event/qt ()
+  (process-one-event))
+
 (defun redraw-needed ()
-  (if *in-main-qthread*
-      (setf *redraw-needed* t)
-      (warn "redraw-needed called outside of even loop")))
+  (when *in-main-qthread*
+    (setf *redraw-needed* t)))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
@@ -558,7 +560,20 @@
   (hi::q-event *editor-input* #k"control-g")
   (redraw-needed))
 
-(defvar *in-main-qthread* nil)
+(defmacro later (&body body)
+  `(invoke-later (lambda () ,@body)))
+
+(defvar *invoke-later-thunks*)
+(defvar *invoke-later-timer*)
+
+(defun invoke-later (fun)
+  (push fun *invoke-later-thunks*)
+  (#_setSingleShot *invoke-later-timer* t)
+  (#_start *invoke-later-timer*))
+
+(defun process-invoke-later-thunks ()
+  (iter (while *invoke-later-thunks*)
+        (funcall (pop *invoke-later-thunks*))))
 
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
@@ -570,9 +585,14 @@
             (let ((e (hi::make-input-event)))
               (make-instance 'qt-editor-input :head e :tail e)))
            (*do-not-gc-list* '())
-           (*in-main-qthread* t))
+           (*in-main-qthread* t)
+           (*invoke-later-thunks* '())
+           (*invoke-later-timer* (#_new QTimer)))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
+      (connect *invoke-later-timer*
+               (QSIGNAL "timeout()")
+               #'process-invoke-later-thunks)
       (let ((menu (#_addMenu (#_menuBar window) "File")))
         (add-command-action menu "Find File")
         (add-command-action menu "Save File")
@@ -633,18 +653,47 @@
         (#_hide window)))))
 
 (defun qthread-event-loop (initfun)
+  (qt:ensure-smoke)
   (let ((*do-not-gc-list* '())
         (*qapp*
          ;; fixme: misuse of this variable
-         (#_new QEventLoop)))
+         (if *qapp*
+             (#_new QEventLoop)
+             (make-qapplication)))
+        (*invoke-later-thunks* '())
+        (*invoke-later-timer* (#_new QTimer)))
+    (connect *invoke-later-timer*
+             (QSIGNAL "timeout()")
+             #'process-invoke-later-thunks)
     (funcall initfun)
     (print :exec)
     (force-output)
-    (#_exec *qapp*)
-    (error "exec fell through")
     #+(or)
-    (loop
-       (qt-hemlock::process-one-event))))
+    (unwind-protect
+         (progn
+           (#_exec *qapp*)
+           (error "exec fell through"))
+      (warn "exec unwinded"))
+    (unwind-protect
+         (progn
+           (iter
+            (until (and (boundp 'cl-user::*io*)
+                        cl-user::*io*))
+            (print "sleeping")
+            (force-output)
+            (process-one-event))
+           #+(or)
+           (ccl::toplevel-loop)
+           (iter
+            (one-toplevel-iteration)))
+      (warn "loop unwinded"))))
+
+(defun one-toplevel-iteration ()
+  (format cl-user::*io*  "~&> ")
+  (force-output cl-user::*io*)
+  (format cl-user::*io* "~&~A~%"
+          (eval (read cl-user::*io*)))
+  (force-output cl-user::*io*))
 
 ;;; Keysym translations
 

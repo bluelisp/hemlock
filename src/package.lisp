@@ -574,29 +574,7 @@
   (:use :common-lisp :hemlock-interface)
   (:nicknames :hi)
   (:shadow #:char-code-limit)
-  (:import-from
-   ;; gray streams
-   :trivial-gray-streams
-   ;;
-   ;; Note the pacth i received from DTC mentions character-output and
-   ;; character-input-stream here, so we actually see us faced to
-   ;; provide for compatibility classes. --GB
-   #-scl   #:fundamental-character-output-stream
-   #-scl   #:fundamental-character-input-stream
-   ;; There is conditionalization in streams.lisp, see above --GB
-   #+scl   #:character-output-stream
-   #+scl   #:character-input-stream
-
-   #:stream-write-char
-   #-scl   #:stream-write-string     ; wonder what that is called --GB
-   #:stream-read-char
-   #:stream-listen
-   #:stream-unread-char
-   #:stream-clear-input
-   #:stream-finish-output
-   #:stream-force-output
-   #:stream-line-column
-   #:stream-read-char-no-hang)
+  (:use trivial-gray-streams)
   (:import-from :hemlock-ext
                 #:delq #:memq #:assq)
   ;;
@@ -850,29 +828,7 @@
    #:SERVE-REPARENT-NOTIFY
    #:SERVE-UNMAP-NOTIFY)
 
-  (:import-from
-   :trivial-gray-streams
-   ;;
-   ;; Note the pacth i received from DTC mentions character-output and
-   ;; character-input-stream here, so we actually see us faced to
-   ;; provide for compatibility classes. --GB
-   #-scl   #:fundamental-character-output-stream
-   #-scl   #:fundamental-character-input-stream
-   ;; There is conditionalization in streams.lisp, see above --GB
-   #+scl   #:character-output-stream
-   #+scl   #:character-input-stream
-
-   #:stream-write-char
-   #-scl   #:stream-write-string        ; wonder what that is called --GB
-   #:stream-read-char
-   #:stream-listen
-   #:stream-unread-char
-   #:stream-clear-input
-   #:stream-finish-output
-   #:stream-force-output
-   #:stream-line-column)
-
-  )
+  (:use :trivial-gray-streams))
 
 (defpackage :hemlock-user
     (:use :common-lisp :hemlock-interface))

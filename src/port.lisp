@@ -127,7 +127,9 @@
      #+CMU   '(unix:unix-getpid)
      #+SBCL  '(sb-unix:unix-getpid)
      #+ACL   '(excl::getpid)
-     #+CLISP '(system::program-id)))
+     #+CLISP '(system::program-id)
+     #+CCL   '(ccl::getpid)
+     (error "not implemented")))
 
 ;; !!!
 (push (cons '*print-readably* (constantly nil))

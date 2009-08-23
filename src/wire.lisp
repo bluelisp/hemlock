@@ -63,6 +63,10 @@
              (:constructor make-stream-device (stream)))
   (stream (error "missing argument") :type stream))
 
+(defmethod print-object ((object stream-device) stream)
+  (print-unreadable-object (object stream)
+    (format stream "~A" (device-stream object))))
+
 (defstruct (wire
             (:constructor %make-wire (device))
             (:print-function
@@ -282,13 +286,15 @@ object. Passing that remote object to remote-object-value will new return NIL."
 ;;; fill-input-buffer itself it just there to re-enter the event loop.
 
 (defun append-to-input-buffer (wire bytes)
-  (incf (wire-ibuf-end wire) (length bytes))
-  (when (< (wire-ibuf-end wire) (length (wire-ibuf wire)))
-    (let ((old (wire-ibuf wire)))
-      (setf (wire-ibuf wire)
-            (make-array (wire-ibuf-end wire) :element-type '(unsigned-byte 8)))
-      (replace (wire-ibuf wire) old)
-      (replace (wire-ibuf wire) bytes :start1 (length old)))))
+  (let* ((oldpos (wire-ibuf-end wire))
+         (newpos (+ oldpos (length bytes))))
+    (setf (wire-ibuf-end wire) newpos)
+    (when (> newpos (length (wire-ibuf wire)))
+      (let ((old (wire-ibuf wire)))
+        (setf (wire-ibuf wire)
+              (make-array newpos :element-type '(unsigned-byte 8)))
+        (replace (wire-ibuf wire) old)))
+    (replace (wire-ibuf wire) bytes :start1 oldpos)))
 
 ;;; APPEND-TO-INPUT-BUFFER -- External.
 ;;;
@@ -340,7 +346,7 @@ signed (defaults to T)."
 (defun wire-get-string (wire)
   "Reads a string from the wire. The first four bytes spec the size in bytes."
   (let* ((nbytes (wire-get-number wire))
-         (bytes (make-string nbytes))
+         (bytes (make-array nbytes :element-type '(unsigned-byte 8)))
          (offset 0))
     (declare (integer nbytes offset))
     (loop
@@ -548,14 +554,13 @@ harmfull will happen if called when the output buffer is empty."
   "Output the given string. First output the length using WIRE-OUTPUT-NUMBER,
 then output the bytes."
   (declare (simple-string string))
-  (let* ((bytes (babel:string-to-octets string (wire-encoding wire)))
+  (let* ((bytes (babel:string-to-octets string :encoding (wire-encoding wire)))
          (nbytes (length bytes)))
     (wire-output-number wire nbytes)
     (let* ((obuf (wire-obuf wire))
            (obuf-end (wire-obuf-end wire))
            (available (- (length obuf) obuf-end)))
-      (declare (simple-string obuf)
-               (integer available))
+      (declare (integer available))
       (cond ((>= available nbytes)
              (replace obuf bytes :start1 obuf-end)
              (incf (wire-obuf-end wire) nbytes))

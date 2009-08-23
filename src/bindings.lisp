@@ -319,21 +319,18 @@
 
 
 ;;;; Typescript.
-#+port-user-ts-buf
-(progn
 (bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
-;; (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
-;; (bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
-;; (bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
-;; (bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
-;; (bind-key "Next Interactive Input" #k"meta-n" :mode "Typescript")
-;; (bind-key "Reenter Interactive Input" #k"control-return" :mode "Typescript")
+(bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
+(bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
+(bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
+(bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
+(bind-key "Next Interactive Input" #k"meta-n" :mode "Typescript")
+(bind-key "Reenter Interactive Input" #k"control-return" :mode "Typescript")
 (bind-key "Typescript Slave Break" #k"hyper-b" :mode "Typescript")
 (bind-key "Typescript Slave to Top Level" #k"hyper-g" :mode "Typescript")
 (bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
 (bind-key "Select Slave" #k"control-meta-\c")
 (bind-key "Select Background" #k"control-meta-C")
-)
 
 #+port-user-lispeval
 (progn

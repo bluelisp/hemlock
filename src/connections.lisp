@@ -492,7 +492,8 @@
         (with-writable-buffer (buffer)
           (insert-string (buffer-point buffer)
                          (format nil "~&* ~A." connection)))))
-    (funcall (connection-acceptor listener) connection)))
+    (when (connection-acceptor listener)
+      (funcall (connection-acceptor listener) connection))))
 
 
 ;;;;
@@ -550,13 +551,20 @@
            (:constructor %make-connection-device (connection)))
   (connection (error "missing argument") :type connection)
   (reading 0 :type integer)
-  (filter-counter 0 :type integer))
+  (filter-counter 0 :type integer)
+  (original-sentinel nil))
+
+(defmethod print-object ((object connection-device) stream)
+  (print-unreadable-object (object stream)
+    (format stream "~A" (device-connection object))))
 
 (defun make-connection-device (connection)
   (let ((device (%make-connection-device connection)))
     (setf (connection-filter connection)
           (lambda (connection bytes)
             (connection-device-filter device connection bytes)))
+    (setf (device-original-sentinel device)
+          (connection-sentinel connection))
     (setf (connection-sentinel connection)
           (lambda (connection event)
             (connection-device-sentinel device connection event)))
@@ -564,13 +572,18 @@
 
 (defun connection-device-filter (device connection bytes)
   (declare (ignore connection))
-  (incf (device-filter-counter device))
-  (hemlock.wire:device-append-to-input-buffer device bytes)
-  (when (zerop (device-reading device))
-    (hemlock.wire:device-serve-requests device)))
+  (setf bytes (copy-seq bytes))
+  (later
+   (incf (device-filter-counter device))
+   (hemlock.wire:device-append-to-input-buffer device bytes)
+   (when (zerop (device-reading device))
+     (hemlock.wire:device-serve-requests device)))
+  nil)
 
 (defun connection-device-sentinel (device connection event)
-  (declare (ignore device connection))
+  (when (device-original-sentinel device)
+    (funcall (device-original-sentinel device) connection event))
+  ;; fixme: do we have to close the wire here?
   (print (list :connection-device-sentinel event)))
 
 (defmethod hemlock.wire:device-listen
@@ -586,7 +599,7 @@
   (unwind-protect
        (let ((previous-counter (device-filter-counter device)))
          (incf (device-reading device))
-         (iter (process-one-event)
-               (while (eql previous-counter (device-filter-counter device)))))
+         (iter (while (eql previous-counter (device-filter-counter device)))
+               (process-one-event)))
     (decf (device-reading device)))
   0)
