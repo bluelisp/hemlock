@@ -119,7 +119,8 @@
              (or (not (value coned-delete-confirm))
                  (prompt-for-y-or-n :prompt "Delete connections? " :default t
                                     :must-exist t :default-string "Y")))
-        (dolist (b connections t) (delete-coned-connection b)))))
+        (dolist (b connections t) (delete-coned-connection b))))
+  (refresh-coned *coned-buffer*))
 
 (defun delete-coned-connection (conn)
   (delete-connection conn))
@@ -135,6 +136,17 @@
          (array-element-from-mark (current-point) *coned-connections*)))
        (editor-error "connection has no buffer"))))
 
+(defun refresh-coned (buf)
+  (with-writable-buffer (buf)
+    (delete-region (buffer-region buf))
+    (let ((connections (list-all-connections)))
+      (setf *coned-connections-end* (length connections))
+      (setf *coned-connections*
+            (map 'vector #'make-coned-connection connections))
+      (with-output-to-mark (s (buffer-point buf))
+        (dolist (c connections)
+          (coned-write-line c s))))))
+
 (defcommand "Coned" (p)
   "Creates a list of connections in a buffer supporting operations such as deletion
    and selection.  If there already is a coned buffer, just go to it."
@@ -143,19 +155,10 @@
   (declare (ignore p))
   (let ((buf (or *coned-buffer*
                  (make-buffer "Coned" :modes '("Coned")
-                              :delete-hook (list #'delete-coned-buffers))))
-        (connections (list-all-connections)))
+                              :delete-hook (list #'delete-coned-buffers)))))
     (unless *coned-buffer*
       (setf *coned-buffer* buf)
-      (setf *coned-connections-end* (length connections))
-      (setf *coned-connections*
-            (map 'vector #'make-coned-connection connections))
-      (setf (buffer-writable buf) t)
-      (with-output-to-mark (s (buffer-point buf))
-        (dolist (c connections)
-          (coned-write-line c s)))
-      (setf (buffer-writable buf) nil)
-      (setf (buffer-modified buf) nil)
+      (refresh-coned buf)
       (let ((fields (buffer-modeline-fields *coned-buffer*)))
         (setf (cdr (last fields))
               (list (or (modeline-field :coned-cmds)
@@ -173,8 +176,7 @@
   "" ""
   (declare (ignore p))
   (when *coned-buffer*
-    (delete-buffer-if-possible *coned-buffer*))
-  (hemlock::coned-command nil))
+    (refresh-coned *coned-buffer*)))
 
 (defun coned-write-line (connection s)
   (format s "  ~A ~20T~A ~20T~A~%"
