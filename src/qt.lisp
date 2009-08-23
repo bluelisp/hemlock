@@ -341,11 +341,13 @@
          (when event
            (return event)))
        (setf *redraw-needed* nil)
-       (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents)))))
+       (unless (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
+         (warn "processEvents failed")))))
 
 (defun process-one-event ()
   (let ((*redraw-needed* nil))
-    (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
+    (unless (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
+      (warn "processEvents failed"))
     (when *redraw-needed*
       (assert *in-main-qthread*)
       (hi::internal-redisplay))))
@@ -629,6 +631,20 @@
                    #-sbcl progn
              (funcall command-loop-fun))
         (#_hide window)))))
+
+(defun qthread-event-loop (initfun)
+  (let ((*do-not-gc-list* '())
+        (*qapp*
+         ;; fixme: misuse of this variable
+         (#_new QEventLoop)))
+    (funcall initfun)
+    (print :exec)
+    (force-output)
+    (#_exec *qapp*)
+    (error "exec fell through")
+    #+(or)
+    (loop
+       (qt-hemlock::process-one-event))))
 
 ;;; Keysym translations
 

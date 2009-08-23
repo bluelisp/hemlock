@@ -129,12 +129,6 @@
      #+ACL   '(excl::getpid)
      #+CLISP '(system::program-id)))
 
-(defun make-process (function &key name)
-  (bt:make-thread function
-                  :name name
-                  :initial-bindings `((*print-readably* .,(constantly nil))
-                                      ,@bt:*default-special-bindings*)))
-
 ;; !!!
 (push (cons '*print-readably* (constantly nil))
       bt:*default-special-bindings*)

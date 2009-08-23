@@ -38,7 +38,6 @@
    #:remote-value-bind
    #:create-request-server
    #:destroy-request-server
-   #:connect-to-remote-server
 
    #:device
    #:stream-device

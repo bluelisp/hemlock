@@ -293,10 +293,11 @@
      (t
       (editor-error "Point not past input mark.")))))
 
+;; fixme: this shouldn't be limited at all
 (defhvar "Interactive History Length"
   "This is the length used for the history ring in interactive buffers.
    It must be set before turning on the mode."
-  :value 10)
+  :value 1000)
 
 (defhvar "Minimum Interactive Input Length"
   "When the number of characters in an interactive buffer exceeds this value,

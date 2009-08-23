@@ -250,15 +250,14 @@
 (defun get-editor-name ()
   (if *editor-name*
       *editor-name*
-      (let ((random-state (make-random-state t)))
-        (dotimes (tries 10 (error "Could not create an internet listener."))
-          (let ((port (+ 2000 (random 10000 random-state))))
-            (when (handler-case (create-request-server port)
-                    (error (c)
-                      (warn "error on port ~D, retrying: ~A" port c)
-                      nil))
-              (return (setf *editor-name*
-                            (format nil "~A:~D" (machine-instance) port)))))))))
+      (multiple-value-bind (request-server port)
+          (create-request-server)
+        (declare (ignore request-server))
+        (setf *editor-name*
+              (format nil "~A:~D"
+                      #+nil (machine-instance)
+                      "127.0.0.1"
+                      port)))))
 
 
 ;;; MAKE-BUFFERS-FOR-TYPESCRIPT -- Internal.
@@ -396,12 +395,9 @@
             (bt:make-thread
              (let ((editor-name (get-editor-name)))
                (lambda ()
-                 (start-slave editor-name slave background)
-                 (loop
-                    (qt-hemlock::process-one-event))))
-             :name "Slave thread"
-             :initial-bindings `((*print-readably* . ,(constantly nil))
-                                 ,@bt:*default-special-bindings*)))
+                 (let ((*print-readably* nil)) ;?!
+                   (start-slave editor-name slave background))))
+             :name "Slave thread"))
           (*accept-connections* t)
           (*newly-created-slave* nil))
       (unless proc
@@ -507,7 +503,7 @@
 
 (defcommand "Select Self As Slave" (p)
   "" ""
-  (let* ((info (or (if p (create-slave-in-thread) (get-current-eval-server))
+  (let* ((info (or (create-slave-in-thread)
                    (editor-error "No current eval server yet")))
          (slave (server-info-slave-buffer info)))
     (unless slave
@@ -784,7 +780,9 @@
     (let ((machine (subseq editor 0 seperator))
           (port (parse-integer editor :start (1+ seperator))))
       (format t "Connecting to ~A:~D~%" machine port)
-      (connect-to-editor machine port slave-buffer background-buffer))))
+      (qt-hemlock::qthread-event-loop
+       (lambda ()
+         (connect-to-editor machine port slave-buffer background-buffer))))))
 
 
 ;;; PRINT-SLAVE-STATUS  --  Internal
@@ -826,10 +824,12 @@
 ;;; Do the actual connect to the editor.
 ;;;
 (defun connect-to-editor (machine port &optional (slave nil) (background nil))
-  (hemlock.wire:connect-to-remote-server
+  (connect-to-remote-server
    machine
    port
    (lambda (wire)
+     (print (list :remote 'make-buffers-for-typescript slave background))
+     (force-output)
      (hemlock.wire:remote-value
       wire
       (make-buffers-for-typescript slave background)))

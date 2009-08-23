@@ -216,9 +216,6 @@ to aborting due to a throw)."
                ,form)
              (wire-force-output ,wire)
              (loop
-               #+:hemlock.serve-event
-               (serve-all-events)
-               #-:hemlock.serve-event
                (wire-get-object ,wire)
                (when (remote-wait-finished ,remote)
                  (return))))
