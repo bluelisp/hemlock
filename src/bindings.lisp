@@ -331,6 +331,7 @@
 (bind-key "Typescript Slave Status" #k"hyper-s" :mode "Typescript")
 (bind-key "Select Slave" #k"control-meta-\c")
 (bind-key "Select Background" #k"control-meta-C")
+(bind-key "Clear Typescript Buffer" #k"control-c meta-o" :mode "Typescript")
 
 #+port-user-lispeval
 (progn
@@ -780,6 +781,7 @@
 (bind-key "Bufed Delete" #k"control-d" :mode "Bufed")
 (bind-key "Bufed Undelete" #k"u" :mode "Bufed")
 (bind-key "Bufed Expunge" #k"!" :mode "Bufed")
+(bind-key "Bufed Expunge" #k"x" :mode "Bufed")
 (bind-key "Bufed Quit" #k"q" :mode "Bufed")
 (bind-key "Bufed Goto" #k"space" :mode "Bufed")
 (bind-key "Bufed Goto and Quit" #k"super-leftdown" :mode "Bufed")
@@ -799,6 +801,7 @@
 (bind-key "Coned Delete" #k"control-d" :mode "Coned")
 (bind-key "Coned Undelete" #k"u" :mode "Coned")
 (bind-key "Coned Expunge" #k"!" :mode "Coned")
+(bind-key "Coned Expunge" #k"x" :mode "Coned")
 (bind-key "Coned Quit" #k"q" :mode "Coned")
 (bind-key "Coned Goto" #k"space" :mode "Coned")
 (bind-key "Coned Refresh" #k"g" :mode "Coned")

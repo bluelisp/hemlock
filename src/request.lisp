@@ -42,8 +42,7 @@
           :acceptor (lambda (connection)
                       (hemlock.wire:make-wire
                        (make-connection-device connection)))
-          :buffer t
-          :initargs '(:buffer t))))
+          :buffer t)))
     (values (make-request-server :listener listener)
             (connection-port listener))))
 

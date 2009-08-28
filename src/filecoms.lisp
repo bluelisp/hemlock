@@ -821,6 +821,7 @@
     (unless buffer
       (editor-error "No buffer named ~S" buffer-name))
     (when (and (buffer-modified buffer)
+               (buffer-pathname buf)
                (prompt-for-y-or-n :prompt "Save it first? "))
       (save-file-command nil buffer))
     (if (eq buffer (current-buffer))

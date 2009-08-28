@@ -198,30 +198,18 @@ to aborting due to a throw)."
   "Execute the single form remotly. The value of the form is returned.
   The optional form on-server-unwind is only evaluated if the server unwinds
   instead of returning."
-  (print :invoke-with)
-  (force-output)
   (let* ((remote (make-remote-wait))
          (*pending-returns* (cons (cons wire remote)
                                   *pending-returns*)))
-  (print :invoke-with-2)
-  (force-output)
     (unwind-protect
          (progn
-  (print :invoke-with-3)
-  (force-output)
            (funcall fun wire remote)
-  (print :invoke-with-4)
-  (force-output)
            (wire-force-output wire)
            (loop
               (wire-get-object wire)
               (when (remote-wait-finished remote)
                 (return))))
-  (print :invoke-with-5)
-  (force-output)
       (maybe-nuke-remote-wait remote))
-  (print :invoke-with-6)
-  (force-output)
     (cond
       ((not (remote-wait-abort remote))
        (remote-wait-value1 remote))

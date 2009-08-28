@@ -137,6 +137,7 @@
 
 (defun delete-bufed-buffer (buf)
   (when (and (buffer-modified buf)
+             (buffer-pathname buf)
              (prompt-for-y-or-n :prompt (list "~A is modified.  Save it first? "
                                               (buffer-name buf))))
     (save-file-command nil buf))

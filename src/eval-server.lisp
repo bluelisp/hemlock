@@ -658,10 +658,6 @@
 (defvar cl-user::*io*)
 (defun made-buffers-for-typescript (slave-info background-info)
   (setf *original-terminal-io* *terminal-io*)
-  (warn "made-buffers-for-typescript ~S ~S ~S."
-        (connect-stream slave-info)
-        *terminal-io*
-        (connect-stream background-info))
   (macrolet ((frob (symbol new-value)
                `(setf ,(intern (concatenate 'simple-string
                                             "*ORIGINAL-"
@@ -826,8 +822,6 @@
    machine
    port
    (lambda (wire)
-     (print (list :remote 'make-buffers-for-typescript slave background))
-     (force-output)
      (hemlock.wire:remote-value
       wire
       (make-buffers-for-typescript slave background)))

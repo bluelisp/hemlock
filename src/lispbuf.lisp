@@ -251,8 +251,13 @@
 (defcommand "Clear Eval Buffer" (p)
   "" ""
   (declare (ignore p))
-  (delete-region (buffer-region (current-buffer)))
-  (fresh-prompt))
+  (let* ((input-region (get-interactive-input))
+         (input (if input-region
+                    (region-to-string input-region)
+                    "")))
+    (delete-region (buffer-region (current-buffer)))
+    (fresh-prompt)
+    (insert-string (buffer-point (current-buffer)) input)))
 
 (defun region-chop-newline (region)
   (let ((end (region-end region)))

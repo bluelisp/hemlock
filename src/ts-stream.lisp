@@ -163,7 +163,7 @@
     (or (check)
         #+(or)
         (progn
-          (hemlock.wire::process-one-event/qt)
+          (hemlock.wire::nonblocking-process-one-event/qt)
           (check)))))
 
 (defmethod hi::stream-listen ((stream ts-stream))
@@ -189,9 +189,9 @@
                 :context "in the READ-CHAR method")))))))
 
 (defmethod hi::stream-read-char-no-hang ((stream ts-stream))
-  (hi::stream-force-output stream)
   (cond
     ((%ts-stream-listen stream)
+     (hi::stream-force-output stream)
      (progn                             ;hemlock-ext:without-interrupts
        (progn                           ;hemlock-ext:without-gcing
          (let ((first (first (ts-stream-current-input stream))))
@@ -212,6 +212,7 @@
 ;;; newlines will only appear at the end of strings.
 ;;;
 
+#+(or)
 (defmethod stream-read-line (stream)
   (macrolet
       ((next-str ()
@@ -297,6 +298,7 @@
 ;;;
 ;;; Output a string to stream.
 ;;;
+#+(or)
 (defmethod hi::stream-write-string ((stream ts-stream) string &optional (start 0) (end (length string)))
   ;; This can't be true generally: --GB
   #+NIL (declare (simple-string string))
@@ -423,6 +425,16 @@
           (pop (ts-stream-current-input stream)))
          (string nil)))))
     ))
+
+(defmethod hi::stream-write-sequence
+    ((stream ts-stream) (seq string) start end &key)
+  (iter:iter (iter:for i from start below end)
+             (write-char (elt seq i) stream)))
+
+(defmethod hi::stream-read-sequence
+    ((stream ts-stream) (seq string) start end &key)
+  (iter:iter (iter:for i from start below end)
+             (setf (elt seq i) (read-char stream))))
 
 ;; $Log: ts-stream.lisp,v $
 ;; Revision 1.1  2004-07-09 13:38:55  gbaumann

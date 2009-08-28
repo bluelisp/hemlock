@@ -312,3 +312,14 @@
     (error "SEND-OOB-TO-SLAVE seeks an implementation.")
     #+NIL
     (hemlock-ext:send-character-out-of-band socket (schar string 0))))
+
+(defcommand "Clear Typescript Buffer" (p)
+  "" ""
+  (declare (ignore p))
+  (let* ((input-region (get-interactive-input))
+         (input (if input-region
+                    (region-to-string input-region)
+                    "")))
+    (delete-region (buffer-region (current-buffer)))
+    (fresh-prompt)
+    (insert-string (buffer-point (current-buffer)) input)))

@@ -335,6 +335,7 @@
   (declare (ignorable ignore-abort-attempts-p))
   (let ((*redraw-needed* t))
     (loop
+       (#_processEvents *qapp* (#_QEventLoop::AllEvents))
        (when *redraw-needed*
          (hi::internal-redisplay))
        (let ((event (hi::dq-event stream)))
@@ -345,15 +346,19 @@
 
 (defvar *in-main-qthread* nil)
 
-(defun process-one-event ()
+(defun process-one-event (&optional (mode (#_QEventLoop::WaitForMoreEvents)))
   (let ((*redraw-needed* nil))
-    (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents))
-    (when *redraw-needed*
-      (assert *in-main-qthread*)
-      (hi::internal-redisplay))))
+    (prog1
+        (#_processEvents *qapp* mode)
+      (when *redraw-needed*
+        (assert *in-main-qthread*)
+        (hi::internal-redisplay)))))
 
 (defun hemlock.wire::process-one-event/qt ()
   (process-one-event))
+
+(defun hemlock.wire::nonblocking-process-one-event/qt ()
+  (process-one-event (#_QEventLoop::AllEvents)))
 
 (defun redraw-needed ()
   (when *in-main-qthread*
@@ -666,8 +671,6 @@
              (QSIGNAL "timeout()")
              #'process-invoke-later-thunks)
     (funcall initfun)
-    (print :exec)
-    (force-output)
     #+(or)
     (unwind-protect
          (progn
@@ -676,14 +679,12 @@
       (warn "exec unwinded"))
     (unwind-protect
          (progn
-           (iter
-            (until (and (boundp 'cl-user::*io*)
-                        cl-user::*io*))
-            (print "sleeping")
-            (force-output)
-            (process-one-event))
-           #+(or)
+           (iter (process-one-event)
+                 (until (and (boundp 'cl-user::*io*) cl-user::*io*))
+                 (write-line "Waiting for typestream buffer...")
+                 (force-output))
            (ccl::toplevel-loop)
+           #+(or)
            (iter
             (one-toplevel-iteration)))
       (warn "loop unwinded"))))

@@ -153,8 +153,6 @@
                 n-bytes-read)))))
 
 (defun note-connected (connection)
-  (print :note-connected)
-  (force-output)
   (connection-note-event connection :connected))
 
 (defun note-disconnected (connection)
@@ -583,8 +581,8 @@
 (defun connection-device-sentinel (device connection event)
   (when (device-original-sentinel device)
     (funcall (device-original-sentinel device) connection event))
-  ;; fixme: do we have to close the wire here?
-  (print (list :connection-device-sentinel event)))
+  ;; fixme: anything else to do here?
+  )
 
 (defmethod hemlock.wire:device-listen
     ((device connection-device))
