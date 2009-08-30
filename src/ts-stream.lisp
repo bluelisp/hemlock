@@ -103,26 +103,24 @@
 ;;;
 (defun ts-stream-accept-input (remote input)
   (let ((stream (hemlock.wire:remote-object-value remote)))
-    (progn ;progn ;hemlock-ext:without-interrupts
-     (progn; progn ;hemlock-ext:without-gcing
-      (setf (ts-stream-current-input stream)
-            (nconc (ts-stream-current-input stream)
-                   (list (etypecase input
-                           (string
-                            (let ((newline
-                                   (position #\newline input :from-end t)))
-                              (setf (ts-stream-char-pos stream)
-                                    (if newline
-                                        (- (length input) newline 1)
-                                        (length input)))
-                              input))
-                           #+NILGB
-                           (cons
-                            (ext:make-stream-command (car input)
-                                                     (cdr input)))
-                           #+NILGB
-                           (symbol
-                            (ext:make-stream-command input)))))))))
+    (setf (ts-stream-current-input stream)
+          (nconc (ts-stream-current-input stream)
+                 (list (etypecase input
+                         (string
+                          (let ((newline
+                                 (position #\newline input :from-end t)))
+                            (setf (ts-stream-char-pos stream)
+                                  (if newline
+                                      (- (length input) newline 1)
+                                      (length input)))
+                            input))
+                         #+NILGB
+                         (cons
+                          (ext:make-stream-command (car input)
+                                                   (cdr input)))
+                         #+NILGB
+                         (symbol
+                          (ext:make-stream-command input)))))))
   nil)
 
 ;;; TS-STREAM-SET-LINE-LENGTH -- Internal Interface.
@@ -145,22 +143,20 @@
 ;;;
 (defun %ts-stream-listen (stream)
   (flet ((check ()
-           (progn                       ;progn ;hemlock-ext:without-interrupts
-             (progn                     ;progn ;hemlock-ext:without-gcing
-               (loop
-                  (let* ((current (ts-stream-current-input stream))
-                         (first (first current)))
-                    (cond ((null current)
-                           (return nil))
-                          #+NILGB
-                          ((ext:stream-command-p first)
-                           (return t))
-                          ((>= (ts-stream-input-read-index stream)
-                               (length (the simple-string first)))
-                           (pop (ts-stream-current-input stream))
-                           (setf (ts-stream-input-read-index stream) 0))
-                          (t
-                           (return t)))))))))
+           (loop
+              (let* ((current (ts-stream-current-input stream))
+                     (first (first current)))
+                (cond ((null current)
+                       (return nil))
+                      #+NILGB
+                      ((ext:stream-command-p first)
+                       (return t))
+                      ((>= (ts-stream-input-read-index stream)
+                           (length (the simple-string first)))
+                       (pop (ts-stream-current-input stream))
+                       (setf (ts-stream-input-read-index stream) 0))
+                      (t
+                       (return t)))))))
     (or (check)
         #+(or)
         (progn
@@ -177,33 +173,29 @@
 (defmethod hi::stream-read-char ((stream ts-stream))
   (hi::stream-force-output stream)
   (wait-for-typescript-input stream)
-  (progn ;hemlock-ext:without-interrupts
-   (progn ;hemlock-ext:without-gcing
-    (let ((first (first (ts-stream-current-input stream))))
-      (etypecase first
-        (string
-         (prog1 (schar first (ts-stream-input-read-index stream))
-           (incf (ts-stream-input-read-index stream))))
-        #+NILGB
-        (ext:stream-command
-         (error 'unexpected-stream-command
-                :context "in the READ-CHAR method")))))))
+  (let ((first (first (ts-stream-current-input stream))))
+    (etypecase first
+      (string
+       (prog1 (schar first (ts-stream-input-read-index stream))
+         (incf (ts-stream-input-read-index stream))))
+      #+NILGB
+      (ext:stream-command
+       (error 'unexpected-stream-command
+              :context "in the READ-CHAR method")))))
 
 (defmethod hi::stream-read-char-no-hang ((stream ts-stream))
   (cond
     ((%ts-stream-listen stream)
      (hi::stream-force-output stream)
-     (progn                             ;hemlock-ext:without-interrupts
-       (progn                           ;hemlock-ext:without-gcing
-         (let ((first (first (ts-stream-current-input stream))))
-           (etypecase first
-             (string
-              (prog1 (schar first (ts-stream-input-read-index stream))
-                (incf (ts-stream-input-read-index stream))))
-             #+NILGB
-             (ext:stream-command
-              (error 'unexpected-stream-command
-                     :context "in the READ-CHAR method")))))))
+     (let ((first (first (ts-stream-current-input stream))))
+       (etypecase first
+         (string
+          (prog1 (schar first (ts-stream-input-read-index stream))
+            (incf (ts-stream-input-read-index stream))))
+         #+NILGB
+         (ext:stream-command
+          (error 'unexpected-stream-command
+                 :context "in the READ-CHAR method")))))
     (t
      ;; not :eof!
      nil)))
@@ -220,20 +212,18 @@
       ((next-str ()
          '(progn
            (wait-for-typescript-input stream)
-           (progn ;progn ;hemlock-ext:without-interrupts
-            (progn ;progn ;hemlock-ext:without-gcing
-             (let ((first (first (ts-stream-current-input stream))))
-               (etypecase first
-                 (string
-                  (prog1 (if (zerop (ts-stream-input-read-index stream))
-                             (pop (ts-stream-current-input stream))
-                             (subseq (pop (ts-stream-current-input stream))
-                                     (ts-stream-input-read-index stream)))
-                    (setf (ts-stream-input-read-index stream) 0)))
-                 #+NILGB
-                 (ext:stream-command
-                  (error 'unexpected-stream-command
-                         :context "in the READ-CHAR method")))))))))
+           (let ((first (first (ts-stream-current-input stream))))
+             (etypecase first
+               (string
+                (prog1 (if (zerop (ts-stream-input-read-index stream))
+                           (pop (ts-stream-current-input stream))
+                           (subseq (pop (ts-stream-current-input stream))
+                                   (ts-stream-input-read-index stream)))
+                  (setf (ts-stream-input-read-index stream) 0)))
+               #+NILGB
+               (ext:stream-command
+                (error 'unexpected-stream-command
+                       :context "in the READ-CHAR method")))))))
     (do ((result (next-str) (concatenate 'simple-string result (next-str))))
         ((char= (schar result (1- (length result))) #\newline)
          (values (subseq result 0 (1- (length result)))
@@ -279,22 +269,20 @@
 ;;;
 (defmethod hi::stream-write-char ((stream ts-stream) char)
   (declare (base-char char))
-  (progn ;hemlock-ext:without-interrupts
-   (progn ;hemlock-ext:without-gcing
-    (when (= (ts-stream-output-buffer-index stream)
-             ts-stream-output-buffer-size)
-      (%ts-stream-flsbuf stream))
-    (setf (schar (ts-stream-output-buffer stream)
-                 (ts-stream-output-buffer-index stream))
-          char)
-    (incf (ts-stream-output-buffer-index stream))
-    (incf (ts-stream-char-pos stream))
-    (when (= (char-code char)
-             (char-code #\Newline))
-      (%ts-stream-flsbuf stream)
-      (setf (ts-stream-char-pos stream) 0)
-      (hemlock.wire:wire-force-output (ts-stream-wire stream)))
-    char)))
+  (when (= (ts-stream-output-buffer-index stream)
+           ts-stream-output-buffer-size)
+    (%ts-stream-flsbuf stream))
+  (setf (schar (ts-stream-output-buffer stream)
+               (ts-stream-output-buffer-index stream))
+        char)
+  (incf (ts-stream-output-buffer-index stream))
+  (incf (ts-stream-char-pos stream))
+  (when (= (char-code char)
+           (char-code #\Newline))
+    (%ts-stream-flsbuf stream)
+    (setf (ts-stream-char-pos stream) 0)
+    (hemlock.wire:wire-force-output (ts-stream-wire stream)))
+  char)
 
 ;;; %TS-STREAM-SOUT --- internal.
 ;;;
@@ -309,50 +297,46 @@
         (newline (position #\Newline string :start start :end end :from-end t))
         (length (- end start)))
     (when wire
-      (progn ;hemlock-ext:without-interrupts
-       (progn ;hemlock-ext:without-gcing
-        (let ((index (ts-stream-output-buffer-index stream)))
-          (cond ((> (+ index length)
-                    ts-stream-output-buffer-size)
+      (let ((index (ts-stream-output-buffer-index stream)))
+        (cond ((> (+ index length)
+                  ts-stream-output-buffer-size)
+               (%ts-stream-flsbuf stream)
+               (hemlock.wire:remote wire
+                                    (ts-buffer-output-string (ts-stream-typescript stream)
+                                                             (subseq string start end)))
+               (when newline
+                 (hemlock.wire:wire-force-output wire)))
+              (t
+               (replace (the simple-string (ts-stream-output-buffer stream))
+                        string
+                        :start1 index
+                        :end1 (+ index length)
+                        :start2 start
+                        :end2 end)
+               (incf (ts-stream-output-buffer-index stream)
+                     length)
+               (when newline
                  (%ts-stream-flsbuf stream)
-                 (hemlock.wire:remote wire
-                                      (ts-buffer-output-string (ts-stream-typescript stream)
-                                                               (subseq string start end)))
-                 (when newline
-                   (hemlock.wire:wire-force-output wire)))
-                (t
-                 (replace (the simple-string (ts-stream-output-buffer stream))
-                          string
-                          :start1 index
-                          :end1 (+ index length)
-                          :start2 start
-                          :end2 end)
-                 (incf (ts-stream-output-buffer-index stream)
-                       length)
-                 (when newline
-                   (%ts-stream-flsbuf stream)
-                   (hemlock.wire:wire-force-output wire)))))
-        (setf (ts-stream-char-pos stream)
-              (if newline
-                  (- end newline 1)
-                  (+ (ts-stream-char-pos stream)
-                     length))))))))
+                 (hemlock.wire:wire-force-output wire)))))
+      (setf (ts-stream-char-pos stream)
+            (if newline
+                (- end newline 1)
+                (+ (ts-stream-char-pos stream)
+                   length))))))
 
 ;;; %TS-STREAM-UNREAD -- Internal.
 ;;;
 ;;; Unread a single character.
 ;;;
 (defmethod hi::stream-unread-char ((stream ts-stream) char)
-  (progn ;hemlock-ext:without-interrupts
-   (progn ;hemlock-ext:without-gcing
-    (let ((first (first (ts-stream-current-input stream))))
-      (cond ((and (stringp first)
-                  (> (ts-stream-input-read-index stream) 0))
-             (setf (schar first (decf (ts-stream-input-read-index stream)))
-                   char))
-            (t
-             (push (string char) (ts-stream-current-input stream))
-             (setf (ts-stream-input-read-index stream) 0)))))))
+  (let ((first (first (ts-stream-current-input stream))))
+    (cond ((and (stringp first)
+                (> (ts-stream-input-read-index stream) 0))
+           (setf (schar first (decf (ts-stream-input-read-index stream)))
+                 char))
+          (t
+           (push (string char) (ts-stream-current-input stream))
+           (setf (ts-stream-input-read-index stream) 0)))))
 
 ;;; %TS-STREAM-CLOSE --- internal.
 ;;;
@@ -369,32 +353,26 @@
 ;;; Pass the request to the editor and clear any buffered input.
 ;;;
 (defmethod hi::stream-clear-input ((stream ts-stream))
-  (progn ;hemlock-ext:without-interrupts
-   (progn ;hemlock-ext:without-gcing
-    (when (ts-stream-wire stream)
-      (hemlock.wire:remote-value (ts-stream-wire stream)
-        (ts-buffer-clear-input (ts-stream-typescript stream))))
-    (setf (ts-stream-current-input stream) nil
-          (ts-stream-input-read-index stream) 0))))
+  (when (ts-stream-wire stream)
+    (hemlock.wire:remote-value (ts-stream-wire stream)
+                               (ts-buffer-clear-input (ts-stream-typescript stream))))
+  (setf (ts-stream-current-input stream) nil
+        (ts-stream-input-read-index stream) 0))
 
 (defmethod hi::stream-finish-output ((stream ts-stream))
   (when (ts-stream-wire stream)
-    (progn ;hemlock-ext:without-interrupts
-     (progn ;hemlock-ext:without-gcing
-      (%ts-stream-flsbuf stream)
-      ;; Note: for the return value to come back,
-      ;; all pending RPCs must have completed.
-      ;; Therefore, we know it has synced.
-      (hemlock.wire:remote-value (ts-stream-wire stream)
-                         (ts-buffer-finish-output (ts-stream-typescript stream))))))
+    (%ts-stream-flsbuf stream)
+    ;; Note: for the return value to come back,
+    ;; all pending RPCs must have completed.
+    ;; Therefore, we know it has synced.
+    (hemlock.wire:remote-value (ts-stream-wire stream)
+                               (ts-buffer-finish-output (ts-stream-typescript stream))))
   t)
 
 (defmethod hi::stream-force-output ((stream ts-stream))
   (when (ts-stream-wire stream)
-    (progn ;hemlock-ext:without-interrupts
-     (progn ;hemlock-ext:without-gcing
-      (%ts-stream-flsbuf stream)
-      (hemlock.wire:wire-force-output (ts-stream-wire stream)))))
+    (%ts-stream-flsbuf stream)
+    (hemlock.wire:wire-force-output (ts-stream-wire stream)))
   t)
 
 (defmethod hi::stream-line-column ((stream ts-stream))
@@ -419,14 +397,11 @@
   (case operation
     (:get-command
      (wait-for-typescript-input stream)
-     (progn ;hemlock-ext:without-interrupts
-      (progn ;hemlock-ext:without-gcing
-       (etypecase (first (ts-stream-current-input stream))
-         (stream-command
-          (setf (ts-stream-input-read-index stream) 0)
-          (pop (ts-stream-current-input stream)))
-         (string nil)))))
-    ))
+     (etypecase (first (ts-stream-current-input stream))
+       (stream-command
+        (setf (ts-stream-input-read-index stream) 0)
+        (pop (ts-stream-current-input stream)))
+       (string nil)))))
 
 (defmethod hi::stream-write-sequence
     ((stream ts-stream) (seq string) start end &key)
