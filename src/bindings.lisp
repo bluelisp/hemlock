@@ -373,8 +373,6 @@
 (bind-key "Delete Previous Character Expanding Tabs" #k"backspace" :mode "Lisp")
 (bind-key "Delete Previous Character Expanding Tabs" #k"delete" :mode "Lisp")
 
-#+port-user-lispeval
-(progn
 (bind-key "Evaluate Expression" #k"meta-escape")
 (bind-key "Evaluate Defun" #k"control-x control-e")
 (bind-key "Compile Defun" #k"control-x control-c")
@@ -383,7 +381,6 @@
 
 (bind-key "Describe Function Call" #k"control-meta-A")
 (bind-key "Describe Symbol" #k"control-meta-S")
-)
 (bind-key "Goto Definition" #k"control-meta-F")
 
 #+port-user-debug
