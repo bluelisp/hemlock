@@ -625,12 +625,12 @@
           (unget-key-event key-event *editor-input*))
       (throw 'editor-top-level-catcher nil))))
 
-(defvar *trap-errors-p* t)
+(defvar *debug-on-error* nil)
 
 (defun lisp-error-error-handler (condition &optional internalp)
   (declare (ignore internalp))
   (cond
-    (*trap-errors-p*
+    ((not *debug-on-error*)
      (warn "ignoring error: ~A" condition)
      (message "Error: ~A" condition)
      #+sbcl (print (sb-debug:backtrace-as-list))
