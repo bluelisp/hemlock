@@ -356,13 +356,10 @@
                "Returns the value of buffer's \"Current Package\" followed
                 by a colon and two spaces, or a string with one space."
                (declare (ignore window))
-               (if (hemlock-bound-p 'hemlock::current-package :buffer buffer)
-                   (let ((val (variable-value 'hemlock::current-package
-                                              :buffer buffer)))
-                     (if val
-                         (format nil "~A:  " val)
-                         " "))
-                   " ")))
+               (let ((package (hemlock::package-at-point)))
+                 (if package
+                     (format nil "~A:  " package)
+                     " "))))
 
 (make-modeline-field
  :name :modes

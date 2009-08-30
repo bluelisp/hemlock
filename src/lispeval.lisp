@@ -251,7 +251,7 @@
 ;;; EVAL-FORM-IN-SERVER -- Public.
 ;;;
 (defun eval-form-in-server (server-info form
-                            &optional (package (value current-package)))
+                            &optional (package (package-at-point)))
   "This evals form, a simple-string, in the server for server-info.  Package
    is the name of the package in which the server reads form, and it defaults
    to the value of \"Current Package\".  If package is nil, then the slave uses
@@ -276,7 +276,7 @@
 ;;; We use VALUES to squelch the second value of READ-FROM-STRING.
 ;;;
 (defun eval-form-in-server-1 (server-info form
-                              &optional (package (value current-package)))
+                              &optional (package (package-at-point)))
   "This calls EVAL-FORM-IN-SERVER and returns the result of READ'ing from
    the first string EVAL-FORM-IN-SERVER returns."
   (values (read-from-string
@@ -285,7 +285,7 @@
 (defun string-eval (string
                     &key
                     (server (get-current-eval-server))
-                    (package (value current-package))
+                    (package (package-at-point))
                     (context (format nil
                                      "evaluation of ~S"
                                      string)))
@@ -303,7 +303,7 @@
 (defun region-eval (region
                     &key
                     (server (get-current-eval-server))
-                    (package (value current-package))
+                    (package (package-at-point))
                     (context (region-context region "evaluation")))
   "Queues the evaluation of a region of text on an eval server.  If package
    is not supplied, the string is eval'ed in the slave's current package."
@@ -320,7 +320,7 @@
 (defun region-compile (region
                        &key
                        (server (get-current-eval-server))
-                       (package (value current-package)))
+                       (package (package-at-point)))
   "Queues a compilation on an eval server.  If package is not supplied, the
    string is eval'ed in the slave's current package."
   (let* ((region (region (copy-mark (region-start region) :left-inserting)
@@ -369,7 +369,7 @@
                      lap-file
                      load
                      (server (get-current-compile-server))
-                     (package (value current-package)))
+                     (package (package-at-point)))
   "Compiles file in a client Lisp.  When output-file is t, a temporary
    output file is used that is publicly writeable in case the client is on
    another machine.  This file is renamed or deleted after compilation.
@@ -483,6 +483,20 @@
     (message "This editor is named ~S." *editor-name*)
     (message "This editor is not currently named.")))
 
+(defparameter *in-package-regex*
+  "^(in-package")
+
+(defun package-at-point ()
+  (iter:iter
+   (iter:for line initially (mark-line (current-point))
+             then (line-previous line))
+   (iter:while line)
+   (cl-ppcre:register-groups-bind
+       (package)
+       ("^\\(in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
+     (return package))))
+
+#+(or)
 (defcommand "Set Buffer Package" (p)
   "Set the package to be used by Lisp evaluation and compilation commands
    while in this buffer.  When in a slave's interactive buffers, do NOT
@@ -899,7 +913,7 @@
         (pre-command-parse-check mark1)
         (unless (backward-up-list mark1) (editor-error))
         (form-offset (move-mark mark2 (mark-after mark1)) 1)
-        (let* ((package (value current-package))
+        (let* ((package (package-at-point))
                (package-exists
                 (eval-form-in-server-1
                  info

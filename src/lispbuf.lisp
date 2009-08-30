@@ -17,7 +17,7 @@
    named by \"Current Package\" if it is non-nil."
   (let ((name (gensym)) (package (gensym)))
     `(handle-lisp-errors
-      (let* ((,name (value current-package))
+      (let* ((,name (package-at-point))
              (,package (and ,name (find-package ,name))))
         (progv (if ,package '(*package*)) (if ,package (list ,package))
           ,@body)))))

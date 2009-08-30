@@ -394,7 +394,7 @@
                   (server-info-name server-info)))
   (multiple-value-bind (res error)
                        (wire:remote-value (server-info-wire server-info)
-                         (di:set-breakpoint-for-editor (value current-package)
+                         (di:set-breakpoint-for-editor (package-at-point)
                                                        name path))
     (when error (editor-error "The server died before finishing."))
     res))

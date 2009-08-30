@@ -1731,11 +1731,8 @@
 (defmode "Lisp" :major-p t :setup-function 'setup-lisp-mode)
 
 (defun setup-lisp-mode (buffer)
-  (unless (hemlock-bound-p 'current-package :buffer buffer)
-    (defhvar "Current Package"
-      "The package used for evaluation of Lisp in this buffer."
-      :buffer buffer
-      :value "USER")))
+  ;;
+  )
 
 
 
