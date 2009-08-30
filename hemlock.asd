@@ -212,7 +212,7 @@
                (:file "request")
                (:file "eval-server")
                (:file "lispbuf" :depends-on ("filecoms"))
-               (:file "lispeval")
+               (:file "lispeval" :depends-on ("eval-server"))
                #+port-user-spell-rt (:file "spell-rt")
                #+port-user-spell-corr (:file "spell-corr")
                #+port-user-spell-aug (:file "spell-aug")
