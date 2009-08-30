@@ -390,7 +390,6 @@
         (editor-error "Buffer ~A is already in use." slave))
       (when (getstring background *buffer-names*)
         (editor-error "Buffer ~A is already in use." background)))
-    (message "Spawning slave ... ")
     (let ((proc
             (bt:make-thread
              (let ((editor-name (get-editor-name)))
@@ -773,6 +772,7 @@
              editor))
     (let ((machine (subseq editor 0 seperator))
           (port (parse-integer editor :start (1+ seperator)))
+          (hi::*in-hemlock-slave-p* t)
           ;; override --disable-debugger from this point on:
           (*debugger-hook*
            (lambda (c orig)

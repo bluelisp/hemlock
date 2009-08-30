@@ -335,26 +335,34 @@ GB
             "~S is not a symbol or pathname.  I can't edit it!" x))))
   (invoke-hook hemlock::entry-hook))
 
+(defvar *in-hemlock-slave-p* nil)
+
 (defun hemlock (&optional x)
-  (when *in-the-editor* (error "You are already in the editor"))
-  (let ((*in-the-editor* t))
-    (catch 'editor-top-level-catcher
-      (catch 'hemlock-exit
-        (qt-hemlock::qt-hemlock
-         (lambda ()
-           (%hemlock-process-argument x))
-         (lambda ()
-           (unwind-protect
-                (loop
-                   (catch 'command-loop-catcher
-                     (catch 'editor-top-level-catcher
-                       (handler-bind
-                           ((error #'(lambda (condition)
-                                       (lisp-error-error-handler condition
-                                                                 :internal))))
-                         (invoke-hook hemlock::abort-hook)
-                         (%command-loop)))))
-             (invoke-hook hemlock::exit-hook))))))))
+  (cond
+    (*in-the-editor*
+     (%hemlock-process-argument x))
+    (*in-hemlock-slave-p*
+     (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
+                                (%hemlock-process-argument x)))
+    (t
+     (let ((*in-the-editor* t))
+       (catch 'editor-top-level-catcher
+         (catch 'hemlock-exit
+           (qt-hemlock::qt-hemlock
+            (lambda ()
+              (%hemlock-process-argument x))
+            (lambda ()
+              (unwind-protect
+                   (loop
+                      (catch 'command-loop-catcher
+                        (catch 'editor-top-level-catcher
+                          (handler-bind
+                              ((error #'(lambda (condition)
+                                          (lisp-error-error-handler condition
+                                                                    :internal))))
+                            (invoke-hook hemlock::abort-hook)
+                            (%command-loop)))))
+                (invoke-hook hemlock::exit-hook))))))))))
 
 (defun hemlock-ed-function (x)
   (hemlock x)

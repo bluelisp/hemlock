@@ -155,7 +155,7 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :depends-on (root-1 core-1)
+              :depends-on (root-1 core-1 wire)
               :components
               ((:file "font")
                (:file "streams")
