@@ -395,11 +395,22 @@
             (bt:make-thread
              (let ((editor-name (get-editor-name)))
                (lambda ()
-                 (let ((*print-readably* nil)) ;?!
-                   (handler-case
-                       (start-slave editor-name slave background)
-                     (error (c)
-                       (warn "error in slave process, quitting: ~A" c))))))
+                 (macrolet ((rebinding ((&rest vars) &body body)
+                              `(let ,(mapcar (lambda (var)
+                                               (list var var))
+                                             vars)
+                                 ,@body)))
+                   (let ((*print-readably* nil))
+                     (rebinding (*terminal-io*
+                                 *standard-input*
+                                 *standard-output*
+                                 *error-output*
+                                 *debug-io*
+                                 *query-io*
+                                 *trace-output*
+                                 *background-io*
+                                 cl-user::*io*)
+                       (start-slave editor-name slave background))))))
              :name "Slave thread"))
           (*accept-connections* t)
           (*newly-created-slave* nil))
@@ -655,7 +666,7 @@
 ;;; since the editor calls this in the slave for value.  The editor does this
 ;;; for synch'ing, not for values.
 ;;;
-(defvar cl-user::*io*)
+(defvar cl-user::*io* nil)
 (defun made-buffers-for-typescript (slave-info background-info)
   (setf *original-terminal-io* *terminal-io*)
   (macrolet ((frob (symbol new-value)
@@ -754,8 +765,7 @@
 ;;;
 ;;; Initiate the process by which a lisp becomes a slave.
 ;;;
-(defun start-slave (editor &optional slave-buffer background-buffer)
-  (declare (simple-string editor))
+(defun %start-slave (editor &optional slave-buffer background-buffer)
   (let ((seperator (position #\: editor :test #'char=)))
     (unless seperator
       (error "Editor name ~S invalid. ~
@@ -777,6 +787,21 @@
       (qt-hemlock::qthread-event-loop
        (lambda ()
          (connect-to-editor machine port slave-buffer background-buffer))))))
+
+(defun start-slave (editor &optional slave-buffer background-buffer)
+  (let ((*original-terminal-io* *terminal-io*))
+    (block nil
+      (handler-bind
+          ((serious-condition
+            (lambda (c)
+              ;; The streams having changed indicates that the slave has
+              ;; started up successfully.  From that point on, don't
+              ;; keep it from entering the debugger.
+              (when (eq *original-terminal-io* *terminal-io*)
+                (format *original-terminal-io* "Error: ~A~%" c)
+                (force-output *original-terminal-io*)
+                (return)))))
+        (%start-slave editor slave-buffer background-buffer)))))
 
 
 ;;; PRINT-SLAVE-STATUS  --  Internal
