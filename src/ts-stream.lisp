@@ -25,7 +25,8 @@
 
 (defconstant ts-stream-output-buffer-size 512)
 
-(defclass ts-stream (hi::fundamental-character-output-stream
+(defclass ts-stream (hi::trivial-gray-stream-mixin
+                     hi::fundamental-character-output-stream
                      hi::fundamental-character-input-stream)
   ((wire
     :initarg  :wire
@@ -204,7 +205,8 @@
               (error 'unexpected-stream-command
                      :context "in the READ-CHAR method")))))))
     (t
-     :eof)))
+     ;; not :eof!
+     nil)))
 
 ;;; %TS-STREAM-READ-LINE -- Internal.
 ;;;
