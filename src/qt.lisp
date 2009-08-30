@@ -684,17 +684,17 @@
            (#_exec *qapp*)
            (error "exec fell through"))
       (warn "exec unwinded"))
-    (unwind-protect
-         (progn
-           (iter (process-one-event)
-                 (until (and (boundp 'cl-user::*io*) cl-user::*io*))
-                 (write-line "Waiting for typestream buffer...")
-                 (force-output))
-           (ccl::toplevel-loop)
-           #+(or)
-           (iter
-            (one-toplevel-iteration)))
-      (warn "loop unwinded"))))
+    (progn
+      (iter (process-one-event)
+            (until cl-user::*io*)
+            (write-line "Waiting for typestream buffer...")
+            (force-output))
+      #+ccl (ccl::toplevel-loop)
+      #+sbcl (sb-impl::toplevel-repl nil)
+      (error "no repl")
+      #+(or)
+      (iter
+       (one-toplevel-iteration)))))
 
 (defun one-toplevel-iteration ()
   (format cl-user::*io*  "~&> ")
