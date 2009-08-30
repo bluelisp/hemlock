@@ -494,7 +494,7 @@
    (cl-ppcre:register-groups-bind
        (package)
        ("^\\(in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
-     (return package))))
+     (return (string-upcase package)))))
 
 #+(or)
 (defcommand "Set Buffer Package" (p)
