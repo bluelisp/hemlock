@@ -208,7 +208,7 @@
                       (unwind-protect
                            (let ((this-eval
                                   (multiple-value-list
-                                   (let ((hi::*trap-errors-p* nil)
+                                   (let ((hi::*debug-on-error* t)
                                          #+sbcl (sb-ext:*invoke-debugger-hook* nil)
                                          (*debugger-hook* nil))
                                      (with-nonbroken-debugger
