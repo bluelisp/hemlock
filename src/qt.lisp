@@ -611,6 +611,7 @@
         (#_addSeparator menu)
         (add-command-action menu "Exit Hemlock"))
       (let ((menu (#_addMenu (#_menuBar window) "Lisp")))
+        (add-command-action menu "Select Self As Slave")
         (add-command-action menu "Select Slave")
         (add-command-action menu "Select Eval Buffer"))
       (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
