@@ -151,6 +151,7 @@
 (bind-key "Mark to End of Buffer" #k"control-\>")
 
 (bind-key "Extended Command" #k"meta-x")
+(bind-key "Eval Expresion" #k"meta-:")
 
 (bind-key "Uppercase Word" #k"meta-u")
 (bind-key "Lowercase Word" #k"meta-l")

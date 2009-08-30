@@ -398,6 +398,11 @@
          (function (command-function (getstring name *command-names*))))
     (funcall function p)))
 
+(defcommand "Eval Expresion" (p)
+  "" ""
+  (declare (ignore p))
+  (message "~S" (eval (prompt-for-expression))))
+
 (defhvar "Universal Argument Default"
   "Default value for \"Universal Argument\" command."
   :value 4)
