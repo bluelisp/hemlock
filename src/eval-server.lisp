@@ -944,10 +944,10 @@
 ;;; *compiler-wire* bound.
 ;;;
 (defmacro do-compiler-operation ((note package terminal-io error) &body body)
-  #+NILGB
   `(let ((*compiler-note* ,note)
          (*compiler-error-stream* ,error)
          (*compiler-wire* hemlock.wire:*current-wire*)
+         #+nil
          (c:*compiler-notification-function* #'compiler-note-in-editor))
      (do-operation (*compiler-note* ,package ,terminal-io)
                    (unwind-protect
@@ -993,17 +993,28 @@
 ;;;
 ;;;    Similar to server-eval-text, except that the stuff is compiled.
 ;;;
-#+NILGB
+(defmacro with-temporary-file-name ((var) &body body)
+  `(invoke-with-temporary-file-name (lambda (,var) ,@body)))
+
+(defun invoke-with-temporary-file-name (fun)
+  (funcall fun (merge-pathnames ".tmp.lisp"
+                                (asdf:component-pathname
+                                 (asdf:find-system :hemlock)))))
+
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)
+  (declare (ignore defined-from))
   (let ((error-output (if error-output
                         (hemlock.wire:remote-object-value error-output))))
     (do-compiler-operation (note package terminal-io error-output)
-      (with-input-from-string (input-stream text)
+      (with-temporary-file-name (tmp)
+        (with-open-file (s tmp :if-exists :truncate)
+          (write-string text s))
         (terpri error-output)
-        (c::compile-from-stream input-stream
-                                :error-stream error-output
-                                :source-info defined-from)))))
+        (compile-file tmp
+                      ;; :error-stream error-output
+                      ;; :source-info defined-from
+                      )))))
 
 ;;; SERVER-COMPILE-FILE -- Public.
 ;;;
