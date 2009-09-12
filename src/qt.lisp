@@ -342,11 +342,13 @@
 (defmacro later (&body body)
   `(invoke-later (lambda () ,@body)))
 
+(defvar *really-redisplay* nil)
+
 (defmethod get-key-event ((stream qt-editor-input) &optional ignore-abort-attempts-p)
   (declare (ignorable ignore-abort-attempts-p))
   (let ((*redraw-needed* t))
+    (#_processEvents *qapp* (#_QEventLoop::AllEvents))
     (loop
-       (#_processEvents *qapp* (#_QEventLoop::AllEvents))
        (when *redraw-needed*
          (hi::internal-redisplay)
          (later
@@ -354,7 +356,8 @@
             (hi::internal-redisplay))))
        (let ((event (hi::dq-event stream)))
          (when event
-           (progn
+           #+(or)
+           (when *redraw-needed*
              (hi::internal-redisplay)
              (later
               (let ((*really-redisplay* t))
@@ -377,6 +380,9 @@
   (process-one-event))
 
 (defun hemlock.wire::nonblocking-process-one-event/qt ()
+  (process-events-no-hang))
+
+(defun process-events-no-hang ()
   (process-one-event (#_QEventLoop::AllEvents)))
 
 (defun redraw-needed ()
@@ -596,8 +602,6 @@
   (iter (while *invoke-later-thunks*)
         (funcall (pop *invoke-later-thunks*))))
 
-(defvar *really-redisplay* nil)
-
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
   (multiple-value-bind (main echo *font* widget *tabs*)
@@ -633,7 +637,7 @@
         (add-command-action menu "Select Buffer"))
       (let ((menu (#_addMenu (#_menuBar window) "Browser")))
         (add-command-action menu "Browse")
-        (add-command-action menu "Browse Qt Documentation")
+        (add-command-action menu "Browse Qt Class")
         (add-command-action menu "CLHS")
         (add-command-action menu "Google")
         (#_addSeparator menu)

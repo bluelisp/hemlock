@@ -267,4 +267,7 @@
               :components
               ((:file "qt")
                (:file "browser" :depends-on ("qt"))
-               (:file "connections" :depends-on ("qt"))))))
+               (:file "connections" :depends-on ("qt"))
+               (:file "sugiyama" :depends-on ("qt"))
+               (:file "graphics" :depends-on ("sugiyama"))
+               (:file "clbuild" :depends-on ("graphics"))))))

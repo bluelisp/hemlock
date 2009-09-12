@@ -9,7 +9,7 @@
                           (format nil "*Webkit* [~A]" title)))
 
 (defun make-browser-buffer (name url)
-  (unless (find-buffer name)
+  (unless (qt-hemlock::find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
       (let ((buffer
@@ -40,7 +40,7 @@
 
 (defun ensure-browser-buffer (name url &aux *)
   (cond
-    ((setf * (find-buffer name))
+    ((setf * (qt-hemlock::find-buffer name))
      (#_setUrl (hi::buffer-widget *) (#_new QUrl url))
      *)
     (t

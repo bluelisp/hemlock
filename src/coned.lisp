@@ -67,7 +67,7 @@
   (declare (ignore p))
   (let* ((point (current-point))
          (buf-info (array-element-from-mark point *coned-connections*)))
-    (if (and (not (value virtual-buffer-deletion))
+    (if (and (not (value virtual-coned-deletion))
              (or (not (value coned-delete-confirm))
                  (prompt-for-y-or-n :prompt "Delete connection? " :default t
                                     :must-exist t :default-string "Y")))
