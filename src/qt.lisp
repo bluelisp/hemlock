@@ -66,6 +66,8 @@
        :initform nil)
    (cy :initarg :cy
        :initform nil)
+   (previous-cursor-position :initform (list 0 0)
+                             :accessor previous-cursor-position)
    (cw)
    (ch)
    (ts)))
@@ -147,6 +149,7 @@
     (when hunk
       (with-slots (cx cy) hunk
         (setf cx x cy y))
+      #+(or)
       (qt-put-cursor hunk))
     (setf cursor-hunk hunk)))
 
@@ -336,15 +339,26 @@
 
 (defvar *redraw-needed* nil)
 
+(defmacro later (&body body)
+  `(invoke-later (lambda () ,@body)))
+
 (defmethod get-key-event ((stream qt-editor-input) &optional ignore-abort-attempts-p)
   (declare (ignorable ignore-abort-attempts-p))
   (let ((*redraw-needed* t))
     (loop
        (#_processEvents *qapp* (#_QEventLoop::AllEvents))
        (when *redraw-needed*
-         (hi::internal-redisplay))
+         (hi::internal-redisplay)
+         (later
+          (let ((*really-redisplay* t))
+            (hi::internal-redisplay))))
        (let ((event (hi::dq-event stream)))
          (when event
+           (progn
+             (hi::internal-redisplay)
+             (later
+              (let ((*really-redisplay* t))
+                (hi::internal-redisplay))))
            (return event)))
        (setf *redraw-needed* nil)
        (#_processEvents *qapp* (#_QEventLoop::WaitForMoreEvents)))))
@@ -570,9 +584,6 @@
   (hi::q-event *editor-input* #k"control-g")
   (redraw-needed))
 
-(defmacro later (&body body)
-  `(invoke-later (lambda () ,@body)))
-
 (defvar *invoke-later-thunks*)
 (defvar *invoke-later-timer*)
 
@@ -584,6 +595,8 @@
 (defun process-invoke-later-thunks ()
   (iter (while *invoke-later-thunks*)
         (funcall (pop *invoke-later-thunks*))))
+
+(defvar *really-redisplay* nil)
 
 (defun qt-hemlock (init-fun command-loop-fun)
   (setf *qapp* (make-qapplication))
@@ -597,7 +610,8 @@
            (*do-not-gc-list* '())
            (*in-main-qthread* t)
            (*invoke-later-thunks* '())
-           (*invoke-later-timer* (#_new QTimer)))
+           (*invoke-later-timer* (#_new QTimer))
+           (*really-redisplay* nil))
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
       (connect *invoke-later-timer*
@@ -978,46 +992,52 @@
 
 (defmethod device-dumb-redisplay ((device qt-device) window)
   ;; compute the region that has changed:
-  (let* ((hunk (window-hunk window))
-         (first (window-first-line window))
-         (region (#_new QRegion))
-         (widget (qt-hunk-widget (window-hunk window))))
-    (flet ((join-rect (rect)
-             (when rect
-               (setf region (#_unite region (#_new QRegion rect))))))
+  (if *really-redisplay*
+      (let* ((hunk (window-hunk window))
+             (first (window-first-line window))
+             (region (#_new QRegion))
+             (widget (qt-hunk-widget (window-hunk window))))
+        (flet ((join-rect (rect)
+                 (when rect
+                   (setf region (#_unite region (#_new QRegion rect))))))
 
-      ;; add "changed" lines
-      ;;
-      (do ((dl (cdr first) (cdr dl)))
-          ((eq dl the-sentinel))
-        (when (plusp (dis-line-flags (car dl)))
-          (join-rect (dis-line-rect hunk (car dl)))))
+          ;; add "changed" lines
+          ;;
+          (do ((dl (cdr first) (cdr dl)))
+              ((eq dl the-sentinel))
+            (when (plusp (dis-line-flags (car dl)))
+              (join-rect (dis-line-rect hunk (car dl)))))
 
-      ;; add the cusor
-      (with-slots (cursor-hunk) device
-        (multiple-value-bind (x y)
-            (mark-to-cursorpos (window-point *current-window*)
-                               *current-window*)
-          (join-rect (cursor-rect hunk x y)))
-        (multiple-value-bind (x y)
-            (mark-to-cursorpos (buffer-point (window-buffer *current-window*))
-                               *current-window*)
-          (join-rect (cursor-rect hunk x y)))
-        (setf cursor-hunk hunk))
+          ;; add the cusor
+          (with-slots (cursor-hunk) device
+            (multiple-value-bind (x y)
+                (mark-to-cursorpos (window-point *current-window*)
+                                   *current-window*)
+              (join-rect (cursor-rect hunk x y)))
+            (multiple-value-bind (x y)
+                (mark-to-cursorpos (buffer-point (window-buffer *current-window*))
+                                   *current-window*)
+              (join-rect (cursor-rect hunk x y)))
+            (join-rect
+             (apply #'cursor-rect
+                    hunk
+                    (previous-cursor-position hunk)))
+            (setf cursor-hunk hunk))
 
-      ;; add "emptied" lines
-      (let ((pos (dis-line-position (car (window-last-line window))))
-            (old (window-old-lines window)))
-        (when (and pos old)
-          (iter:iter (iter:for i from (1+ pos) to old)
-                     (join-rect (nth-line-rect hunk i))))
-        (setf (window-old-lines window) pos))
+          ;; add "emptied" lines
+          (let ((pos (dis-line-position (car (window-last-line window))))
+                (old (window-old-lines window)))
+            (when (and pos old)
+              (iter:iter (iter:for i from (1+ pos) to old)
+                         (join-rect (nth-line-rect hunk i))))
+            (setf (window-old-lines window) pos))
 
-      ;; oops, wrong coordinate system
-      (#_translate region (truncate (offset-on-each-side widget)) 0)
+          ;; oops, wrong coordinate system
+          (#_translate region (truncate (offset-on-each-side widget)) 0)
 
-      ;; do it
-      (#_update widget #-really-dumb-redisplay region))))
+          ;; do it
+          (#_update widget #-really-dumb-redisplay region)))
+      (redraw-needed)))
 
 (defun qt-dumb-line-redisplay (hunk dl &optional modelinep)
   (let* ((h (slot-value hunk 'ch))
@@ -1071,6 +1091,7 @@
 (defun qt-put-cursor (hunk)
   (with-slots (cx cy cw ch) hunk
     (when (and cx cy)
+      (setf (previous-cursor-position hunk) (list cx cy))
       (let* ((instance (qt-hunk-widget hunk)))
         (invoke-with-hunk-painter
          (lambda (painter)
