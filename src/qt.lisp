@@ -690,7 +690,7 @@
             (write-line "Waiting for typestream buffer...")
             (force-output))
       #+ccl (ccl::toplevel-loop)
-      #+sbcl (sb-impl::toplevel-repl nil)
+      #+sbcl (hemlock::with-nonbroken-debugger (sb-impl::toplevel-repl nil))
       (error "no repl")
       #+(or)
       (iter
