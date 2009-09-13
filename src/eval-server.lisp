@@ -516,6 +516,7 @@
 
 (defcommand "Select Self As Slave" (p)
   "" ""
+  (declare (ignore p))
   (let* ((info (or (create-slave-in-thread)
                    (editor-error "No current eval server yet")))
          (slave (server-info-slave-buffer info)))
@@ -1033,7 +1034,7 @@
                         (hemlock.wire:remote-object-value error-output))))
     (do-compiler-operation (note package terminal-io error-output)
       (with-temporary-file-name (tmp)
-        (with-open-file (s tmp :if-exists :truncate)
+        (with-open-file (s tmp :if-exists :supersede)
           (write-string text s))
         (terpri error-output)
         (compile-file tmp
@@ -1047,6 +1048,7 @@
 ;;;
 (defun server-compile-file (note package input output error trace
                             load terminal background)
+  (declare (ignore error load))
   (macrolet ((frob (x)
                `(if (hemlock.wire:remote-object-p ,x)
                   (hemlock.wire:remote-object-value ,x)
@@ -1055,10 +1057,11 @@
       (do-compiler-operation (note package terminal error-stream)
         (compile-file (frob input)
                       :output-file (frob output)
-                      :error-file (frob error)
+;;;                   :error-file (frob error)
                       :trace-file (frob trace)
-                      :load load
-                      :error-output error-stream)))))
+;;;                   :load load
+;;;                   :error-output error-stream
+                      )))))
 
 
 ;;;; Other random eval server stuff.
