@@ -95,42 +95,90 @@
 (defcommand "Clbuild Dependency Graph" (p)
   "" ""
   (declare (ignore p))
-  (let ((name (clbuild-info-name
-               (array-element-from-mark (current-point) *clbuild-info*))))
+  (let ((names (mapcar #'clbuild-info-name
+                       (list-marked-clbuild-projects))))
     (if qt-hemlock::*dependency-graph-buffer*
         (progn
           (change-to-buffer qt-hemlock::*dependency-graph-buffer*)
-          (qt-hemlock::add-project-to-graph-command nil name))
-        (qt-hemlock::show-project-graph-command nil (list name)))))
+          (qt-hemlock::add-projects-to-current-graph names))
+        (qt-hemlock::show-project-graph-command nil names))))
 
-(defvar *clbuild-directory* "/home/david/clbuild/")
+(defcommand "Install Clbuild Project" (p)
+  "" ""
+  (let ((projects (list-marked-clbuild-projects)))
+    (dolist (project projects)
+      (install-clbuild-project project (not p)))))
+
+(defun install-clbuild-project (project dependenciesp)
+  (make-new-shell nil
+                  nil
+                  `("clbuild"
+                    "install"
+                    ,@ (ecase dependenciesp
+                         ((t) (list "--dependencies"))
+                         ((nil) (list "--no-dependencies"))
+                         (:ask nil))
+                    ,(clbuild-info-name project))
+                  t))
+
+(defun process-output-to-string (cmd)
+  (message "Running ~A..." cmd)
+  (with-output-to-string (s)
+    (let ((proc
+           (make-process-connection
+            cmd
+            :filter (lambda (connection bytes)
+                      (write-string (qt-hemlock::default-filter
+                                        connection bytes)
+                                    s)
+                      nil))))
+      (iter:iter (iter:until (connection-exit-code proc))
+                 (qt-hemlock::process-one-event)))
+    (message "Done" )))
+
+(defvar *clbuild-directory* nil)
+
+(defun clbuild-directory ()
+  (or *clbuild-directory*
+      (setf *clbuild-directory*
+            (concatenate 'string
+                         (string-right-trim
+                          #.(format nil "/~%")
+                          (process-output-to-string "clbuild pwd"))
+                         "/"))))
 
 (defun list-clbuild-info ()
-  (let ((source (merge-pathnames "source/" *clbuild-directory*)))
-    (with-open-file (s (merge-pathnames "projects" *clbuild-directory*))
-      (sort (iter:iter (let ((line (read-line s nil)))
-                         (iter:while line)
-                         (cl-ppcre:register-groups-bind
-                          (name comment)
-                          ("^(^[a-zA-Z0-9_-]*)[^#]*(?:#(.*))?$" line)
-                          (when (plusp (length name))
-                            (iter:collect (make-clbuild-info
-                                           :name name
-                                           :installed (probe-file
-                                                       (merge-pathnames
-                                                        name
-                                                        source))
-                                           :description (or comment "")
-                                           :dependencies nil))))))
+  (let ((source (merge-pathnames "source/" (clbuild-directory))))
+    (flet ((process-file (name)
+             (with-open-file (s (merge-pathnames name (clbuild-directory)))
+               (iter:iter (let ((line (read-line s nil)))
+                            (iter:while line)
+                            (cl-ppcre:register-groups-bind
+                             (name comment)
+                             ("^(^[a-zA-Z0-9_-]*)[^#]*(?:#(.*))?$" line)
+                             (when (plusp (length name))
+                               (iter:collect (make-clbuild-info
+                                              :name name
+                                              :installed (probe-file
+                                                          (merge-pathnames
+                                                           name
+                                                           source))
+                                              :description (or comment "")
+                                              :dependencies nil)))))))))
+      (sort (append (process-file "projects")
+                    (process-file "wnpp-projects")
+                    (process-file "my-projects"))
             #'string-lessp
             :key #'clbuild-info-name))))
 
 (defun list-marked-clbuild-projects ()
+  "All marked projects or the current one, as a list."
   (unless (eq *clbuild-buffer* (current-buffer))
     (editor-error "Not in the clbuild buffer."))
-  (coerce (remove-if-not #'clbuild-info-marked
-                         (subseq *clbuild-info* 0 *clbuild-info-end*))
-          'list))
+  (or (coerce (remove-if-not #'clbuild-info-marked
+                             (subseq *clbuild-info* 0 *clbuild-info-end*))
+              'list)
+      (list (array-element-from-mark (current-point) *clbuild-info*))))
 
 (defun refresh-clbuild (buf)
   (with-writable-buffer (buf)
@@ -194,3 +242,4 @@
 (bind-key "Previous Line" #k"p" :mode "Clbuild")
 (bind-key "Clbuild Help" #k"?" :mode "Clbuild")
 (bind-key "Clbuild Dependency Graph" #k"$" :mode "Clbuild")
+(bind-key "Install Clbuild Project" #k"i" :mode "Clbuild")

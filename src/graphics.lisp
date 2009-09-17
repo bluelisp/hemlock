@@ -42,10 +42,7 @@
                             (message "Buffer already exists: ~A" name)
                             (qt-hemlock::find-buffer name))))))
 
-(defcommand "Add Project To Graph"
-    (p &optional (project (hi::prompt-for-string :prompt "Project: ")))
-  "" ""
-  (declare (ignore p))
+(defun add-projects-to-current-graph (projects)
   (let ((graph (variable-value 'hemlock::current-graph))
         (scene (#_scene (hi::buffer-widget (current-buffer)))))
     (sugiyama::update-graph-and-scene
@@ -53,10 +50,16 @@
        (iter (for node in-graph graph)
              (setf (sugiyama::node-color node) #xc8ddff))
        (sugiyama::merge-graph-into
-        (sugiyama::clbuild-dependency-graph (list project))
+        (sugiyama::clbuild-dependency-graph projects)
         graph))
      graph
      scene)))
+
+(defcommand "Add Project To Graph"
+    (p &optional (project (hi::prompt-for-string :prompt "Project: ")))
+  "" ""
+  (declare (ignore p))
+  (add-projects-to-current-graph (list project)))
 
 (defcommand "Layout Graph"
     (p)

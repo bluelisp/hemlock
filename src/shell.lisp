@@ -79,11 +79,16 @@
                  :hemlock-stream hemlock-stream))
 
 (defmethod hi::stream-write-char ((stream shell-filter-stream) char)
+  (when (or (eql (char-code char) 21)
+            (eql char #\return))
+    (setf char #\newline))
   (write-char char (shell-filter-stream-hemlock-stream stream)))
 
 (defmethod hi::stream-write-sequence
     ((stream shell-filter-stream) seq start end &key)
   (check-type seq string)
+  (setf seq (substitute #\newline #.(code-char 21) seq))
+  (setf seq (substitute #\newline #\return seq))
   (shell-filter-string-out stream seq start end))
 
 (defmethod hi::stream-line-column ((stream shell-filter-stream))
@@ -307,8 +312,10 @@
 ;;; This makes new shells for us dealing with prompting for various things and
 ;;; setting "Current Shell" according to user documentation.
 ;;;
-(defun make-new-shell (prompt-for-command-p &optional (set-current-shell-p t)
-                       (command-line (get-command-line) clp))
+(defun make-new-shell (prompt-for-command-p
+                       &optional (set-current-shell-p t)
+                                 (command-line (get-command-line) clp)
+                                 suppress-shell-executable)
   (let* ((command (or (and clp command-line)
                       (if prompt-for-command-p
                           (prompt-for-string
@@ -349,7 +356,9 @@
         "The process for Shell and Process buffers."
       :buffer buffer
       :value (make-pty-connection
-              (list "/bin/sh" "-c" command)
+              (if suppress-shell-executable
+                  command
+                  (list "/bin/sh" "-c" command))
               :stream output-stream
 ;;;           :env (frob-environment-list
 ;;;                 (car (buffer-windows buffer)))
