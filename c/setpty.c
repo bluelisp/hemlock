@@ -7,6 +7,27 @@
 #include <sys/ioctl.h>
 #include <stdlib.h>
 
+int set_noecho(int fd)
+{
+	/* borrowed from SBCL, which borrowed from detachtty's detachtty.c,
+	 * in turn borrowed from APUE
+	 * example code found at
+	 * http://www.yendor.com/programming/unix/apue/pty/main.c
+	 */
+	struct termios  stermios;
+
+	if (tcgetattr(fd, &stermios) < 0) return 0;
+
+	stermios.c_lflag &= ~(  ECHO | /* ECHOE |  ECHOK | */  ECHONL);
+	stermios.c_oflag |= (ONLCR);
+	stermios.c_iflag &= ~(BRKINT);
+	stermios.c_iflag |= (ICANON|ICRNL);
+
+	stermios.c_cc[VERASE]=0177;
+	if (tcsetattr(fd, TCSANOW, &stermios) < 0) return 0;
+	return 1;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -31,6 +52,7 @@ main(int argc, char **argv)
 	if (open(ptyname, O_RDWR) != 0) perror("open");
 	dup2(0, 1);
 	dup2(0, 2);
+	set_noecho(0);
 
 	execvp(argv[2], argv + 2);
 	perror("exec");

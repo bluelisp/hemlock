@@ -498,6 +498,7 @@
    #:process-connection
    #:connection-command
    #:make-process-connection
+   #:make-pty-connection
    #:connection-exit-status
    #:connection-exit-code
    #:file-connection

@@ -240,7 +240,7 @@
                (:file "coned")
                #+port-user-lisp-lib (:file "lisp-lib")
                (:file "completion")
-               #+port-user-shell (:file "shell")
+               (:file "shell")
                #+port-user-debug (:file "debug")
                #+port-user-netnews (:file "netnews")
                #+port-user-rcs (:file "rcs")

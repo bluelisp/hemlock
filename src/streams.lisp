@@ -17,11 +17,8 @@
 
 (in-package :hemlock-internals)
 
-(defclass hemlock-output-stream (#-scl fundamental-character-output-stream
-                                 #+scl character-output-stream
-
-                                 #-scl fundamental-character-input-stream
-                                 #+scl character-input-stream)
+(defclass hemlock-output-stream (hi::trivial-gray-stream-mixin
+                                 hi::fundamental-character-output-stream)
   ((mark
     :initform nil
     :accessor hemlock-output-stream-mark
@@ -35,9 +32,40 @@
    (sout
     :accessor old-lisp-stream-sout)))
 
-;; this should suffice for now:
-(defmethod stream-write-char ((stream hemlock-output-stream) char)
+(defun hemlock-output-stream-p (x)
+  (typep x 'hemlock-output-stream))
+
+(defmethod hi::stream-write-char ((stream hemlock-output-stream) char)
   (funcall (old-lisp-stream-out stream) stream char))
+
+(defmethod hi::stream-write-sequence
+    ((stream hemlock-output-stream) seq start end &key)
+  (check-type seq string)
+  (hemlock-output-buffered-sout stream seq start end))
+
+(defmethod hi::stream-line-column ((stream hemlock-output-stream))
+  (mark-charpos (hemlock-output-stream-mark stream)))
+
+(defmethod hi::stream-line-length ((stream hemlock-output-stream))
+  (mark-charpos (hemlock-output-stream-mark stream))
+  (let* ((buffer
+          (line-buffer (mark-line (hemlock-output-stream-mark stream)))))
+    (when buffer
+      (do ((w (buffer-windows buffer) (cdr w))
+           (min most-positive-fixnum (min (window-width (car w)) min)))
+          ((null w)
+           (if (/= min most-positive-fixnum) min))))))
+
+;;; (defun hemlock-output-misc (stream operation &optional arg1 arg2)
+;;;   (declare (ignore arg1 arg2))
+;;;   (case operation
+;;;     (:charpos (mark-charpos (hemlock-output-stream-mark stream)))
+;;;     (:line-length
+;;;      )
+;;;     ((:finish-output :force-output)
+;;;      (redisplay-windows-from-mark (hemlock-output-stream-mark stream)))
+;;;     (:close (setf (hemlock-output-stream-mark stream) nil))
+;;;     (:element-type 'base-char)))
 
 (defmethod print-object ((object hemlock-output-stream) stream)
   (write-string "#<Hemlock output stream>" stream))

@@ -67,7 +67,7 @@
   (declare (ignore p))
   (let* ((point (current-point))
          (buf-info (array-element-from-mark point *coned-connections*)))
-    (if (and (not (value virtual-coned-deletion))
+    (if (and (not (value virtual-connection-deletion))
              (or (not (value coned-delete-confirm))
                  (prompt-for-y-or-n :prompt "Delete connection? " :default t
                                     :must-exist t :default-string "Y")))
@@ -75,7 +75,8 @@
         (with-writable-buffer (*coned-buffer*)
           (setf (coned-connection-deleted buf-info) t)
           (with-mark ((point point))
-            (setf (next-character (line-start point)) #\D))))))
+            (setf (next-character (line-start point)) #\D))
+          (line-offset point 1)))))
 
 (defcommand "Coned Undelete" (p)
   "Undelete the connection."
@@ -86,7 +87,8 @@
            (array-element-from-mark (current-point) *coned-connections*))
           nil)
     (with-mark ((point (current-point)))
-      (setf (next-character (line-start point)) #\space))))
+      (setf (next-character (line-start point)) #\space)
+      (line-offset point 1))))
 
 (defcommand "Coned Expunge" (p)
   "Expunge connections marked for deletion."

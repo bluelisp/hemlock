@@ -21,6 +21,9 @@
    (buffer :initarg :buffer
            :initform nil
            :accessor connection-buffer)
+   (stream :initarg :stream
+           :initform nil
+           :accessor connection-stream)
    (connection-sentinel :initarg :sentinel
                         :initform nil
                         :accessor connection-sentinel)))
@@ -155,25 +158,41 @@
 (defun note-connected (connection)
   (connection-note-event connection :connected))
 
+(defun format-to-connection-buffer-or-stream (connection fmt &rest args)
+  (let ((buffer (connection-buffer connection))
+        (stream (connection-stream connection)))
+    (when buffer
+      (with-writable-buffer (buffer)
+        (insert-string (buffer-point buffer)
+                       (apply #'format nil fmt args))))
+    (when stream
+      (apply #'format stream fmt args))))
+
+(defun insert-into-connection-buffer-or-stream (connection str)
+  (let ((buffer (connection-buffer connection))
+        (stream (connection-stream connection)))
+    (when buffer
+      (with-writable-buffer (buffer)
+        (insert-string (buffer-point buffer) str)))
+    (when stream
+      (write-string str stream))))
+
 (defun note-disconnected (connection)
   (print :note-disconnected)
   (force-output)
   (connection-note-event connection :disconnected)
-  (let ((buffer (connection-buffer connection)))
-    (when buffer
-      (with-writable-buffer (buffer)
-        (insert-string (buffer-point buffer)
-                       (format nil "~&* Connection ~S disconnected." connection))))))
+  (format-to-connection-buffer-or-stream connection
+                                        "~&* Connection ~S disconnected."
+                                        connection))
 
 (defun note-error (connection)
   (print :note-error)
   (force-output)
   (connection-note-event connection :error)
-  (let ((buffer (connection-buffer connection)))
-    (when buffer
-      (with-writable-buffer (buffer)
-        (insert-string (buffer-point buffer)
-                       (format nil "~&* Error on connection ~S." connection))))))
+  (format-to-connection-buffer-or-stream
+   connection
+   "~&* Error on connection ~S."
+   connection))
 
 (defun filter-incoming-data (connection bytes)
   (funcall (or (connection-filter connection) #'default-filter)
@@ -183,10 +202,10 @@
 (defun process-incoming-data (connection)
   (let* ((bytes (%read connection))
          (characters (filter-incoming-data connection bytes))
-         (buffer (connection-buffer connection)))
-    (when (and characters buffer)
-      (with-writable-buffer (buffer)
-        (insert-string (buffer-point buffer) characters)))))
+         (buffer (connection-buffer connection))
+         (stream (connection-stream connection)))
+    (when (and characters (or buffer stream))
+      (insert-into-connection-buffer-or-stream connection characters))))
 
 (defun default-filter (connection bytes)
   ;; fixme: what about multibyte characters that got split between two
@@ -212,26 +231,8 @@
 ;;;; PROCESS-CONNECTION
 ;;;;
 
-#-(or windows mswindows)
-(cffi:defcfun (foreign-openpty "openpty") :int
-  (amaster :pointer)
-  (aslave :pointer)
-  (name :pointer)
-  (termp :pointer)
-  (winsize :pointer))
-
-(defun openpty ()
-  (cffi:with-foreign-objects ((amaster :int)
-                              (aslave :int)
-                              (name :char 256))
-    (assert (zerop (foreign-openpty amaster
-                                    aslave
-                                    name
-                                    (cffi-sys:null-pointer)
-                                    (cffi-sys:null-pointer))))
-    (values (cffi:foreign-string-to-lisp name)
-            (cffi:mem-ref amaster :int)
-            (cffi:mem-ref aslave :int))))
+(defun listify (x)
+  (if (listp x) x (list x)))
 
 (defclass process-connection (io-connection)
   ((command :initarg :command
@@ -243,28 +244,11 @@
                 :initarg :exit-status
                 :accessor connection-exit-status)))
 
-#+(or)
-(defmethod initialize-instance :after ((instance process-connection) &key)
-  (let ((process (#_new QProcess)))
-    (multiple-value-bind (pty amaster aslave)
-        (openpty)
-;;;       (#_setStandardInputFile process pty)
-;;;       (#_setStandardOutputFile process pty)
-;;;       (#_setStandardErrorFile process pty)
-      (setf (connection-io-device instance) process)
-      (make-descriptor-connection aslave :buffer t)
-      (#_start process
-               (format nil
-                       "~A ~A ~A"
-                       "/home/david/clbuild/source/hemlock/c/setpty"
-                       pty
-                       (connection-command instance))))))
-
 (defmethod initialize-instance :after ((instance process-connection) &key)
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
     (connection-note-event instance :initialized)
-    (#_start process (connection-command instance))))
+    (#_start process (format nil "~{ ~A~}" (connection-command instance)))))
 
 (defmethod (setf connection-io-device)
     :after
@@ -282,23 +266,20 @@
     (setf (connection-exit-code connection) code)
     (setf (connection-exit-status connection) status)
     (connection-note-event connection :finished)
-    (let ((buffer (connection-buffer connection)))
-      (when buffer
-        (with-writable-buffer (buffer)
-          (insert-string
-           (buffer-point buffer)
-           (format nil "~&* Process ~S finished with code ~A and status ~A."
-                   connection
-                   code
-                   status)))))))
+    (format-to-connection-buffer-or-stream
+     connection
+     "~&* Process ~S finished with code ~A and status ~A."
+     connection
+     code
+     status)))
 
 (defun make-process-connection
-    (command &rest args &key name buffer filter sentinel)
-  (declare (ignore buffer filter sentinel))
+    (command &rest args &key name buffer stream filter sentinel)
+  (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
          'process-connection
-         :name (or name command)
-         :command command
+         :name (or name (princ-to-string command))
+         :command (listify command)
          args))
 
 
@@ -348,8 +329,8 @@
              (redraw-needed))))
 
 (defun make-tcp-connection
-    (name host port &rest args &key buffer filter sentinel)
-  (declare (ignore buffer filter sentinel))
+    (name host port &rest args &key buffer stream filter sentinel)
+  (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
          'tcp-connection
          :name name
@@ -395,8 +376,8 @@
   )
 
 (defun make-file-connection
-    (filename &rest args &key name buffer filter sentinel)
-  (declare (ignore buffer filter sentinel))
+    (filename &rest args &key name buffer stream filter sentinel)
+  (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
          'file-connection
          :filename filename
@@ -406,33 +387,144 @@
 
 
 ;;;;
-;;;; DESCRIPTOR-CONNECTION
+;;;; PTY-CONNECTION
 ;;;;
 
-(defclass descriptor-connection (io-connection)
-  ((descriptor :initarg :descriptor
-             :accessor connection-descriptor)))
+(defun find-a-pty ()
+  (block t
+    (dolist (char '(#\p #\q) (error "no pty found"))
+      (dotimes (digit 16)
+        (handler-case
+            (open (format nil "/dev/pty~C~X" char digit)
+                  :direction :io
+                  :if-exists :overwrite)
+          (file-error ())
+          (:no-error (master-stream)
+            (let ((slave-name (format nil "/dev/tty~C~X" char digit)))
+              (handler-case
+                  (open slave-name
+                        :direction :io
+                        :if-exists :overwrite)
+                (file-error ()
+                  (close master-stream))
+                (:no-error (slave-stream)
+                  (return-from t
+                    (values master-stream
+                            slave-stream
+                            slave-name)))))))))))
 
-(defmethod initialize-instance :after ((instance descriptor-connection) &key)
-  (let ((socket (#_new QFile)))
+(defun make-pty-connection
+    (command &key name (buffer nil bufferp) stream)
+  (multiple-value-bind (master slave slave-name)
+      (find-a-pty)
+    (let ((pc
+           (make-process-connection
+            (format nil "~A ~A~{ ~A~}"
+                    "/home/david/clbuild/source/hemlock/c/setpty"
+                    slave-name
+                    (listify command)))))
+      (close slave)
+      (%pty-connection-from-stream pc
+                                   master
+                                   (or name (princ-to-string command))
+                                   :buffer (if bufferp
+                                               buffer
+                                               (null stream))
+                                   :stream stream))))
+
+(defclass pty-connection (io-connection)
+  ((descriptor :initarg :descriptor
+               :accessor connection-descriptor)
+   (process-connection :initarg :process-connection
+                       :accessor connection-process-connection)))
+
+(defmethod delete-connection :before ((connection pty-connection))
+  (delete-connection (connection-process-connection connection)))
+
+(macrolet ((defproxy (name)
+             `(defmethod ,name ((connection pty-connection))
+                (,name (connection-process-connection connection)))))
+  (defproxy connection-command)
+  (defproxy connection-exit-code)
+  (defproxy connection-exit-status))
+
+(defmethod initialize-instance :after ((instance pty-connection) &key)
+  (let ((socket
+         ;; hack: QFile doesn't work for device files, so use a QLocalSocket
+         ;; instead and set its descriptor.  Technically, the file isn't
+         ;; a named pipe in our case, but it works.
+         (#_new QLocalSocket)))
     (setf (connection-io-device instance) socket)
     (connection-note-event instance :initialized)
-    (#_open socket (connection-descriptor instance) (#_QIODevice::ReadWrite))))
+    (#_setSocketDescriptor
+     socket
+     (connection-descriptor instance)
+     ;; (#_QLocalSocket::ConnectedState)
+     ;; (#_QIODevice::ReadWrite)
+     )))
 
-#+(or)
 (defmethod (setf connection-io-device)
     :after
-    (newval (connection descriptor-connection))
-  )
+    (newval (connection pty-connection))
+  (connect newval
+           (QSIGNAL "connected()")
+           (lambda ()
+             (note-connected connection)
+             (redraw-needed)))
+  (connect newval
+           (QSIGNAL "disconnected()")
+           (lambda ()
+             (note-disconnected connection)
+             (redraw-needed)))
+  (connect newval
+           (QSIGNAL "error()")
+           (lambda ()
+             (note-error connection)
+             (redraw-needed))))
 
-(defun make-descriptor-connection
-    (descriptor &rest args &key name buffer filter sentinel)
-  (declare (ignore buffer filter sentinel))
+(defun %make-pty-connection
+    (descriptor
+     &rest args
+     &key name buffer stream filter sentinel process-connection)
+  (declare (ignore buffer stream filter sentinel process-connection))
   (apply #'make-instance
-         'descriptor-connection
+         'pty-connection
          :descriptor descriptor
          :name (or name (format nil "descriptor ~D" descriptor))
+         :filter (lambda (connection bytes)
+                   (remove (code-char 13) (default-filter connection bytes)))
          args))
+
+(defgeneric stream-fd (stream))
+(defmethod stream-fd (stream) stream)
+
+#+sbcl
+(defmethod stream-fd ((stream sb-sys:fd-stream))
+  (sb-sys:fd-stream-fd stream))
+
+#+cmu
+(defmethod stream-fd ((stream system:fd-stream))
+  (system:fd-stream-fd stream))
+
+#+openmcl
+(defmethod stream-fd ((stream ccl::basic-stream))
+  (ccl::ioblock-device (ccl::stream-ioblock stream t)))
+
+#+clisp
+(defmethod stream-fd ((stream stream))
+  ;; sockets appear to be direct instances of STREAM
+  (ignore-errors (socket:stream-handles stream)))
+
+(defun %pty-connection-from-stream
+    (process-connection pty-stream name &key buffer stream)
+  (cffi:with-foreign-object (place :int)
+    (setf (cffi:mem-ref place :int) (stream-fd pty-stream))
+    (%make-pty-connection
+     (qt::quintptr place)
+     :process-connection process-connection
+     :name name
+     :buffer buffer
+     :stream stream)))
 
 
 ;;;;
@@ -485,11 +577,8 @@
 
 (defun process-incoming-connection (listener)
   (let ((connection (convert-pending-connection listener)))
-    (let ((buffer (connection-buffer listener)))
-      (when buffer
-        (with-writable-buffer (buffer)
-          (insert-string (buffer-point buffer)
-                         (format nil "~&* ~A." connection)))))
+    (format-to-connection-buffer-or-stream
+     connection "~&* ~A." connection)
     (when (connection-acceptor listener)
       (funcall (connection-acceptor listener) connection))))
 
@@ -525,8 +614,8 @@
             (connection-port instance))))
 
 (defun make-tcp-listener
-    (name host port &rest args &key buffer acceptor sentinel initargs)
-  (declare (ignore buffer acceptor sentinel initargs))
+    (name host port &rest args &key buffer stream acceptor sentinel initargs)
+  (declare (ignore buffer stream acceptor sentinel initargs))
   (apply #'make-instance
          'tcp-listener
          :name name
@@ -594,6 +683,7 @@
 
 (defmethod hemlock.wire:device-read
     ((device connection-device) buffer)
+  (declare (ignore buffer))
   (unwind-protect
        (let ((previous-counter (device-filter-counter device)))
          (incf (device-reading device))

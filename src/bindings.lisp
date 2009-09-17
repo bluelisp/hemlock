@@ -754,8 +754,6 @@
 
 ;;;; Process (Shell).
 
-#+port-user-shell
-(progn
 (bind-key "Shell" #k"control-meta-s")
 (bind-key "Confirm Process Input" #k"return" :mode "Process")
 (bind-key "Shell Complete Filename" #k"M-escape" :mode "Process")
@@ -770,7 +768,6 @@
 (bind-key "Kill Interactive Input" #k"meta-i" :mode "Process")
 (bind-key "Next Interactive Input" #k"meta-n" :mode "Process")
 (bind-key "Reenter Interactive Input" #k"control-return" :mode "Process")
-)
 
 ;;;; Bufed.
 

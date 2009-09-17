@@ -60,48 +60,74 @@
 ;;;    alias pushd 'pushd \!* ; echo ""`pwd`"/"'
 ;;;
 
-(defstruct (shell-filter-stream
-            (:include sys:lisp-stream
-                      (:out #'shell-filter-out)
-                      (:sout #'shell-filter-string-out)
-                      (:misc #'shell-filter-output-misc))
-            (:print-function print-shell-filter-stream)
-            (:constructor
-             make-shell-filter-stream (buffer hemlock-stream)))
-  ;; The buffer where output will be going
-  buffer
-  ;; The Hemlock stream to which output will be directed
-  hemlock-stream)
+(defclass shell-filter-stream (hi::trivial-gray-stream-mixin
+                               hi::fundamental-character-output-stream)
+  ((buffer
+    :initform nil
+    :initarg :buffer
+    :accessor shell-filter-stream-buffer
+    :documentation "The buffer where output will be going")
+   (hemlock-stream
+    :initform nil
+    :initarg :hemlock-stream
+    :accessor shell-filter-stream-hemlock-stream
+    :documentation "The Hemlock stream to which output will be directed")))
+
+(defun make-shell-filter-stream (buffer hemlock-stream)
+  (make-instance 'shell-filter-stream
+                 :buffer buffer
+                 :hemlock-stream hemlock-stream))
+
+(defmethod hi::stream-write-char ((stream shell-filter-stream) char)
+  (write-char char (shell-filter-stream-hemlock-stream stream)))
+
+(defmethod hi::stream-write-sequence
+    ((stream shell-filter-stream) seq start end &key)
+  (check-type seq string)
+  (shell-filter-string-out stream seq start end))
+
+(defmethod hi::stream-line-column ((stream shell-filter-stream))
+  (hi::stream-line-column (shell-filter-stream-hemlock-stream stream)))
+
+(defmethod hi::stream-line-length ((stream shell-filter-stream))
+  (hi::stream-line-length (shell-filter-stream-hemlock-stream stream)))
+
+#+(or)
+(defmethod print-object ((object shell-filter-stream) stream)
+  (write-string "#<Hemlock output stream>" stream))
+
+#+(or)
+(defun make-shell-filter-stream (mark &optional (buffered :line))
+  "Returns an output stream whose output will be inserted at the Mark.
+  Buffered, which indicates to what extent the stream may be buffered
+  is one of the following:
+   :None  -- The screen is brought up to date after each stream operation.
+   :Line  -- The screen is brought up to date when a newline is written.
+   :Full  -- The screen is not updated except explicitly via Force-Output."
+  (modify-shell-filter-stream (make-instance 'shell-filter-stream) mark
+                                buffered))
 
 
-;;; PRINT-SHELL-FILTER-STREAM  -- Internal
-;;;
-;;; Function for printing a shell-filter-stream.
-;;;
-(defun print-shell-filter-stream (s stream d)
-  (declare (ignore d s))
-  (write-string "#<Shell filter stream>" stream))
+#+(or)
+(defun modify-shell-filter-stream (stream mark buffered)
+  (unless (and (markp mark)
+               (member (mark-kind mark) '(:right-inserting :left-inserting)))
+    (error "~S is not a permanent mark." mark))
+  (setf (shell-filter-stream-mark stream) mark)
+  (case buffered
+    (:none
+     (setf (old-lisp-stream-out stream) #'hemlock-output-unbuffered-out
+           (old-lisp-stream-sout stream) #'hemlock-output-unbuffered-sout))
+    (:line
+     (setf (old-lisp-stream-out stream) #'hemlock-output-line-buffered-out
+           (old-lisp-stream-sout stream) #'hemlock-output-line-buffered-sout))
+    (:full
+     (setf (old-lisp-stream-out stream) #'hemlock-output-buffered-out
+           (old-lisp-stream-sout stream) #'hemlock-output-buffered-sout))
+    (t
+     (error "~S is a losing value for Buffered." buffered)))
+  stream)
 
-
-;;; SHELL-FILTER-OUT -- Internal
-;;;
-;;; This is the character-out handler for the shell-filter-stream.
-;;; It writes the character it is given to the underlying
-;;; hemlock-output-stream.
-;;;
-(defun shell-filter-out (stream character)
-  (write-char character (shell-filter-stream-hemlock-stream stream)))
-
-
-;;; SHELL-FILTER-OUTPUT-MISC -- Internal
-;;;
-;;; This will also simply pass the output request on the the
-;;; attached hemlock-output-stream.
-;;;
-(defun shell-filter-output-misc (stream operation &optional arg1 arg2)
-  (let ((hemlock-stream (shell-filter-stream-hemlock-stream stream)))
-    (funcall (hi::hemlock-output-stream-misc hemlock-stream)
-             hemlock-stream operation arg1 arg2)))
 
 
 ;;; CATCH-CD-STRING -- Internal
@@ -165,7 +191,7 @@
 
 (defun unwedge-process-buffer ()
   (buffer-end (current-point))
-  (deliver-signal-to-process :SIGINT (value process))
+  (deliver-signal-to-process :SIGINT (value process-connection))
   (editor-error "Aborted."))
 
 (defhvar "Unwedge Interactive Input Fun"
@@ -199,7 +225,7 @@
 
 (defhvar "Shell Utility"
   "The \"Shell\" command uses this as the default command line."
-  :value "/bin/csh")
+  :value "/bin/bash")
 
 (defhvar "Shell Utility Switches"
   "This is a string containing the default command line arguments to the
@@ -307,8 +333,9 @@
                             (when (eq (value current-shell) buffer)
                               (setf (value current-shell) nil))
                             (delete-string (buffer-name buffer) *shell-names*)
-                            (kill-process (variable-value 'process
-                                                          :buffer buffer))))))
+                            (delete-connection
+                             (variable-value 'process-connection
+                                             :buffer buffer))))))
          (buffer (or temp (getstring buffer-name *buffer-names*)))
          (stream (variable-value 'process-output-stream :buffer buffer))
          (output-stream
@@ -318,18 +345,18 @@
                     (make-shell-filter-stream buffer stream))
               stream)))
     (buffer-end (buffer-point buffer))
-    (defhvar "Process"
-      "The process for Shell and Process buffers."
+    (defhvar "Process Connection"
+        "The process for Shell and Process buffers."
       :buffer buffer
-      :value (ext::run-program "/bin/sh" (list "-c" command)
-                               :wait nil
-                               :pty output-stream
-                               :env (frob-environment-list
-                                     (car (buffer-windows buffer)))
-                               :status-hook #'(lambda (process)
-                                                (declare (ignore process))
-                                                (update-process-buffer buffer))
-                               :input t :output t))
+      :value (make-pty-connection
+              (list "/bin/sh" "-c" command)
+              :stream output-stream
+;;;           :env (frob-environment-list
+;;;                 (car (buffer-windows buffer)))
+;;;           :status-hook #'(lambda (process)
+;;;                            (declare (ignore process))
+;;;                            (update-process-buffer buffer))
+              ))
     (defhvar "Current Working Directory"
       "The pathname of the current working directory for this buffer."
       :buffer buffer
@@ -354,14 +381,19 @@
 ;;; state when it comes up.
 ;;;
 (defun frob-environment-list (window)
-  (list* (cons :termcap  (concatenate 'simple-string
+  (list* #+fixme
+         (cons :termcap  (concatenate 'simple-string
                                       "emacs:co#"
                                       (if window
                                           (lisp::quick-integer-to-string
                                            (window-width window))
                                           "")
                                       ":tc=unkown:"))
-         (cons :emacs "t") (cons :term "emacs")
+         #+fixme
+         (cons :emacs "t")
+         #+fixme
+         (cons :term "emacs")
+         #+fixme
          (remove-if #'(lambda (keyword)
                         (member keyword '(:termcap :emacs :term)
                                 :test #'(lambda (cons keyword)
@@ -387,15 +419,13 @@
 
 (defun modeline-process-status (buffer window)
   (declare (ignore window))
-  (when (hemlock-bound-p 'process :buffer buffer)
-    (let ((process (variable-value 'process :buffer buffer)))
-      (ecase (ext:process-status process)
-        (:running "running")
-        (:stopped "stopped")
-        (:signaled "killed by signal ~D" (unix:unix-signal-name
-                                          (ext:process-exit-code process)))
-        (:exited (format nil "exited with status ~D"
-                         (ext:process-exit-code process)))))))
+  (when (hemlock-bound-p 'process-connection :buffer buffer)
+    (let ((connection (variable-value 'process-connection :buffer buffer)))
+      (if (connection-exit-code connection)
+          (format nil "exited with code ~D and status ~D"
+                  (connection-exit-code connection)
+                  (connection-exit-status connection))
+          "running"))))
 
 
 (make-modeline-field :name :process-status
@@ -405,9 +435,9 @@
   (when (buffer-modeline-field-p buffer :process-status)
     (dolist (window (buffer-windows buffer))
       (update-modeline-field buffer window :process-status)))
-  (let ((process (variable-value 'process :buffer buffer)))
-    (unless (ext:process-alive-p process)
-      (ext:process-close process)
+  (let ((connection (variable-value 'process-connection :buffer buffer)))
+    (when (connection-exit-code connection)
+      (delete-connection connection)
       (when (eq (value current-shell) buffer)
         (setf (value current-shell) nil)))))
 
@@ -418,17 +448,14 @@
   "Evaluate Process Mode input between the point and last prompt."
   "Evaluate Process Mode input between the point and last prompt."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (let* ((process (value process))
-         (stream (ext:process-pty process)))
-    (case (ext:process-status process)
-      (:running)
-      (:stopped (editor-error "The process has been stopped."))
-      (t (editor-error "The process is dead.")))
+  (let ((connection (value process-connection)))
+    (when (connection-exit-code connection)
+      (editor-error "The process has exited."))
     (let ((input-region (get-interactive-input)))
-      (write-line (region-to-string input-region) stream)
-      (force-output (ext:process-pty process))
+      (connection-write (region-to-string input-region) connection)
+      (connection-write (string #\newline) connection)
       (insert-character (current-point) #\newline)
       ;; Move "Buffer Input Mark" to end of buffer.
       (move-mark (region-start input-region) (region-end input-region)))))
@@ -468,47 +495,52 @@
   "Kills the process in the current buffer."
   "Kills the process in the current buffer."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
   (when (or (not (value kill-process-confirm))
             (prompt-for-y-or-n :default nil
                                :prompt "Really blow away shell? "
                                :default nil
                                :default-string "no"))
-    (kill-process (value process))))
+    (delete-connection (value process-connection))))
 
 (defcommand "Stop Main Process" (p)
   "Stops the process in the current buffer.  With an argument use :SIGSTOP
    instead of :SIGTSTP."
   "Stops the process in the current buffer.  With an argument use :SIGSTOP
   instead of :SIGTSTP."
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-process (if p :SIGSTOP :SIGTSTP) (value process)))
+  (deliver-signal-to-process (if p :SIGSTOP :SIGTSTP) (value process-connection)))
 
 (defcommand "Continue Main Process" (p)
   "Continues the process in the current buffer."
   "Continues the process in the current buffer."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-process :SIGCONT (value process)))
+  (deliver-signal-to-process :SIGCONT (value process-connection)))
 
 (defun kill-process (process)
   "Self-explanatory."
   (deliver-signal-to-process :SIGKILL process))
 
+(defun process-kill (process signal frob)
+  (declare (ignore process signal frob))
+  (warn "process-kill not implemented"))
+
 (defun deliver-signal-to-process (signal process)
   "Delivers a signal to a process."
-  (ext:process-kill process signal :process-group))
+  (process-kill process signal :process-group))
 
 (defcommand "Send EOF to Process" (p)
   "Sends a Ctrl-D to the process in the current buffer."
   "Sends a Ctrl-D to the process in the current buffer."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (let ((stream (ext:process-pty (value process))))
+  #+(or)
+  (let ((stream (ext:process-pty (value process-connection))))
     (write-char (code-char 4) stream)
     (force-output stream)))
 
@@ -516,35 +548,35 @@
   "Stop the subprocess currently executing in this shell."
   "Stop the subprocess currently executing in this shell."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
   (buffer-end (current-point))
   (buffer-end (value buffer-input-mark))
-  (deliver-signal-to-subprocess :SIGINT (value process)))
+  (deliver-signal-to-subprocess :SIGINT (value process-connection)))
 
 (defcommand "Kill Buffer Subprocess" (p)
   "Kill the subprocess currently executing in this shell."
   "Kill the subprocess currently executing in this shell."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess :SIGKILL (value process)))
+  (deliver-signal-to-subprocess :SIGKILL (value process-connection)))
 
 (defcommand "Quit Buffer Subprocess" (p)
   "Quit the subprocess currently executing int his shell."
   "Quit the subprocess currently executing int his shell."
   (declare (ignore p))
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess :SIGQUIT (value process)))
+  (deliver-signal-to-subprocess :SIGQUIT (value process-connection)))
 
 (defcommand "Stop Buffer Subprocess" (p)
   "Stop the subprocess currently executing in this shell."
   "Stop the subprocess currently executing in this shell."
-  (unless (hemlock-bound-p 'process :buffer (current-buffer))
+  (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess (if p :SIGSTOP :SIGTSTP) (value process)))
+  (deliver-signal-to-subprocess (if p :SIGSTOP :SIGTSTP) (value process-connection)))
 
 (defun deliver-signal-to-subprocess (signal process)
   "Delivers a signal to a subprocess of a shell."
-  (ext:process-kill process signal :pty-process-group))
+  (process-kill process signal :pty-process-group))
