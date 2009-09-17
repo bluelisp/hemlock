@@ -492,7 +492,7 @@
          :descriptor descriptor
          :name (or name (format nil "descriptor ~D" descriptor))
          :filter (lambda (connection bytes)
-                   (remove (code-char 13) (default-filter connection bytes)))
+                   (default-filter connection bytes))
          args))
 
 (defgeneric stream-fd (stream))

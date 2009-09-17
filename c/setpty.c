@@ -10,8 +10,7 @@
 int set_noecho(int fd)
 {
 	/* borrowed from SBCL, which borrowed from detachtty's detachtty.c,
-	 * in turn borrowed from APUE
-	 * example code found at
+	 * in turn borrowed from APUE. example code found at
 	 * http://www.yendor.com/programming/unix/apue/pty/main.c
 	 */
 	struct termios  stermios;
@@ -20,6 +19,9 @@ int set_noecho(int fd)
 
 	stermios.c_lflag &= ~(  ECHO | /* ECHOE |  ECHOK | */  ECHONL);
 	stermios.c_oflag |= (ONLCR);
+	/* in contrast to the code in SBCL, we don't want CR except where
+	 * user code asks for the line to be cleared: */
+	stermios.c_oflag &= ~(ONLCR);
 	stermios.c_iflag &= ~(BRKINT);
 	stermios.c_iflag |= (ICANON|ICRNL);
 

@@ -79,17 +79,19 @@
                  :hemlock-stream hemlock-stream))
 
 (defmethod hi::stream-write-char ((stream shell-filter-stream) char)
-  (when (or (eql (char-code char) 21)
-            (eql char #\return))
-    (setf char #\newline))
-  (write-char char (shell-filter-stream-hemlock-stream stream)))
+  (if (eql char #\return)
+      (with-mark ((m (current-point)))
+        (line-start m)
+        (kill-region (region m (current-point)) :kill-backward))
+      (write-char char (shell-filter-stream-hemlock-stream stream))))
 
 (defmethod hi::stream-write-sequence
     ((stream shell-filter-stream) seq start end &key)
   (check-type seq string)
-  (setf seq (substitute #\newline #.(code-char 21) seq))
-  (setf seq (substitute #\newline #\return seq))
-  (shell-filter-string-out stream seq start end))
+  (if (position #\return seq)
+      (iter:iter (iter:for i from start below end)
+                 (hi::stream-write-char stream (elt seq i)))
+      (shell-filter-string-out stream seq start end)))
 
 (defmethod hi::stream-line-column ((stream shell-filter-stream))
   (hi::stream-line-column (shell-filter-stream-hemlock-stream stream)))
