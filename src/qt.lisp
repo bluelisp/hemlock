@@ -696,23 +696,11 @@
              (QSIGNAL "timeout()")
              #'process-invoke-later-thunks)
     (funcall initfun)
-    #+(or)
-    (unwind-protect
-         (progn
-           (#_exec *qapp*)
-           (error "exec fell through"))
-      (warn "exec unwinded"))
-    (progn
-      (iter (process-one-event)
-            (until cl-user::*io*)
-            (write-line "Waiting for typestream buffer...")
-            (force-output))
-      #+ccl (ccl::toplevel-loop)
-      #+sbcl (hemlock::with-nonbroken-debugger (sb-impl::toplevel-repl nil))
-      (error "no repl")
-      #+(or)
-      (iter
-       (one-toplevel-iteration)))))
+    (iter (process-one-event)
+          (until cl-user::*io*)
+          (write-line "Waiting for typestream buffer...")
+          (force-output))
+    (prepl:repl)))
 
 (defun one-toplevel-iteration ()
   (format cl-user::*io*  "~&> ")
