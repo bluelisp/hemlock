@@ -459,7 +459,8 @@
     (values main echo font wrapper tabs)))
 
 (defun add-buffer-tab-hook (buffer)
-  (#_addTab *tabs* (buffer-name buffer)))
+  (when *in-main-qthread*
+    (#_addTab *tabs* (buffer-name buffer))))
 
 (defun buffer-tab-index (buffer)
   (dotimes (i (#_count *tabs*) (error "buffer tab missing"))
@@ -467,20 +468,24 @@
       (return i))))
 
 (defun delete-buffer-tab-hook (buffer)
-  (#_removeTab *tabs* (buffer-tab-index buffer)))
+  (when *in-main-qthread*
+    (#_removeTab *tabs* (buffer-tab-index buffer))))
 
 (defun update-buffer-tab-hook (buffer new-name)
-  (#_setTabText *tabs*
+  (when *in-main-qthread*
+    (#_setTabText *tabs*
                 (buffer-tab-index buffer)
-                new-name))
+                new-name)))
 
 (defun set-buffer-tab-hook (buffer)
-  (#_setCurrentIndex *tabs* (buffer-tab-index buffer)))
+  (when *in-main-qthread*
+    (#_setCurrentIndex *tabs* (buffer-tab-index buffer))))
 
 (defun set-stack-widget-hook (buffer)
-  (#_setCurrentWidget *main-stack*
-                      (or (hi::buffer-widget buffer)
-                          *main-hunk-widget*)))
+  (when *in-main-qthread*
+    (#_setCurrentWidget *main-stack*
+                        (or (hi::buffer-widget buffer)
+                            *main-hunk-widget*))))
 
 (add-hook hemlock::make-buffer-hook 'add-buffer-tab-hook)
 (add-hook hemlock::delete-buffer-hook 'delete-buffer-tab-hook)
@@ -609,8 +614,7 @@
     (let* ((window (#_new QMainWindow))
            (*window-list* *window-list*)
            (*editor-input*
-            (let ((e (hi::make-input-event)))
-              (make-instance 'qt-editor-input :head e :tail e)))
+            (make-instance 'qt-editor-input))
            (*do-not-gc-list* '())
            (*in-main-qthread* t)
            (*invoke-later-thunks* '())

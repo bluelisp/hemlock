@@ -296,3 +296,12 @@
     (setf (window-tick window) (tick))
     (update-window-image window)
     t))
+
+
+;;; prepare-window-for-redisplay  --  Internal
+;;;
+;;;    Called by make-window to do whatever redisplay wants to set up
+;;; a new window.
+;;;
+(defun prepare-window-for-redisplay (window)
+  (setf (window-old-lines window) 0))

@@ -86,28 +86,14 @@
       (error "Terminal sufficiently irritating -- not currently supported."))
     ;;
     ;; Similar device slots.
-    (setf (device-init device) #'init-tty-device)
-    (setf (device-exit device) #'exit-tty-device)
-    (setf (device-smart-redisplay device)
-          (if (and (termcap :open-line termcap) (termcap :delete-line termcap))
-              #'tty-smart-window-redisplay
-              #'tty-semi-dumb-window-redisplay))
-    (setf (device-dumb-redisplay device) #'tty-dumb-window-redisplay)
-    (setf (device-clear device) #'clear-device)
-    (setf (device-put-cursor device) #'tty-put-cursor)
-    (setf (device-show-mark device) #'tty-show-mark)
-    (setf (device-next-window device) #'tty-next-window)
-    (setf (device-previous-window device) #'tty-previous-window)
-    (setf (device-make-window device) #'tty-make-window)
-    (setf (device-delete-window device) #'tty-delete-window)
-    (setf (device-random-typeout-setup device) #'tty-random-typeout-setup)
-    (setf (device-random-typeout-cleanup device) #'tty-random-typeout-cleanup)
-    (setf (device-random-typeout-full-more device) #'do-tty-full-more)
-    (setf (device-random-typeout-line-more device)
-          #'update-tty-line-buffered-stream)
-    (setf (device-force-output device) #'tty-force-output)
-    (setf (device-finish-output device) #'tty-finish-output)
-    (setf (device-beep device) #'tty-beep)
+    #+(or)
+    (setf (device-supports-smart-redisplay-p device)
+          (and (termcap :open-line termcap) (termcap :delete-line termcap)))
+;;;     (setf (device-random-typeout-setup device) #'tty-random-typeout-setup)
+;;;     (setf (device-random-typeout-cleanup device) #'tty-random-typeout-cleanup)
+;;;     (setf (device-random-typeout-full-more device) #'do-tty-full-more)
+;;;     (setf (device-random-typeout-line-more device)
+;;;       #'update-tty-line-buffered-stream)
     ;;
     ;; A few useful values.
     (setf (tty-device-dumbp device)
@@ -237,7 +223,8 @@
 
 ;;;; Making a window
 
-(defun tty-make-window (device start modelinep window font-family
+(defmethod device-make-window ((device tty-device)
+                               start modelinep window font-family
                                ask-user x y width height proportion)
   (declare (ignore window font-family ask-user x y width height))
   (let* ((old-window (current-window))
@@ -285,7 +272,7 @@
 
 ;;;; Deleting a window
 
-(defun tty-delete-window (window)
+(defmethod device-delete-window ((device tty-device) window)
   (let* ((hunk (window-hunk window))
          (prev (device-hunk-previous hunk))
          (next (device-hunk-next hunk))
@@ -317,16 +304,17 @@
 
 ;;;; Next and Previous window operations.
 
-(defun tty-next-window (window)
+(defmethod device-next-window ((device tty-device) window)
   (device-hunk-window (device-hunk-next (window-hunk window))))
 
-(defun tty-previous-window (window)
+(defmethod device-previous-window ((device tty-device) window)
   (device-hunk-window (device-hunk-previous (window-hunk window))))
 
 
 
 ;;;; Random typeout support
 
+#+(or)
 (defun tty-random-typeout-setup (device stream height)
   (declare (fixnum height))
   (let* ((*more-prompt-action* :empty)
@@ -344,6 +332,7 @@
                                  height)))))
     (funcall (tty-device-clear-to-eow device) (window-hunk new-hwindow) 0 0)))
 
+#+(or)
 (defun change-tty-random-typeout-window (window height)
   (update-modeline-field (window-buffer window) window :more-prompt)
   (let* ((height-1 (1- height))
@@ -355,6 +344,7 @@
     (change-window-image-height window height-1)
     window))
 
+#+(or)
 (defun make-tty-random-typeout-window (device mark height)
   (let* ((height-1 (1- height))
          (hunk (make-tty-hunk :position height-1
@@ -372,6 +362,7 @@
     (update-modeline-field (window-buffer window) window :more-prompt)
     window))
 
+#+(or)
 (defun tty-random-typeout-cleanup (stream degree)
   (declare (ignore degree))
   (let* ((window (random-typeout-stream-window stream))
@@ -397,7 +388,7 @@
 
 ;;;; from rompsite.lisp
 
-(defun tty-show-mark (window x y time)
+(defmethod device-show-mark ((device tty-device) window x y time)
   (declare (ignore time))
   (cond ((listen-editor-input *editor-input*))
         (x (internal-redisplay)

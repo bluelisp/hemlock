@@ -14,14 +14,6 @@
 (in-package :hemlock.x11) ;;-internals)
 
 
-;;; prepare-window-for-redisplay  --  Internal
-;;;
-;;;    Called by make-window to do whatever redisplay wants to set up
-;;; a new window.
-;;;
-(defun prepare-window-for-redisplay (window)
-  (setf (window-old-lines window) 0))
-
 
 
 ;;;; Dumb window redisplay.

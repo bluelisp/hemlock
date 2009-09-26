@@ -130,12 +130,12 @@
      (:module tty-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "tty"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :components
-              (#+port-tty-termcap (:file "termcap")
-               #+port-tty-tty-disp-rt (:file "tty-disp-rt")
-               #+port-tty-tty-display (:file "tty-display")))
+              (#+want-tty-hemlock (:file "termcap")
+               #+want-tty-hemlock (:file "tty-disp-rt")
+               #+want-tty-hemlock (:file "tty-display")))
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -147,10 +147,12 @@
      (:module tty-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "tty"))
+                            :directory '(:relative "src"))
                            *hemlock-base-directory*)
               :components
-              (#+port-tty-tty-screen (:file "tty-screen")))
+              (#+want-tty-hemlock (:file "tty-screen")
+               #+want-tty-hemlock (:file "tty-stuff")
+               #+want-tty-hemlock (:file "tty-input")))
      (:module root-2
               :pathname #.(merge-pathnames
                            (make-pathname

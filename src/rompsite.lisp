@@ -205,14 +205,13 @@
                #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
          (setf *editor-input* (make-windowed-editor-input))
          (setup-font-family *editor-windowed-input*))
-        #+nilamb
         (t ;; The editor's file descriptor is Unix standard input (0).
            ;; We don't need to affect system:*file-input-handlers* here
            ;; because the init and exit methods for tty redisplay devices
            ;; take care of this.
            ;;
          (setf *editor-file-descriptor* 0)
-         (setf *editor-input* (make-tty-editor-input 0))))
+         (setf *editor-input* (make-tty-editor-input :fd 0))))
   (setf *real-editor-input* *editor-input*)
   *editor-windowed-input*)
 
@@ -335,12 +334,6 @@
                   ,@body)))))
      (let ((device (device-hunk-device (window-hunk (current-window)))))
        (device-exit device))))
-
-(defun standard-device-init ()
-  #+nilamb(setup-input))
-
-(defun standard-device-exit ()
-  #+nilamb(reset-input))
 
 (declaim (special *echo-area-window*))
 
@@ -587,6 +580,27 @@
    returns the console's CLX display structure."
   *editor-windowed-input*)
 
+(defun process-editor-tty-input (&optional fd)
+  (declare (ignore fd))
+  (let ((char (read-char-no-hang sb-sys::*tty*)))
+    (when char
+      (let ((sym
+             (cond
+               ((eql char #\newline)    ;### hmm
+                (hemlock-ext:key-event-keysym #k"Return"))
+               ((eql char #\tab)        ;### hmm
+                (hemlock-ext:key-event-keysym #k"Tab"))
+               ((eql char #\Backspace)
+                (hemlock-ext:key-event-keysym #k"Backspace"))
+               ((eql char #\Escape)
+                (hemlock-ext:key-event-keysym #k"Escape"))
+               ((eql char #\rubout)
+                (hemlock-ext:key-event-keysym #k"delete")))))
+      (q-event *real-editor-input*
+               (if sym
+                   (hemlock-ext:make-key-event sym 0)
+                   (hemlock-ext:char-key-event char)))))))
+
 #||
 (defun get-terminal-name ()
   (cdr (assoc :term *environment-list* :test #'eq)))
@@ -598,19 +612,6 @@
 ;;; GET-EDITOR-TTY-INPUT reads from stream's Unix file descriptor queuing events
 ;;; in the stream's queue.
 ;;;
-(defun get-editor-tty-input (fd)
-  (alien:with-alien ((buf (alien:array c-call:unsigned-char 256)))
-    (multiple-value-bind
-        (len errno)
-        (unix:unix-read fd (alien:alien-sap buf) 256)
-      (declare (type (or null fixnum) len))
-      (unless len
-        (error "Problem with tty input: ~S"
-               (unix:get-unix-error-msg errno)))
-      (dotimes (i len t)
-        (q-event *real-editor-input*
-                 (hemlock-ext:char-key-event (code-char (alien:deref buf i))))))))
-
 #+NIL
 (defun editor-tty-listen (stream)
   (alien:with-alien ((nc c-call:int))
@@ -618,248 +619,4 @@
                           unix::FIONREAD
                           (alien:alien-sap (alien:addr nc)))
          (> nc 0))))
-||#
-
-#||
-(defvar old-flags)
-
-(defvar old-tchars)
-
-#-glibc2
-(defvar old-ltchars)
-
-#+(or hpux irix bsd glibc2)
-(progn
-  (defvar old-c-iflag)
-  (defvar old-c-oflag)
-  (defvar old-c-cflag)
-  (defvar old-c-lflag)
-  (defvar old-c-cc))
-
-(defun setup-input ()
-  (let ((fd *editor-file-descriptor*))
-    (when (unix:unix-isatty 0)
-      #+(or hpux irix bsd glibc2)
-      (alien:with-alien ((tios (alien:struct unix:termios)))
-        (multiple-value-bind
-            (val err)
-            (unix:unix-tcgetattr fd (alien:alien-sap tios))
-          (when (null val)
-            (error "Could not tcgetattr, unix error ~S."
-                   (unix:get-unix-error-msg err))))
-        (setf old-c-iflag (alien:slot tios 'unix:c-iflag))
-        (setf old-c-oflag (alien:slot tios 'unix:c-oflag))
-        (setf old-c-cflag (alien:slot tios 'unix:c-cflag))
-        (setf old-c-lflag (alien:slot tios 'unix:c-lflag))
-        (setf old-c-cc
-              (vector (alien:deref (alien:slot tios 'unix:c-cc) unix:vdsusp)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:veof)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vintr)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vquit)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vstart)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vstop)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vsusp)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vmin)
-                      (alien:deref (alien:slot tios 'unix:c-cc) unix:vtime)))
-        (setf (alien:slot tios 'unix:c-lflag)
-              (logand (alien:slot tios 'unix:c-lflag)
-                      (lognot (logior unix:tty-echo unix:tty-icanon))))
-        (setf (alien:slot tios 'unix:c-iflag)
-              (logand (alien:slot tios 'unix:c-iflag)
-                      (lognot (logior unix:tty-icrnl unix:tty-ixon))))
-        (setf (alien:slot tios 'unix:c-oflag)
-              (logand (alien:slot tios 'unix:c-oflag)
-                      (lognot #-bsd unix:tty-ocrnl
-                              #+bsd unix:tty-onlcr)))
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vdsusp) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:veof) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vintr)
-              (if *editor-windowed-input* #xff 28))
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vquit) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vstart) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vstop) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vsusp) #xff)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vmin) 1)
-        (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vtime) 0)
-        (multiple-value-bind
-            (val err)
-            (unix:unix-tcsetattr fd unix:tcsaflush (alien:alien-sap tios))
-          (when (null val)
-            (error "Could not tcsetattr, unix error ~S."
-                   (unix:get-unix-error-msg err)))))
-      #-(or hpux irix bsd glibc2)
-      (alien:with-alien ((sg (alien:struct unix:sgttyb)))
-        (multiple-value-bind
-            (val err)
-            (unix:unix-ioctl fd unix:TIOCGETP (alien:alien-sap sg))
-          (unless val
-            (error "Could not get tty information, unix error ~S."
-                   (unix:get-unix-error-msg err))))
-        (let ((flags (alien:slot sg 'unix:sg-flags)))
-          (setq old-flags flags)
-          (setf (alien:slot sg 'unix:sg-flags)
-                (logand #-(or hpux irix bsd glibc2) (logior flags unix:tty-cbreak)
-                        (lognot unix:tty-echo)
-                        (lognot unix:tty-crmod)))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-ioctl fd unix:TIOCSETP (alien:alien-sap sg))
-            (if (null val)
-                (error "Could not set tty information, unix error ~S."
-                       (unix:get-unix-error-msg err))))))
-      #-(or hpux irix bsd glibc2)
-      (alien:with-alien ((tc (alien:struct unix:tchars)))
-        (multiple-value-bind
-            (val err)
-            (unix:unix-ioctl fd unix:TIOCGETC (alien:alien-sap tc))
-          (unless val
-            (error "Could not get tty tchars information, unix error ~S."
-                   (unix:get-unix-error-msg err))))
-        (setq old-tchars
-              (vector (alien:slot tc 'unix:t-intrc)
-                      (alien:slot tc 'unix:t-quitc)
-                      (alien:slot tc 'unix:t-startc)
-                      (alien:slot tc 'unix:t-stopc)
-                      (alien:slot tc 'unix:t-eofc)
-                      (alien:slot tc 'unix:t-brkc)))
-        (setf (alien:slot tc 'unix:t-intrc)
-              (if *editor-windowed-input* -1 28))
-        (setf (alien:slot tc 'unix:t-quitc) -1)
-        (setf (alien:slot tc 'unix:t-startc) -1)
-        (setf (alien:slot tc 'unix:t-stopc) -1)
-        (setf (alien:slot tc 'unix:t-eofc) -1)
-        (setf (alien:slot tc 'unix:t-brkc) -1)
-        (multiple-value-bind
-            (val err)
-            (unix:unix-ioctl fd unix:TIOCSETC (alien:alien-sap tc))
-          (unless val
-            (error "Failed to set tchars, unix error ~S."
-                   (unix:get-unix-error-msg err)))))
-
-      ;; Needed even under HpUx to suppress dsuspc.
-      #-(or glibc2 irix)
-      (alien:with-alien ((tc (alien:struct unix:ltchars)))
-        (multiple-value-bind
-            (val err)
-            (unix:unix-ioctl fd unix:TIOCGLTC (alien:alien-sap tc))
-          (unless val
-            (error "Could not get tty ltchars information, unix error ~S."
-                   (unix:get-unix-error-msg err))))
-        (setq old-ltchars
-              (vector (alien:slot tc 'unix:t-suspc)
-                      (alien:slot tc 'unix:t-dsuspc)
-                      (alien:slot tc 'unix:t-rprntc)
-                      (alien:slot tc 'unix:t-flushc)
-                      (alien:slot tc 'unix:t-werasc)
-                      (alien:slot tc 'unix:t-lnextc)))
-        (setf (alien:slot tc 'unix:t-suspc) -1)
-        (setf (alien:slot tc 'unix:t-dsuspc) -1)
-        (setf (alien:slot tc 'unix:t-rprntc) -1)
-        (setf (alien:slot tc 'unix:t-flushc) -1)
-        (setf (alien:slot tc 'unix:t-werasc) -1)
-        (setf (alien:slot tc 'unix:t-lnextc) -1)
-        (multiple-value-bind
-            (val err)
-            (unix:unix-ioctl fd unix:TIOCSLTC (alien:alien-sap tc))
-          (unless val
-            (error "Failed to set ltchars, unix error ~S."
-                   (unix:get-unix-error-msg err))))))))
-
-(defun reset-input ()
-  (when (unix:unix-isatty 0)
-    (let ((fd *editor-file-descriptor*))
-      #+(or hpux irix bsd glibc2)
-      (when (boundp 'old-c-lflag)
-        (alien:with-alien ((tios (alien:struct unix:termios)))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-tcgetattr fd (alien:alien-sap tios))
-            (when (null val)
-              (error "Could not tcgetattr, unix error ~S."
-                     (unix:get-unix-error-msg err))))
-          (setf (alien:slot tios 'unix:c-iflag) old-c-iflag)
-          (setf (alien:slot tios 'unix:c-oflag) old-c-oflag)
-          (setf (alien:slot tios 'unix:c-cflag) old-c-cflag)
-          (setf (alien:slot tios 'unix:c-lflag) old-c-lflag)
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vdsusp)
-                (svref old-c-cc 0))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:veof)
-                (svref old-c-cc 1))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vintr)
-                (svref old-c-cc 2))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vquit)
-                (svref old-c-cc 3))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vstart)
-                (svref old-c-cc 4))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vstop)
-                (svref old-c-cc 5))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vsusp)
-                (svref old-c-cc 6))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vmin)
-                (svref old-c-cc 7))
-          (setf (alien:deref (alien:slot tios 'unix:c-cc) unix:vtime)
-                (svref old-c-cc 8))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-tcsetattr fd unix:tcsaflush (alien:alien-sap tios))
-            (when (null val)
-              (error "Could not tcsetattr, unix error ~S."
-                     (unix:get-unix-error-msg err))))))
-      #-(or hpux irix bsd glibc2)
-      (when (boundp 'old-flags)
-        (alien:with-alien ((sg (alien:struct unix:sgttyb)))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-ioctl fd unix:TIOCGETP (alien:alien-sap sg))
-            (unless val
-              (error "Could not get tty information, unix error ~S."
-                     (unix:get-unix-error-msg err)))
-            (setf (alien:slot sg 'unix:sg-flags) old-flags)
-            (multiple-value-bind
-                (val err)
-                (unix:unix-ioctl fd unix:TIOCSETP (alien:alien-sap sg))
-              (unless val
-                (error "Could not set tty information, unix error ~S."
-                       (unix:get-unix-error-msg err)))))))
-      #-(or hpux irix bsd glibc2)
-      (when (and (boundp 'old-tchars)
-                 (simple-vector-p old-tchars)
-                 (eq (length old-tchars) 6))
-        (alien:with-alien ((tc (alien:struct unix:tchars)))
-          (setf (alien:slot tc 'unix:t-intrc) (svref old-tchars 0))
-          (setf (alien:slot tc 'unix:t-quitc) (svref old-tchars 1))
-          (setf (alien:slot tc 'unix:t-startc) (svref old-tchars 2))
-          (setf (alien:slot tc 'unix:t-stopc) (svref old-tchars 3))
-          (setf (alien:slot tc 'unix:t-eofc) (svref old-tchars 4))
-          (setf (alien:slot tc 'unix:t-brkc) (svref old-tchars 5))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-ioctl fd unix:TIOCSETC (alien:alien-sap tc))
-            (unless val
-              (error "Failed to set tchars, unix error ~S."
-                     (unix:get-unix-error-msg err))))))
-      #-glibc2
-      (when (and (boundp 'old-ltchars)
-                 (simple-vector-p old-ltchars)
-                 (eq (length old-ltchars) 6))
-        (alien:with-alien ((tc (alien:struct unix:ltchars)))
-          (setf (alien:slot tc 'unix:t-suspc) (svref old-ltchars 0))
-          (setf (alien:slot tc 'unix:t-dsuspc) (svref old-ltchars 1))
-          (setf (alien:slot tc 'unix:t-rprntc) (svref old-ltchars 2))
-          (setf (alien:slot tc 'unix:t-flushc) (svref old-ltchars 3))
-          (setf (alien:slot tc 'unix:t-werasc) (svref old-ltchars 4))
-          (setf (alien:slot tc 'unix:t-lnextc) (svref old-ltchars 5))
-          (multiple-value-bind
-              (val err)
-              (unix:unix-ioctl fd unix:TIOCSLTC (alien:alien-sap tc))
-            (unless val
-              (error "Failed to set ltchars, unix error ~S."
-                     (unix:get-unix-error-msg err)))))))))
-
-(defun pause-hemlock ()
-  "Pause hemlock and pop out to the Unix Shell."
-  (without-hemlock
-   (unix:unix-kill (unix:unix-getpid) :sigstop))
-  T)
-
 ||#

@@ -252,10 +252,9 @@ GB
 
 ;; another function that looks clever but doesn't currently work.
 ;; see the Qt-specific hack below instead
-#+nil
-(defun hemlock (&optional x
+(defun old-hemlock (&optional x
                          &key (init t)
-                              (display (hemlock-ext:getenv "DISPLAY")))
+                              (display #+nil(hemlock-ext:getenv "DISPLAY")))
   "Invokes the editor, Hemlock.  If X is supplied and is a symbol, the
    definition of X is put into a buffer, and that buffer is selected.  If X is
    a pathname, the file specified by X is visited in a new buffer.  If X is not

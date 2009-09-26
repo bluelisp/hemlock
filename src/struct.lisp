@@ -246,6 +246,11 @@
 
 ;; --GB 2002-11-07
 
+;; FWIW, I think that Allegro complaint is wrong.  But let's leave the
+;; definition as established by Gilbert. --DFL
+;; Temporary workaround:
+(deftype dis-line () 'window-dis-line)  ;make the tty code happy
+
 #||
 (defstruct (dis-line (:copier nil)
                      (:constructor nil))
@@ -444,6 +449,9 @@
 
 (defgeneric device-beep (device stream)
   (:documentation "beep or flash the screen."))
+
+(defmethod device-beep ((device t) stream)
+  (declare (ignore stream)))
 
 (defclass device ()
   ((name

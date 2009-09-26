@@ -28,7 +28,7 @@
    is undefined, look for name in termcap-file.  An error is signaled if it
    cannot find the terminal capabilities."
   (let ((termcap-env-var (get-termcap-env-var)))
-    (if termcap-env-var
+    (if (plusp (length termcap-env-var))
         (if (char= (schar termcap-env-var 0) #\/) ; hack for filenamep
             (with-open-file (s termcap-env-var)
               (if (find-termcap-entry name s)

@@ -1,13 +1,19 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
+(in-package :hemlock-internals)
+
 ;;;; Editor input from a tty.
 
 (defclass tty-editor-input (editor-input)
   ((fd :initarg :fd
        :accessor tty-editor-input-fd)))
 
-(defmethod get-key-event ((stream tty-editor-input) ignore-abort-attempts-p)
-  (editor-input-method-macro))
+(defun make-tty-editor-input (&rest args)
+  (apply #'make-instance 'tty-editor-input args))
+
+(defmethod get-key-event
+    ((stream tty-editor-input) &optional ignore-abort-attempts-p)
+  (%editor-input-method stream ignore-abort-attempts-p))
 
 (defmethod unget-key-event (key-event (stream tty-editor-input))
   (un-event key-event stream))
@@ -28,11 +34,5 @@
 ;;; has happened, or there is some real keyboard input.
 ;;;
 (defmethod listen-editor-input ((stream tty-editor-input))
-  (loop
-    ;; Don't service anymore events if we just got some input.
-    (when (or (input-event-next (editor-input-head stream))
-              (editor-tty-listen stream))
-      (return t))
-    ;; If nothing is pending, check the queued input.
-    (unless (hemlock-ext:serve-event 0)
-      (return (not (null (input-event-next (editor-input-head stream))))))))
+  (process-editor-tty-input)
+  nil)

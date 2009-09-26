@@ -44,6 +44,11 @@
   ((head :accessor editor-input-head :initarg :head)
    (tail :accessor editor-input-tail :initarg :tail)))
 
+(defmethod initialize-instance :after ((instance editor-input) &key)
+  (let ((e (hi::make-input-event)))
+    (setf (editor-input-head instance) e)
+    (setf (editor-input-tail instance) e)))
+
 ;;;; GET-KEY-EVENT, UNGET-KEY-EVENT, LISTEN-EDITOR-INPUT, CLEAR-EDITOR-INPUT.
 
 ;;; GET-KEY-EVENT -- Public.
@@ -224,61 +229,61 @@
 ;;; if we got an error in getting input, we should prompt the user using the
 ;;; input method (recursively even).
 ;;;
-#+hemlock-clx
-(eval-when (:compile-toplevel :execute)
-
-(defmacro editor-input-method-macro ()
-  `(handler-bind
-       ((error
-         (lambda (condition)
-           (when (typep condition 'stream-error)
-             (let* ((stream (stream-error-stream condition))
-                    (display *editor-windowed-input*)
-                    (display-stream
-                     #+CLX
-                     (and display (xlib::display-input-stream display))))
-               (when (eq stream display-stream)
-                 ;;(format *error-output* "~%Hemlock: Display died!~%~%")
-                 (cleanup-for-wm-closed-display display)
-                 (exit-hemlock nil))
-               (let ((device
-                      (device-hunk-device (window-hunk (current-window)))))
-                 (device-exit device))
-               (invoke-debugger condition)))))
-        #+(and CLX )
-        (xlib:closed-display
-         (lambda(condition)
-           (let ((display (xlib::closed-display-display condition)))
-             (format *error-output*
-                     "Closed display on stream ~a~%"
-                     (xlib::display-input-stream display)))
-           (exit-hemlock nil)))
-        )
-;     (when *in-hemlock-stream-input-method*
-;       (error "Entering Hemlock stream input method recursively!"))
-     (let ((*in-hemlock-stream-input-method* t)
-           (device (device-hunk-device (window-hunk (current-window))))
-           key-event)
-       (loop
-         (when (setf key-event (dq-event stream))
+(defun %editor-input-method (editor-input ignore-abort-attempts-p)
+  (handler-bind
+      ((error
+        (lambda (condition)
+          (when (typep condition 'stream-error)
+            (let* ((stream (stream-error-stream condition))
+                   #+nil (display *editor-windowed-input*)
+                   (display-stream
+                    #+(and CLX hemlock-clx)
+                    (and display (xlib::display-input-stream display))))
+              (when (eq stream display-stream)
+                ;;(format *error-output* "~%Hemlock: Display died!~%~%")
+                ;; (cleanup-for-wm-closed-display display)
+                (exit-hemlock nil))
+              (let ((device
+                     (device-hunk-device (window-hunk (current-window)))))
+                (device-exit device))
+              (invoke-debugger condition)))))
+       #+(and CLX hemlock-clx)
+       (xlib:closed-display
+        (lambda(condition)
+          (let ((display (xlib::closed-display-display condition)))
+            (format *error-output*
+                    "Closed display on stream ~a~%"
+                    (xlib::display-input-stream display)))
+          (exit-hemlock nil)))
+       )
+                                        ;     (when *in-hemlock-stream-input-method*
+                                        ;       (error "Entering Hemlock stream input method recursively!"))
+    (let ((*in-hemlock-stream-input-method* t)
+          (device (device-hunk-device (window-hunk (current-window))))
+          key-event)
+      (loop
+         (when (setf key-event (dq-event editor-input))
            (dolist (f (variable-value 'hemlock::input-hook)) (funcall f))
            (return))
          (invoke-scheduled-events)
-         (unless (or (hemlock-ext:serve-event 0)
+         (unless (or #+nil (hemlock-ext:serve-event 0)
                      (internal-redisplay))
            (internal-redisplay)
            (device-note-read-wait device t)
            (let ((wait (next-scheduled-event-wait)))
-             (if wait (hemlock-ext:serve-event wait) (hemlock-ext:serve-event)))))
-       (device-note-read-wait device nil)
-       (when (and (abort-key-event-p key-event)
-                  ;; ignore-abort-attempts-p must exist outside the macro.
-                  ;; in this case it is bound in GET-KEY-EVENT.
-                  (not ignore-abort-attempts-p))
-         (beep)
-         (throw 'editor-top-level-catcher nil))
-       key-event)))
-) ;eval-when
+             (when wait
+               (handler-case
+                   (sb-sys:with-deadline (:seconds 0.1)
+                     (peek-char nil sb-sys::*tty*))
+                 (sb-ext:timeout ()))))))
+      (device-note-read-wait device nil)
+      (when (and (abort-key-event-p key-event)
+                 ;; ignore-abort-attempts-p must exist outside the macro.
+                 ;; in this case it is bound in GET-KEY-EVENT.
+                 (not ignore-abort-attempts-p))
+        (beep)
+        (throw 'editor-top-level-catcher nil))
+      key-event)))
 
 
 

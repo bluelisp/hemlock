@@ -12,6 +12,7 @@
 
 (in-package :hemlock-internals)
 
+#+(or)
 (export '(redisplay redisplay-all define-tty-font))
 
 
@@ -62,6 +63,7 @@
 
 
 (defun find-identical-prefix (dis-line dis-line-fonts si-line)
+  #+(or)
   (declare (type dis-line dis-line)
            (type list dis-line-fonts)
            (type si-line si-line))
@@ -175,7 +177,8 @@
                (cons (car stuff) (cadr stuff))))
         (t
          (error "Bogus font spec: ~S~%Must be either a list of keywords or ~
-                 a list of the start string and end string."))))
+                 a list of the start string and end string."
+                stuff))))
 
 
 (defun compute-font-usages (dis-line)
@@ -224,7 +227,7 @@
          (setf (si-line-length ,screen-image-line) ,dl-len)
          (setf (si-line-fonts ,screen-image-line) ,dl-fonts)))))
 
-(defun tty-dumb-window-redisplay (window)
+(defmethod device-dumb-redisplay ((device tty-device) window)
   (let* ((first (window-first-line window))
          (hunk (window-hunk window))
          (device (device-hunk-device hunk))
@@ -533,7 +536,7 @@
 ;;; first, so lines are not lost off the bottom of the screen by
 ;;; inserting lines.
 ;;;
-(defun tty-smart-window-redisplay (window)
+(defmethod device-smart-redisplay ((device tty-device) window)
   (let* ((hunk (window-hunk window))
          (device (device-hunk-device hunk)))
     (let ((first-changed (window-first-changed window))
@@ -840,13 +843,12 @@
 (defun do-line-writes (hunk writes)
   (declare (fixnum writes))
   (let* ((i 0)
-         (device (device-hunk-device hunk))
-         (force-output (device-force-output device)))
+         (device (device-hunk-device hunk)))
     (declare (fixnum i))
     (loop
      (when (= i writes) (return))
      (tty-smart-line-redisplay device hunk (dequeue *tty-line-writes* i))
-     (when force-output (funcall force-output)))))
+     (device-force-output device))))
 
 ;;; TTY-SMART-LINE-REDISPLAY uses an auxiliary screen image structure to
 ;;; try to do minimal character shipping to the terminal.  Roughly, we find
@@ -966,7 +968,7 @@
 
 ;;; Clearing the device (DEVICE-CLEAR functions).
 
-(defun clear-device (device)
+(defmethod device-clear ((device tty-device))
   (device-write-string (tty-device-clear-string device))
   (cursor-motion device 0 0)
   (setf (tty-device-cursor-x device) 0)
@@ -981,7 +983,7 @@
 ;;; compared to absolute motion but simply makes sure the cursor isn't
 ;;; already where we want it.
 ;;;
-(defun tty-put-cursor (hunk x y)
+(defmethod device-put-cursor ((device tty-device) hunk x y)
   (declare (fixnum x y))
   (select-hunk hunk)
   (let ((y (the fixnum (+ *hunk-top-line* y)))
@@ -996,10 +998,8 @@
 ;;; UPDATE-CURSOR is used in device redisplay methods to make sure the
 ;;; cursor is where it should be.
 ;;;
-(eval-when (:compile-toplevel :execute)
-  (defmacro update-cursor (hunk x y)
-    `(funcall (device-put-cursor (device-hunk-device ,hunk)) ,hunk ,x ,y))
-) ;eval-when
+(defun update-cursor (hunk x y)
+  (device-put-cursor (device-hunk-device hunk) hunk x y))
 
 ;;; CURSOR-MOTION takes two coordinates on the screen's axis,
 ;;; moving the cursor to that location.  X is the column index,

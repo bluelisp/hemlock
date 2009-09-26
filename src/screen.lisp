@@ -32,7 +32,7 @@
         (value hemlock::default-status-line-fields))
   (if (windowed-monitor-p)
       (init-bitmap-screen-manager display)
-      nil));(init-tty-screen-manager (get-terminal-name)))) ; disabled --amb
+      (init-tty-screen-manager (get-terminal-name))))
 
 
 
