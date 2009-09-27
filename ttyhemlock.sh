@@ -1,11 +1,12 @@
 #!/bin/bash
 cleanup() {
-    stty icanon echo
+    stty icanon echo stop ^S start ^Q intr ^C
 }
 trap cleanup EXIT
 
-stty -icanon -echo
+stty -icanon -echo stop ^- start ^- intr ^-
+
 clbuild lisp <<EOF
-(require :ttyhemlock)
+(asdf:operate 'asdf:load-op :ttyhemlock)
 (hi::old-hemlock)
 EOF
