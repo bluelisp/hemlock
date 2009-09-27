@@ -15,11 +15,7 @@
 
 ;;;; Terminal init and exit methods.
 
-(defvar *hemlock-input-handler*)
-
 (defmethod device-init ((device tty-device))
-;;;   (setf *hemlock-input-handler*
-;;;     (system:add-fd-handler 0 :input #'get-editor-tty-input))
   (setup-input)
   (device-write-string (tty-device-init-string device))
   (redisplay-all))
@@ -35,11 +31,7 @@
                   (cursor-motion device 0 (1- (tty-device-lines device))))
         (tty-write-char #\space)))
   (device-write-string (tty-device-cm-end-string device))
-  (when (device-force-output device)
-    (funcall (device-force-output device)))
-  (when *hemlock-input-handler*
-;;;     (system:remove-fd-handler *hemlock-input-handler*)
-    (setf *hemlock-input-handler* nil))
+  (device-force-output device)
   (standard-device-exit))
 
 
