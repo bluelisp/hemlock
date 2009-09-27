@@ -282,35 +282,21 @@ GB
          (invoke-hook (reverse *after-editor-initializations-funs*)))
        (catch 'hemlock-exit
          (catch 'editor-top-level-catcher
-           (cond ((and x (symbolp x))
-                  (let* ((name (nstring-capitalize
-                                (concatenate 'simple-string "Edit " (string x))))
-                         (buffer (or (getstring name *buffer-names*)
-                                     (make-buffer name)))
-                         (*print-case* :downcase))
-                    (delete-region (buffer-region buffer))
-                    (with-output-to-mark
-                        (*standard-output* (buffer-point buffer))
-                      (eval `(grindef ,x))      ; hackish, I know...
-                      (terpri)
-                      (hemlock::change-to-buffer buffer)
-                      (buffer-start (buffer-point buffer)))))
-                 ((or (stringp x) (pathnamep x))
-                  (hemlock::find-file-command () x))
-                 (x
-                  (error
-                   "~S is not a symbol or pathname.  I can't edit it!" x))))
-
+           (%hemlock-process-argument x))
          (invoke-hook hemlock::entry-hook)
-         (unwind-protect
-           (loop
-            (catch 'editor-top-level-catcher
-              (handler-bind ((error #'(lambda (condition)
-                                        (lisp-error-error-handler condition
-                                                                  :internal))))
-                (invoke-hook hemlock::abort-hook)
-                (%command-loop))))
-           (invoke-hook hemlock::exit-hook)))))))
+         (qt-hemlock::nonqt-hemlock
+          (lambda ()
+            (%hemlock-process-argument x))
+          (lambda ()
+            (unwind-protect
+                 (loop
+                    (catch 'editor-top-level-catcher
+                      (handler-bind ((error #'(lambda (condition)
+                                                (lisp-error-error-handler condition
+                                                                          :internal))))
+                        (invoke-hook hemlock::abort-hook)
+                        (%command-loop))))
+              (invoke-hook hemlock::exit-hook)))))))))
 
 (defun %hemlock-process-argument (x)
   (catch 'editor-top-level-catcher

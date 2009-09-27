@@ -686,6 +686,37 @@
              (funcall command-loop-fun))
         (#_hide window)))))
 
+(defun nonqt-hemlock (init-fun command-loop-fun)
+  (ensure-smoke)
+  (setf *qapp* (qt::%make-qapplication '("argv0dummy") nil))
+  (let* (#+nil (*editor-input*
+                (make-instance 'qt-editor-input))
+         (*do-not-gc-list* '())
+         #+nil (*in-main-qthread* t)
+         (*invoke-later-thunks* '())
+         (*invoke-later-timer* (#_new QTimer))
+         (*really-redisplay* nil))
+    (connect *invoke-later-timer*
+             (QSIGNAL "timeout()")
+             #'process-invoke-later-thunks)
+    #+nil (setf hi::*real-editor-input* *editor-input*)
+    #+nil (redraw-all-widgets main echo nil)
+    (when init-fun
+      (funcall init-fun))
+    #+nil (setf (widget-modeline main) (#_statusBar window))
+    #+nil
+    (dolist (buffer hi::*buffer-list*)
+      (unless (eq buffer *echo-area-buffer*)
+        (add-buffer-tab-hook buffer)))
+    (setf *notifier* (make-instance 'qt-repl::repl-notifier))
+    (setf *executor* (make-instance 'qt-repl::repl-executer
+                                    :notifier *notifier*))
+    #+nil (setf *editor-name* nil)              ;reinit slave stuff
+    (#+sbcl sb-int:with-float-traps-masked
+            #+sbcl (:overflow :invalid :divide-by-zero)
+            #-sbcl progn
+            (funcall command-loop-fun))))
+
 (defun qthread-event-loop (initfun)
   (qt:ensure-smoke)
   (let ((*do-not-gc-list* '())
