@@ -67,7 +67,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:qt :bordeaux-threads :usocket :qt-repl
+     :depends-on (:qt :bordeaux-threads :qt-repl
                       :trivial-gray-streams #+sbcl :sb-posix :iterate
                       :prepl)
     :components
