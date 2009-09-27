@@ -582,7 +582,7 @@
 
 (defun process-editor-tty-input (&optional fd)
   (declare (ignore fd))
-  (let ((char (read-char-no-hang sb-sys::*tty*)))
+  (let ((char (read-char-no-hang *terminal-io* #+nil sb-sys::*tty*)))
     (when char
       (let ((sym
              (cond

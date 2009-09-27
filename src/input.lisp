@@ -272,10 +272,14 @@
            (device-note-read-wait device t)
            (let ((wait (next-scheduled-event-wait)))
              (when wait
+               (qt-hemlock::process-events-no-hang)
+               #+sbcl
                (handler-case
                    (sb-sys:with-deadline (:seconds 0.1)
                      (peek-char nil sb-sys::*tty*))
-                 (sb-ext:timeout ()))))))
+                 (sb-ext:timeout ()))
+               #-sbcl
+               (sleep 0.1)))))
       (device-note-read-wait device nil)
       (when (and (abort-key-event-p key-event)
                  ;; ignore-abort-attempts-p must exist outside the macro.

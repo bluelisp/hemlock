@@ -547,7 +547,7 @@
     (when dps
       (object-set-event-handler (car dps) timeout))))
 
-#+CLISP
+#+(and CLISP hemlock-clx clx)
 (progn
 
   #-NIL
@@ -732,10 +732,10 @@
 
 ;;;; CLISP fixage
 
-#+CLISP
+#+(and CLISP hemlock-clx clx)
 (in-package :xlib)
 
-#+CLISP
+#+(and CLISP hemlock-clx clx)
 '(progn
   (defvar *lookahead* nil)
 

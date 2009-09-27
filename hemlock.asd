@@ -16,7 +16,8 @@
         (output-file (car (asdf:output-files o c))))
     (multiple-value-bind (output warnings-p failure-p)
         (compile-file source-file :output-file output-file
-                      #+sbcl #+sbcl :external-format :iso-8859-1)
+                      #+sbcl #+sbcl :external-format :iso-8859-1
+                      #+clisp #+clisp :external-format (ext:make-encoding :charset 'charset:iso-8859-1 :line-terminator :unix))
       (when warnings-p
         (case (asdf:operation-on-warnings o)
           (:warn (warn
@@ -37,7 +38,9 @@
   ;; likewise, have to reimplement rather than closily extend
   (let ((source (asdf:component-pathname c)))
     (setf (asdf:component-property c 'asdf::last-loaded-as-source)
-          (and (load source #+sbcl #+sbcl :external-format :iso-8859-1)
+          (and (load source
+                     #+sbcl #+sbcl :external-format :iso-8859-1
+                     #+clisp #+clisp :external-format (ext:make-encoding :charset 'charset:iso-8859-1 :line-terminator :unix))
                (get-universal-time)))))
 
 (pushnew :command-bits *features*)
@@ -73,6 +76,7 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
+              :depends-on (wire)
               :components
               ((:file "package")
                ;; Lisp implementation specific stuff goes into one of the next
