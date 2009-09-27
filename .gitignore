@@ -1,1 +1,8 @@
 *.fasl
+*.fas
+*.lib
+*.lx64fsl
+*~
+c/setpty
+c/setpty.o
+hemlock.core
