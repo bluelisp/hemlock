@@ -843,6 +843,15 @@
   (:shadow #:enable-syntax)
   (:export #:enable-syntax))
 
+(defpackage :hemlock.terminfo
+  (:use :common-lisp)
+  (:export #:*terminfo-directories*
+           #:*terminfo*
+           #:capability
+           #:tparm
+           #:tputs
+           #:set-terminal))
+
 ;; $Log: package.lisp,v $
 ;; Revision 1.4  2004-09-03 23:06:51  abakic
 ;; Changes to get rid of warnings and notes. As a side-effect, more code
