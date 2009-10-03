@@ -31,8 +31,7 @@
                   (cursor-motion device 0 (1- (tty-device-lines device))))
         (tty-write-char #\space)))
   (device-write-string (tty-device-cm-end-string device))
-  (device-force-output device)
-  (standard-device-exit))
+  (device-force-output device))
 
 
 ;;;; Get terminal attributes:
