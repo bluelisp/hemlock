@@ -25,11 +25,17 @@ GB
 
 ;;;; Definition of *hemlock-version*.
 
-(defvar *hemlock-version* "3.5")
-(pushnew :hemlock *features*)
-#+(or CMU scl)
-(setf (getf ext:*herald-items* :hemlock)
-      `("    Hemlock " ,*hemlock-version*))
+(defparameter *hemlock-version*
+  (let* ((system (asdf:find-system :hemlock))
+         (dir (asdf:component-pathname system))
+         (.git (merge-pathnames ".git/" dir))
+         (ref (with-open-file (s (merge-pathnames "HEAD" .git))
+                (subseq (read-line s) 5))))
+    (with-open-file (s (merge-pathnames ref .git))
+      (subseq (read-line s) 0 8))))
+
+
+;;; (pushnew :hemlock *features*)
 
 
 ;;;; %INIT-HEMLOCK.
