@@ -1021,7 +1021,7 @@
                         (hemlock.wire:remote-object-value error-output))))
     (do-compiler-operation (note package terminal-io error-output)
       (with-temporary-file-name (tmp)
-        (with-open-file (s tmp :if-exists :supersede)
+        (with-open-file (s tmp :direction :output :if-exists :supersede)
           (write-string text s))
         (terpri error-output)
         (compile-file tmp
