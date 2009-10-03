@@ -81,12 +81,14 @@
          (let ((next-font (car (or dl-fonts si-fonts))))
            (if next-font
                (let ((end (min dl-len si-len (cadr next-font))))
-                 (or (string/= dl-chars si-chars
+                 (or (unless (<= okay-until end) end) ;FIXME
+                     (string/= dl-chars si-chars
                                :start1 okay-until :start2 okay-until
                                :end1 end :end2 end)
                      end))
                (let ((end (min dl-len si-len)))
-                 (or (string/= dl-chars si-chars
+                 (or (unless (<= okay-until end) end) ;FIXME
+                     (string/= dl-chars si-chars
                                :start1 okay-until :start2 okay-until
                                :end1 end :end2 end)
                      (if (= dl-len si-len) nil end))))))
