@@ -135,10 +135,9 @@
   (unless (or (eq width nil) (and (integerp width) (plusp width)))
     (error "Width must be nil or a positive integer."))
   (when (gethash name *modeline-field-names*)
-    (with-simple-restart (continue
-                          "Use the new definition for this modeline field.")
-      (error "Modeline field ~S already exists."
-             (gethash name *modeline-field-names*))))
+    ;; this used to be a cerror, but I found that too annoying.
+    (warn "Modeline field ~S already exists."
+          (gethash name *modeline-field-names*)))
   (setf (gethash name *modeline-field-names*)
         (%make-modeline-field name function width)))
 
