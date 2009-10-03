@@ -2,9 +2,10 @@
 
 (in-package :qt-hemlock)
 
-(named-readtables:defreadtable :qt-hemlock
-    (:merge :qt)
-  (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (named-readtables:defreadtable :qt-hemlock
+      (:merge :qt)
+    (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun)))
 
 (named-readtables:in-readtable :qt-hemlock)
 
