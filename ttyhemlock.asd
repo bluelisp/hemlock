@@ -58,6 +58,7 @@
                            *hemlock-base-directory*)
               :components
               ((:file "termcap")
+               (:file "terminfo")
                (:file "tty-disp-rt")
                (:file "tty-display")))
      (:module tty-2
