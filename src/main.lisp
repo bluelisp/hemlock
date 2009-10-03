@@ -220,11 +220,12 @@ GB
     "This is the default list of modeline-fields for the echo area window's
      modeline which is used for general information."
     :value (list (make-modeline-field
-                  :name :hemlock-banner :width 27
+                  :name :hemlock-banner
                   :function #'(lambda (buffer window)
                                 (declare (ignore buffer window))
-                                (format nil "Hemlock ~A  "
-                                        *hemlock-version*)))
+                                (format nil "Hemlock ~A on ~A "
+                                        *hemlock-version*
+                                        (lisp-implementation-type))))
                  (modeline-field :edit-level)
                  (modeline-field :completion)))
   (defhvar "Maximum Modeline Pathname Length"
