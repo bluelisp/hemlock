@@ -68,7 +68,8 @@
                                 (append :append)
                                 (t :rename-and-delete))))
     (with-open-file (file pathname :direction :output
-                          :element-type 'base-char
+                          :element-type 'character
+                          :encoding :utf-8 ;fixme?
                           :if-exists if-exists-action)
       (close-line)
       (fast-write-file region file))
