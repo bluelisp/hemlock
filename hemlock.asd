@@ -68,8 +68,8 @@
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
      :depends-on (:qt :bordeaux-threads :qt-repl
-                      :trivial-gray-streams #+sbcl :sb-posix :iterate
-                      :prepl)
+                      :trivial-gray-streams :iterate
+                      :prepl :osicat)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames

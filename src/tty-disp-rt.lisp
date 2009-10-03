@@ -50,38 +50,11 @@
 ;;; the buffer is in a global.
 ;;;
 (defun get-terminal-attributes (&optional (fd 1))
-  (declare (ignore fd))
-  #+(or)
-  (alien:with-alien ((winsize (alien:struct unix:winsize))
-                     #-(or glibc2 bsd)
-                     (sgtty (alien:struct unix:sgttyb))
-                     #+bsd              ; termios
-                     (tios (alien:struct unix:termios)))
-    (let ((size-win (unix:unix-ioctl fd unix:TIOCGWINSZ
-                                     (alien:alien-sap winsize)))
-          #-(or glibc2 bsd)
-          (speed-win (unix:unix-ioctl fd unix:TIOCGETP
-                                      (alien:alien-sap sgtty)))
-          #+bsd
-          (speed-win (unix:unix-tcgetattr fd (alien:alien-sap tios))))
-      (flet ((frob (val)
-               (if (and size-win (not (zerop val)))
-                   val
-                   nil)))
-        (values
-         (frob (alien:slot winsize 'unix:ws-row))
-         (frob (alien:slot winsize 'unix:ws-col))
-         #-(or glibc2 bsd)
-         (and speed-win
-              (setq *terminal-baud-rate*
-                    (svref unix:terminal-speeds
-                           (alien:slot sgtty 'unix:sg-ospeed))))
-         #+bsd
-         (and speed-win
-              (setq *terminal-baud-rate* (unix:unix-cfgetospeed tios)))
-         #+glibc2
-         4800))))
-  (values 25 80 4800))
+  (cffi:with-foreign-object (ws 'osicat-posix::winsize)
+    (osicat-posix:ioctl fd osicat-posix:TIOCGWINSZ ws)
+    (cffi:with-foreign-slots ((osicat-posix::row osicat-posix::col)
+                              ws osicat-posix::winsize)
+      (values osicat-posix::row osicat-posix::col 4800))))
 
 
 ;;;; Output routines and buffering.
