@@ -293,7 +293,7 @@
    3/4 of the window is being deleted upward and inserted downward, hence a
    redraw); however, commands line \"New Line\" and \"Open Line\" will still
    efficiently, insert a line moving the rest of the window's text downward."
-  :value nil)
+  :value 1/4)
 
 (defcommand "Scroll Window Down" (p &optional (window (current-window)))
   "Move down one screenfull.
