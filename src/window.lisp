@@ -218,16 +218,19 @@
   (let ((ml-buffer (window-modeline-buffer window)))
     (declare (simple-string ml-buffer))
     (when ml-buffer
-      (let* ((ml-buffer-len
+      (let* ((effective-length
               (do ((finfos (buffer-%modeline-fields buffer) (cdr finfos))
                    (start 0 (blt-modeline-field-buffer
                              ml-buffer (car finfos) buffer window start)))
-                  ((null finfos) start)))
+                  ((null finfos)
+                   start)))
              (dis-line (window-modeline-dis-line window))
-             (len (min (window-width window) ml-buffer-len)))
+             (len (window-width window)))
         (replace (the simple-string (dis-line-chars dis-line)) ml-buffer
                  :end1 len :end2 len)
-        (setf (window-modeline-buffer-len window) ml-buffer-len)
+        (when (< effective-length len)
+          (fill (dis-line-chars dis-line) #\space :start effective-length))
+        (setf (window-modeline-buffer-len window) len)
         (setf (dis-line-length dis-line) len)
         (setf (dis-line-flags dis-line) changed-bit)))))
 
