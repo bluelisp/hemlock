@@ -48,7 +48,7 @@
 ;;;
 (defmacro remote (wire-form &body forms)
   "Evaluates the given forms remotly. No values are returned, as the remote
-evaluation is asyncronus."
+evaluation is asyncronous."
   (let ((wire (gensym)))
     `(let ((,wire ,wire-form))
        ,@(mapcar #'(lambda (form)
@@ -56,6 +56,7 @@ evaluation is asyncronus."
                                            ',(car form)
                                            ,@(cdr form)))
            forms)
+       (wire-force-output ,wire)
        (values))))
 
 ;;; REMOTE-VALUE-BIND -- public

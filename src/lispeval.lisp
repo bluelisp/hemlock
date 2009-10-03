@@ -248,6 +248,20 @@
 
 ;;;; Stuff to send noise to the server.
 
+(defun eval-safely-in-slave (form)
+  (handler-case
+      (eval form)
+    (error (c)
+      (warn "ignoring error in slave request: ~A" c))))
+
+(defun eval-in-master (form)
+  (hemlock.wire:remote hemlock.wire::*current-wire*
+                       (eval form)))
+
+(defun eval-in-slave (form)
+  (hemlock.wire:remote (server-info-wire (get-current-eval-server))
+                       (eval-safely-in-slave form)))
+
 ;;; EVAL-FORM-IN-SERVER -- Public.
 ;;;
 (defun eval-form-in-server (server-info form
@@ -496,20 +510,115 @@
 (defmacro save-excursion (&body body)
   `(invoke-with-save-excursion (lambda () ,@body)))
 
-(defun symbol-at-point ()
-  (let* ((eof '#:eof)
-         (x
-          (read-from-string
-           (let ((start (copy-mark (current-point) :temporary))
-                 (end (copy-mark (current-point) :temporary)))
-             (form-offset start -1)
-             (form-offset end 1)
-             (region-to-string (region start end)))
-           nil
-           eof)))
-    (if (and (not (eq x eof)) (symbolp x))
-        (values x t)
-        (values nil nil))))
+(defclass slave-symbol (hemlock.wire::serializable-object)
+  ((package-name :initarg :package-name
+                 :accessor slave-symbol-package-name)
+   (name :initarg :name
+         :accessor slave-symbol-name)))
+
+(defmethod hemlock.wire::serialize ((x slave-symbol))
+  (values 'slave-symbol
+          (list (coerce (slave-symbol-package-name x) 'simple-string)
+                (coerce (slave-symbol-name x) 'simple-string))))
+
+(defmethod hemlock.wire::deserialize-with-type
+    ((type (eql 'slave-symbol)) data)
+  (destructuring-bind (package-name symbol-name) data
+    (make-slave-symbol symbol-name package-name)))
+
+(defmethod print-object ((object slave-symbol) stream)
+  (print-unreadable-object (object stream :type t :identity nil)
+    (format stream "~A:~A"
+            (slave-symbol-package-name object)
+            (slave-symbol-name object))))
+
+(defmethod slave-symbol-name ((x symbol))
+  (symbol-name x))
+
+(defmethod slave-symbol-package-name ((x symbol))
+  (package-name (symbol-package x)))
+
+(defun resolve-slave-symbol
+    (slave-symbol &optional (if-does-not-exist :intern))
+  (with-slots (name package-name) slave-symbol
+    (let ((package (find-package package-name)))
+      (and package
+           (or (find-symbol name package)
+               (ecase if-does-not-exist
+                 (:intern (intern name package))
+                 (:error (error "symbol does not exist in this lisp: ~A:~A"
+                                package-name name))
+                 ((nil) nil)))))))
+
+(defun make-slave-symbol (name &optional package)
+  (make-instance 'slave-symbol
+                 :package-name (etypecase package
+                                 (package (package-name package))
+                                 (string package)
+                                 (null (package-at-point)))
+                 :name name))
+
+(defun casify-char (char)
+  "Convert CHAR accoring to readtable-case."
+  (char-upcase char)
+  ;; fixme: need to do this on the slave side
+  #+nil
+  (ecase (readtable-case *readtable*)
+    (:preserve char)
+    (:upcase   (char-upcase char))
+    (:downcase (char-downcase char))
+    (:invert (if (upper-case-p char)
+                 (char-downcase char)
+                 (char-upcase char)))))
+
+(defun tokenize-symbol-thoroughly (string)
+  "This version of TOKENIZE-SYMBOL handles escape characters."
+  (let ((package nil)
+        (token (make-array (length string) :element-type 'character
+                           :fill-pointer 0))
+        (backslash nil)
+        (vertical nil)
+        (internp nil))
+    (loop for char across string
+       do (cond
+            (backslash
+             (vector-push-extend char token)
+             (setq backslash nil))
+            ((char= char #\\) ; Quotes next character, even within |...|
+             (setq backslash t))
+            ((char= char #\|)
+             (setq vertical t))
+            (vertical
+             (vector-push-extend char token))
+            ((char= char #\:)
+             (if package
+                 (setq internp t)
+                 (setq package token
+                       token (make-array (length string)
+                                         :element-type 'character
+                                         :fill-pointer 0))))
+            (t
+             (vector-push-extend (casify-char char) token))))
+    (values token package (or (not package) internp))))
+
+;; adapted from swank
+(defun parse-slave-symbol (string &optional package)
+  (multiple-value-bind (sname pname) (tokenize-symbol-thoroughly string)
+    (when (plusp (length sname))
+      (make-slave-symbol sname
+                         (cond ((string= pname "") "KEYWORD")
+                               (pname)
+                               (t package))))))
+
+(defun slave-symbol-at-point ()
+  (parse-slave-symbol
+   (let ((start (copy-mark (current-point) :temporary))
+         (end (copy-mark (current-point) :temporary)))
+     (character-offset start 1)
+     (form-offset start -1)
+     (character-offset end -1)
+     (form-offset end 1)
+     (region-to-string (region start end)))))
 
 (defun package-at-point ()
   (iter:iter

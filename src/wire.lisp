@@ -128,6 +128,10 @@
                      (wire-error-wire condition)
                      (wire-io-error-msg condition)))))
 
+(defclass serializable-object () ())
+(defgeneric serialize (serializable-object))
+(defgeneric deserialize-with-type (type data))
+
 
 ;;; Remote Object Randomness
 
@@ -573,6 +577,26 @@ then output the bytes."
              (setf (wire-obuf-end wire) nbytes)))))
   (values))
 
+;;; WIRE-OUTPUT-FUNCALL -- public
+;;;
+;;;   Send the funcall down the wire. Arguments are evaluated locally in the
+;;; lexical environment of the WIRE-OUTPUT-FUNCALL.
+
+(defmacro wire-output-funcall (wire-form function &rest args)
+  "Send the function and args down the wire as a funcall."
+  (let ((num-args (length args))
+        (wire (gensym)))
+    `(let ((,wire ,wire-form))
+       ,@(if (> num-args 5)
+            `((wire-output-byte ,wire +funcall-op+)
+              (wire-output-byte ,wire ,num-args))
+            `((wire-output-byte ,wire ,(+ +funcall0-op+ num-args))))
+       (wire-output-object ,wire ,function)
+       ,@(mapcar #'(lambda (arg)
+                     `(wire-output-object ,wire ,arg))
+                 args)
+       (values))))
+
 ;;; WIRE-OUTPUT-OBJECT -- public
 ;;;
 ;;;   Output the given object. If the optional argument is non-nil, cache
@@ -621,27 +645,14 @@ object in the cache for future reference."
          (wire-output-number wire (remote-object-host object))
          (wire-output-number wire (remote-object-pid object))
          (wire-output-number wire (remote-object-id object)))
+        (serializable-object
+         (multiple-value-bind (type data)
+             (serialize object)
+           (wire-output-funcall wire
+                                'deserialize-with-type
+                                type
+                                data)))
         (t
          (error "Error: Cannot output objects of type ~s across a wire."
                 (type-of object)))))))
   (values))
-
-;;; WIRE-OUTPUT-FUNCALL -- public
-;;;
-;;;   Send the funcall down the wire. Arguments are evaluated locally in the
-;;; lexical environment of the WIRE-OUTPUT-FUNCALL.
-
-(defmacro wire-output-funcall (wire-form function &rest args)
-  "Send the function and args down the wire as a funcall."
-  (let ((num-args (length args))
-        (wire (gensym)))
-    `(let ((,wire ,wire-form))
-       ,@(if (> num-args 5)
-            `((wire-output-byte ,wire +funcall-op+)
-              (wire-output-byte ,wire ,num-args))
-            `((wire-output-byte ,wire ,(+ +funcall0-op+ num-args))))
-       (wire-output-object ,wire ,function)
-       ,@(mapcar #'(lambda (arg)
-                     `(wire-output-object ,wire ,arg))
-                 args)
-       (values))))
