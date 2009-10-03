@@ -7,7 +7,7 @@
 ;;; ---------------------------------------------------------------------------
 ;;;  (c) copyright 2004 by Gilbert Baumann
 
-(in-package :clim-hemlock)
+(in-package :hi)
 
 ;;;; ------------------------------------------------------------------------------------------
 ;;;; Syntax Highlighting
@@ -72,6 +72,8 @@
 (defun (setf line-syntax-info) (value line)
   (setf (getf (line-plist line) 'syntax-info-4) value))
 
+#|
+
 (defun hi::ensure-syntax-marks (line)
   (let ((si (line-syntax-info line)))
     (cond ((null si)
@@ -107,9 +109,13 @@
            (cons (line-signature line) font-marks)
            ))))
 
+|#
+
 ;; second approach:
 ;; syntax-info: (signature start-state end-state font-marks)
 ;;
+
+#|
 
 (defun empty-syntax-info ()
   (list :frob nil nil nil))
@@ -165,6 +171,7 @@
                      (list in-string-p)
                      font-marks) ))))))
 
+|#
 
 (eval-when (compile eval load)
   (defun me (form)
