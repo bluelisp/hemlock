@@ -486,6 +486,31 @@
 (defparameter *in-package-regex*
   "^(in-package")
 
+(defun invoke-with-save-excursion (fn)
+  (let* ((point (current-point))
+         (point-pos (mark-charpos point)))
+    (unwind-protect
+         (funcall fn)
+      (move-to-position point point-pos))))
+
+(defmacro save-excursion (&body body)
+  `(invoke-with-save-excursion (lambda () ,@body)))
+
+(defun symbol-at-point ()
+  (let* ((eof '#:eof)
+         (x
+          (read-from-string
+           (let ((start (copy-mark (current-point) :temporary))
+                 (end (copy-mark (current-point) :temporary)))
+             (form-offset start -1)
+             (form-offset end 1)
+             (region-to-string (region start end)))
+           nil
+           eof)))
+    (if (and (not (eq x eof)) (symbolp x))
+        (values x t)
+        (values nil nil))))
+
 (defun package-at-point ()
   (iter:iter
    (iter:for line initially (mark-line (current-point))

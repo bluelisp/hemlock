@@ -1216,3 +1216,21 @@
    (connection-buffer (make-process-connection command :buffer t))))
 
 (bind-key "Shell Command" #k"meta-!")
+
+(defun find-definition (name)
+  (dolist (definition (conium:find-definitions name))
+    (let ((file (second (assoc :file (cdr (assoc :location definition))))))
+      (when file
+        (ed file)
+        (return)))))
+
+(defcommand "Find Definition"
+    (p &optional name)
+  "" ""
+  (find-definition
+   (or name
+       (and (null p) (hemlock::symbol-at-point))
+       (read-from-string
+        (hemlock-interface::prompt-for-string :prompt "Name: ")))))
+
+(bind-key "Find Definition" #k"meta-." :mode "Lisp")

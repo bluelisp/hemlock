@@ -109,7 +109,7 @@
 #+nil (bind-key "Line to Top of Window" #k"meta-!")
 (bind-key "Line to Center of Window" #k"meta-#")
 (bind-key "Top of Window" #k"meta-,")
-(bind-key "Bottom of Window" #k"meta-.")
+#+nil (bind-key "Bottom of Window" #k"meta-.")
 
 (bind-key "Exit Hemlock" #k"control-x control-c")
 (bind-key "Exit Recursive Edit" #k"control-meta-z")
