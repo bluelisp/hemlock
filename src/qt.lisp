@@ -1217,6 +1217,15 @@
 
 (bind-key "Shell Command" #k"meta-!")
 
+(defcommand "Start Swank Server"
+    (p &optional (port (hemlock-interface::prompt-for-integer
+                        :prompt "Port: "
+                        :default-string "4005")))
+  "" ""
+  (declare (ignore p))
+  (asdf:operate 'asdf:load-op :swank)
+  (eval (read-from-string (format nil "(swank:create-server :port ~D)" port))))
+
 (defun find-definition (name)
   (dolist (definition (conium:find-definitions name))
     (let ((file (second (assoc :file (cdr (assoc :location definition))))))
