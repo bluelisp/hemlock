@@ -105,9 +105,13 @@
   :value t)
 
 (defhvar "Confirm Slave Creation"
-  "When set (the default), Hemlock always confirms a slave's creation for
-   whatever reason."
-  :value t)
+  "When set, Hemlock always confirms a slave's creation for whatever reason."
+  ;; I'm not certain what this reason would be, so I'm disabling it.
+  ;; In any case, I think the user should determine interactively whether
+  ;; he wants this kind of question or not using the command prefix --
+  ;; or by using a different command in the first place.
+  ;; --dfl
+  :value nil)
 
 
 (defhvar "Slave GC Alarm"
