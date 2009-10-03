@@ -221,8 +221,7 @@
             (,dl-fonts (compute-font-usages ,dis-line))
             (,dl-len (dis-line-length ,dl))
             (,dl-pos ,(or y `(dis-line-position ,dl))))
-       (funcall (tty-device-display-string ,device)
-                ,hunk 0 ,dl-pos ,dl-chars ,dl-fonts 0 ,dl-len)
+       (display-string ,hunk 0 ,dl-pos ,dl-chars ,dl-fonts 0 ,dl-len)
        (setf (dis-line-flags ,dl) unaltered-bits)
        (setf (dis-line-delta ,dl) 0)
        (select-hunk ,hunk)
@@ -272,12 +271,36 @@
       (let ((dl (window-modeline-dis-line window))
             (y (tty-hunk-modeline-pos hunk)))
         (unwind-protect
-            (progn
-              (funcall (tty-device-standout-init device) hunk)
-              (funcall (tty-device-clear-to-eol device) hunk 0 y)
-              (tty-dumb-line-redisplay device hunk dl y))
-          (funcall (tty-device-standout-end device) hunk))
+             (progn
+               (modeline-init hunk)
+               (funcall (tty-device-clear-to-eol device) hunk 0 y)
+               (tty-dumb-line-redisplay device hunk dl y))
+          (modeline-end hunk))
         (setf (dis-line-flags dl) unaltered-bits)))))
+
+(defparameter *modeline-foreground* 7)
+(defparameter *modeline-background* 4)
+
+(defvar *terminal-has-colors* :unknown)
+
+(defun modeline-init (hunk)
+  (when (eq *terminal-has-colors* :unknown)
+    (setf *terminal-has-colors*
+          (and (hemlock.terminfo:capability :set-a-foreground)
+               (hemlock.terminfo:capability :set-a-background)
+               (hemlock.terminfo:capability :exit-attribute-mode))))
+  (cond
+    (*terminal-has-colors*
+     (setaf *modeline-foreground*)
+     (setab *modeline-background*)
+     (enter-bold-mode))
+    (t
+     (standout-init hunk))))
+
+(defun modeline-end (hunk)
+  (if *terminal-has-colors*
+      (exit-attribute-mode)
+      (standout-end hunk)))
 
 
 
@@ -330,10 +353,10 @@
         (when (/= (dis-line-flags dl) unaltered-bits)
           (unwind-protect
               (progn
-                (funcall (tty-device-standout-init device) hunk)
+                (modeline-init hunk)
                 (tty-smart-line-redisplay device hunk dl
                                           (tty-hunk-modeline-pos hunk)))
-            (funcall (tty-device-standout-end device) hunk)))))))
+            (modeline-end hunk)))))))
 
 ;;; NEXT-DIS-LINE is used in DO-SEMI-DUMB-LINE-WRITES and
 ;;; COMPUTE-TTY-CHANGES.
@@ -400,14 +423,14 @@
         (cond
          ;; See if the screen shows an initial substring of the dis-line.
          ((= findex si-line-length)
-          (funcall (tty-device-display-string device)
+          (display-string
                    hunk findex dl-pos dl-chars dl-fonts findex dl-len)
           (replace-si-line si-line-chars dl-chars findex findex dl-len))
          ;; When the dis-line is an initial substring of what's on the screen.
          ((= findex dl-len)
           (funcall (tty-device-clear-to-eol device) hunk dl-len dl-pos))
          ;; Otherwise, blast dl-chars and clear to eol as necessary.
-         (t (funcall (tty-device-display-string device)
+         (t (display-string
                      hunk findex dl-pos dl-chars dl-fonts findex dl-len)
             (when (< dl-len si-line-length)
               (funcall (tty-device-clear-to-eol device) hunk dl-len dl-pos))
@@ -600,10 +623,10 @@
         (when (/= (dis-line-flags dl) unaltered-bits)
           (unwind-protect
               (progn
-                (funcall (tty-device-standout-init device) hunk)
+                (modeline-init hunk)
                 (tty-smart-line-redisplay device hunk dl
                                           (tty-hunk-modeline-pos hunk)))
-            (funcall (tty-device-standout-end device) hunk)))))))
+            (modeline-end hunk)))))))
 
 
 
@@ -909,7 +932,7 @@
           ;;
           ;; See if the screen shows an initial substring of the dis-line.
           (when (= findex si-line-length)
-            (funcall (tty-device-display-string device)
+            (display-string
                      hunk findex dl-pos dl-chars dl-fonts findex dl-len)
             (replace-si-line si-line-chars dl-chars findex findex dl-len)
             (return-from tslr-main-body t))
@@ -930,7 +953,7 @@
             ;;
             ;; No trailing substrings -- blast and clear to eol.
             (when (= dindex dl-len)
-              (funcall (tty-device-display-string device)
+              (display-string
                        hunk findex dl-pos dl-chars dl-fonts findex dl-len)
               (when (< dindex sindex)
                 (funcall (tty-device-clear-to-eol device)
@@ -942,7 +965,7 @@
                      ;; This can happen in funny situations -- believe me!
                      (setf lindex findex))
                     (t
-                     (funcall (tty-device-display-string device)
+                     (display-string
                               hunk findex dl-pos dl-chars dl-fonts
                               findex lindex)
                      (replace-si-line si-line-chars dl-chars
@@ -957,7 +980,7 @@
                          (funcall (tty-device-delete-char device)
                                   hunk dindex dl-pos delete-char-num))
                         (t
-                         (funcall (tty-device-display-string device)
+                         (display-string
                                   hunk dindex dl-pos dl-chars dl-fonts
                                   dindex dl-len)
                          (funcall (tty-device-clear-to-eol device)
@@ -968,7 +991,7 @@
                                                   (- dl-len sindex)))
                     (funcall (tty-device-insert-string device)
                              hunk sindex dl-pos dl-chars sindex dindex)
-                    (funcall (tty-device-display-string device)
+                    (display-string
                              hunk sindex dl-pos dl-chars dl-fonts
                              sindex dl-len))))
               (replace-si-line si-line-chars dl-chars
@@ -1112,8 +1135,10 @@
               (font-strings (aref *tty-font-strings* font)))
           (unwind-protect
               (progn
+                (setaf font)            ;fixme
                 (device-write-string (car font-strings))
-                (device-write-string string posn new-posn))
+                (when string (device-write-string string posn new-posn)))
+            (setaf 7)                   ;fixme
             (device-write-string (cdr font-strings)))
           (setf posn new-posn))))
     (when (< posn end)
@@ -1305,6 +1330,23 @@
 (defun standout-init (hunk)
   (device-write-string
    (tty-device-standout-init-string (device-hunk-device hunk))))
+
+(defun setaf (color)
+  (device-write-string
+   (hemlock.terminfo:tparm (hemlock.terminfo:capability :set-a-foreground)
+                           color)))
+
+(defun setab (color)
+  (device-write-string
+   (hemlock.terminfo:tparm (hemlock.terminfo:capability :set-a-background)
+                           color)))
+
+(defun enter-bold-mode ()
+  (device-write-string (hemlock.terminfo:capability :enter-bold-mode)))
+
+(defun exit-attribute-mode ()
+  (device-write-string (hemlock.terminfo:capability :exit-attribute-mode)))
+
 
 (defun standout-end (hunk)
   (device-write-string
