@@ -130,16 +130,8 @@
                (:file "screen")
                (:file "linimage")
                (:file "cursor")
-               (:file "display")))
-     (:module tty-1
-              :pathname #.(merge-pathnames
-                           (make-pathname
-                            :directory '(:relative "src"))
-                           *hemlock-base-directory*)
-              :components
-              (#+want-tty-hemlock (:file "termcap")
-               #+want-tty-hemlock (:file "tty-disp-rt")
-               #+want-tty-hemlock (:file "tty-display")))
+               (:file "display")
+               (:file "exp-syntax")))
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -148,15 +140,6 @@
               :depends-on (core-2 core-1)
               :components
               ((:file "pop-up-stream")))
-     (:module tty-2
-              :pathname #.(merge-pathnames
-                           (make-pathname
-                            :directory '(:relative "src"))
-                           *hemlock-base-directory*)
-              :components
-              (#+want-tty-hemlock (:file "tty-screen")
-               #+want-tty-hemlock (:file "tty-stuff")
-               #+want-tty-hemlock (:file "tty-input")))
      (:module root-2
               :pathname #.(merge-pathnames
                            (make-pathname
