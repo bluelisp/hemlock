@@ -240,7 +240,10 @@
 
 
 (defvar *editor-name* nil "Name of this editor.")
-(defvar *accept-connections* t ;was: nil, but that's annoying while testing
+
+#+(or) ;disabled.  If the original switch was important, let's find a
+       ; different way to to this.  -dfl
+(defvar *accept-connections* t
   "When set, allow slaves to connect to the editor.")
 
 ;;; GET-EDITOR-NAME -- Internal.
