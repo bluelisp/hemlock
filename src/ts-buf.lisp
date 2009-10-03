@@ -227,6 +227,9 @@
       :buffer buffer :value server)
     info))
 
+(defun ts-buffer-wire-connected (ts wire)
+  (setf (ts-data-wire ts) wire))
+
 (defun ts-buffer-wire-died (ts)
   (setf (ts-data-stream ts) nil)
   (setf (ts-data-wire ts) nil)

@@ -269,10 +269,6 @@
 
 ;;; MAKE-BUFFERS-FOR-TYPESCRIPT -- Internal.
 ;;;
-;;; This function returns no values because it is called remotely for value by
-;;; connecting slaves.  Though we know the system will propagate nil back to
-;;; the slave, we indicate here that nil is meaningless.
-;;;
 (defun make-buffers-for-typescript (slave-name background-name)
   "Make the interactive and background buffers slave-name and background-name.
    If either is nil, then prompt the user."
@@ -294,92 +290,30 @@
                                   (make-buffer background-name
                                                :modes '("Lisp"))))
            (server-info (make-server-info :name slave-name
-                                          :wire hemlock.wire:*current-wire*
+                                          :wire :wire-not-yet-established
                                           :slave-buffer slave-buffer
                                           :background-buffer background-buffer))
            (slave-info (typescriptify-buffer slave-buffer server-info
-                                             hemlock.wire:*current-wire*))
+                                             :wire-not-yet-established))
            (background-info (typescriptify-buffer background-buffer server-info
-                                                  hemlock.wire:*current-wire*)))
+                                                  :wire-not-yet-established)))
       (setf (server-info-slave-info server-info) slave-info)
       (setf (server-info-background-info server-info) background-info)
       (setf (getstring slave-name *server-names*) server-info)
-      (unless (variable-value 'current-eval-server :global)
-        (setf (variable-value 'current-eval-server :global) server-info))
-      (hemlock.wire:remote-value
-       hemlock.wire:*current-wire*
-       (made-buffers-for-typescript (hemlock.wire:make-remote-object slave-info)
-                                    (hemlock.wire:make-remote-object background-info)))
-      (setf *newly-created-slave* server-info)
-      (values))))
+      (setf (variable-value 'current-eval-server :global) server-info)
+      server-info)))
 
 
 ;;; CREATE-SLAVE -- Public.
 ;;;
 
-;;;          ,(get-editor-name)
-;;;          ,@(if slave (list "-slave-buffer" slave))
-;;;           ,@(if background
-;;;                 (list "-background-buffer" background))
-;;;           ,@(value slave-utility-switches)
-
 (defun create-slave (&optional name)
-  "This creates a slave that tries to connect to the editor.  When the slave
-   connects to the editor, this returns a slave-information structure.  Name is
-   the name of the interactive buffer.  If name is nil, this generates a name.
-   If name is supplied, and a buffer with that name already exists, this
-   signals an error.  In case the slave never connects, this will eventually
-   timeout and signal an editor-error."
-  (when (and name (getstring name *buffer-names*))
-    (editor-error "Buffer ~A is already in use." name))
-  (let ()
-    (multiple-value-bind (slave background)
-                         (if name
-                             (values name (format nil "Background ~A" name))
-                             (pick-slave-buffer-names))
-      (when (value confirm-slave-creation)
-        (setf slave (prompt-for-string
-                     :prompt "New slave name? "
-                     :help "Enter the name to use for the newly created slave."
-                     :default slave
-                     :default-string slave))
-        (setf background (format nil "Background ~A" slave))
-        (when (getstring slave *buffer-names*)
-          (editor-error "Buffer ~A is already in use." slave))
-        (when (getstring background *buffer-names*)
-          (editor-error "Buffer ~A is already in use." background)))
-      (message "Spawning slave ... ")
-      (let ((proc
-             (make-process-connection
-              (format nil "clbuild run hemlock-slave --editor ~A"
-                      (get-editor-name))
-              :buffer t))
-            (*accept-connections* t)
-            (*newly-created-slave* nil))
-        (unless proc
-          (editor-error "Could not start slave."))
-        #+(or)
-        (dotimes (i *slave-connect-wait*
-                    (editor-error
-                     "Client Lisp is still unconnected.  ~
-                      You must use \"Accept Slave Connections\" to ~
-                      allow the slave to connect at this point."))
-          (qt-hemlock::process-one-event)
-          (when (connection-exit-status proc)
-            (editor-error "The slave lisp exited before connecting."))
-          (when *newly-created-slave*
-            (message "DONE")
-            (return *newly-created-slave*)))))))
-
-;;; CREATE-SLAVE-IN-THREAD -- Public.
-;;;
-(defun create-slave-in-thread (&optional name)
-  "This creates a slave that tries to connect to the editor.  When the slave
-   connects to the editor, this returns a slave-information structure.  Name is
-   the name of the interactive buffer.  If name is nil, this generates a name.
-   If name is supplied, and a buffer with that name already exists, this
-   signals an error.  In case the slave never connects, this will eventually
-   timeout and signal an editor-error."
+  "This creates a slave that tries to connect to the editor.  A preliminary
+   slave-information structure is returned immediately, whose details will
+   be filled in later by the slave once the wire has been established.
+   Name is the name of the interactive buffer.  If name is nil, this generates
+   a name.  If name is supplied, and a buffer with that name already exists,
+   this signals an error."
   (when (and name (getstring name *buffer-names*))
     (editor-error "Buffer ~A is already in use." name))
   (multiple-value-bind (slave background)
@@ -397,44 +331,69 @@
         (editor-error "Buffer ~A is already in use." slave))
       (when (getstring background *buffer-names*)
         (editor-error "Buffer ~A is already in use." background)))
-    (let ((proc
-            (bt:make-thread
-             (let ((editor-name (get-editor-name)))
-               (lambda ()
-                 (macrolet ((rebinding ((&rest vars) &body body)
-                              `(let ,(mapcar (lambda (var)
-                                               (list var var))
-                                             vars)
-                                 ,@body)))
-                   (let ((*print-readably* nil))
-                     (rebinding (*terminal-io*
-                                 *standard-input*
-                                 *standard-output*
-                                 *error-output*
-                                 *debug-io*
-                                 *query-io*
-                                 *trace-output*
-                                 *background-io*
-                                 cl-user::*io*)
-                       (start-slave editor-name slave background))))))
-             :name "Slave thread"))
-          (*accept-connections* t)
-          (*newly-created-slave* nil))
-      (unless proc
-        (editor-error "Could not start slave."))
-      #+(or)
-      (dotimes (i *slave-connect-wait*
-                (editor-error
-                 "Client Lisp is still unconnected.  ~
-                      You must use \"Accept Slave Connections\" to ~
-                      allow the slave to connect at this point."))
-        (qt-hemlock::process-one-event)
-        (unless (bt:thread-alive-p proc)
-          (editor-error "The slave thread exited before connecting."))
-        (when *newly-created-slave*
-          (message "DONE")
-          (return *newly-created-slave*))))))
+    (message "Spawning slave ... ")
+    (let ((server-info (make-buffers-for-typescript slave background)))
+      (make-process-connection
+       (format nil "clbuild run hemlock-slave --editor ~A"
+               (get-editor-name))
+       :filter (let ((ts (server-info-slave-info server-info)))
+                 (lambda (connection bytes)
+                   (ts-buffer-output-string
+                    ts
+                    (qt-hemlock::default-filter connection bytes))
+                   nil)))
+      server-info)))
 
+;;; CREATE-SLAVE-IN-THREAD -- Public.
+;;;
+(defun create-slave-in-thread (&optional name)
+  "This creates a slave that tries to connect to the editor.  A preliminary
+   slave-information structure is returned immediately, whose details will
+   be filled in later by the slave once the wire has been established.
+   Name is the name of the interactive buffer.  If name is nil, this generates
+   a name.  If name is supplied, and a buffer with that name already exists,
+   this signals an error."
+  (when (and name (getstring name *buffer-names*))
+    (editor-error "Buffer ~A is already in use." name))
+  (multiple-value-bind (slave background)
+      (if name
+          (values name (format nil "Background ~A" name))
+          (pick-slave-buffer-names))
+    (when (value confirm-slave-creation)
+      (setf slave (prompt-for-string
+                   :prompt "New slave name? "
+                   :help "Enter the name to use for the newly created slave."
+                   :default slave
+                   :default-string slave))
+      (setf background (format nil "Background ~A" slave))
+      (when (getstring slave *buffer-names*)
+        (editor-error "Buffer ~A is already in use." slave))
+      (when (getstring background *buffer-names*)
+        (editor-error "Buffer ~A is already in use." background)))
+    (let ((server-info (make-buffers-for-typescript slave background)))
+      (bt:make-thread
+       (let ((editor-name (get-editor-name)))
+         (lambda ()
+           (macrolet ((rebinding ((&rest vars) &body body)
+                        `(let ,(mapcar (lambda (var)
+                                         (list var var))
+                                       vars)
+                           ,@body)))
+             (let ((*print-readably* nil))
+               (rebinding (*terminal-io*
+                           *standard-input*
+                           *standard-output*
+                           *error-output*
+                           *debug-io*
+                           *query-io*
+                           *trace-output*
+                           *background-io*
+                           cl-user::*io*)
+                          (start-slave editor-name slave background))))))
+       :name slave)
+      server-info)))
+
+#+(or)                    ;disabled for now --dfl
 ;;; MAYBE-CREATE-SERVER -- Internal interface.
 ;;;
 (defun maybe-create-server ()
@@ -487,6 +446,7 @@
    none, and errorp is non-nil, then signal an editor error.  If there is no
    current server, and errorp is nil, then create one, prompting the user for
    confirmation.  Also, set the current server to be the newly created one."
+  (setf errorp t)
   (let ((info (value current-eval-server)))
     (cond (info)
           (errorp
@@ -509,22 +469,29 @@
 
 ;;;; Server Manipulation commands.
 
-(defcommand "Select Slave" (p)
-  "Switch to the current slave's buffer.  When given an argument, create a new
-   slave."
-  "Switch to the current slave's buffer.  When given an argument, create a new
-   slave."
-  (let* ((info (or (if p (create-slave) (get-current-eval-server))
-                   (editor-error "No current eval server yet")))
-         (slave (server-info-slave-buffer info)))
-    (unless slave
-      (editor-error "The current eval server doesn't have a slave buffer!"))
-    (change-to-buffer slave)))
+(defcommand "Start Slave Process" (p)
+  "Create a new slave.  When given an argument, ask for its name first."
+  ""
+  (let ((info (create-slave (unless p (pick-slave-buffer-names)))))
+    (change-to-buffer (server-info-slave-buffer info))))
 
-(defcommand "Select Self As Slave" (p)
+(defcommand "Start Slave Thread" (p)
+  "Create a new thread acting as a slave.  When given an argument, ask for
+   its name first."
+  ""
+  (let ((info (create-slave-in-thread (unless p (pick-slave-buffer-names)))))
+    (change-to-buffer (server-info-slave-buffer info))))
+
+(defcommand "Test" (p)
+  "Create a new thread acting as a slave.  When given an argument, ask for
+   its name first."
+  ""
+  (let ((info (create-slave-in-thread (unless p (pick-slave-buffer-names)))))
+    (change-to-buffer (server-info-slave-buffer info))))
+
+(defcommand "Select Slave" (p)
   "" ""
-  (declare (ignore p))
-  (let* ((info (or (create-slave-in-thread)
+  (let* ((info (or (get-current-eval-server)
                    (editor-error "No current eval server yet")))
          (slave (server-info-slave-buffer info)))
     (unless slave
@@ -603,6 +570,7 @@
         (when buffer (delete-buffer-if-possible buffer)))
       (server-died info))))
 
+#+(or)
 (defcommand "Accept Slave Connections" (p)
   "This causes Hemlock to accept slave connections and displays the port of
    the editor's connections request server.  This is suitable for use with the
@@ -855,10 +823,22 @@
    machine
    port
    (lambda (wire)
-     (hemlock.wire:remote-value
-      wire
-      (make-buffers-for-typescript slave background)))
+     (let ((hemlock.wire::*current-wire* wire))
+     (hemlock.wire:remote-value-bind wire
+         (slave background)
+         (set-up-buffers-for-slave)
+       (made-buffers-for-typescript slave background))))
    'editor-died))
+
+(defun set-up-buffers-for-slave (&optional (wire hemlock.wire:*current-wire*))
+  (let* ((server-info (variable-value 'current-eval-server :global))
+         (slave-info (server-info-slave-info server-info))
+         (background-info (server-info-background-info server-info)))
+    (setf (server-info-wire server-info) wire)
+    (ts-buffer-wire-connected slave-info wire)
+    (ts-buffer-wire-connected background-info wire)
+    (values (hemlock.wire:make-remote-object slave-info)
+            (hemlock.wire:make-remote-object background-info))))
 
 
 ;;;; Eval server evaluation functions.
