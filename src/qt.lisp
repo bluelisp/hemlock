@@ -1228,9 +1228,14 @@
 
 (defun find-definition (name)
   (dolist (definition (conium:find-definitions name))
-    (let ((file (second (assoc :file (cdr (assoc :location definition))))))
+    (let* ((location (cdr (assoc :location definition)))
+           (file (second (assoc :file location)))
+           (position (second (assoc :position location))))
       (when file
-        (ed file)
+        (change-to-buffer (find-file-buffer file))
+        (when position
+          (buffer-start (current-point))
+          (character-offset (current-point) (1- position)))
         (return)))))
 
 (defcommand "Find Definition"
