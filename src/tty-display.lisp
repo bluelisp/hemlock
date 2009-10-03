@@ -182,6 +182,10 @@
                  a list of the start string and end string."
                 stuff))))
 
+;; workaround: we currently just use the font index as a number, but also need
+;; these definitions so that don't try to write NIL values
+(dotimes (i 16)
+  (define-tty-font i "" ""))
 
 (defun compute-font-usages (dis-line)
   (do ((results nil)
