@@ -102,6 +102,7 @@
 (bind-key "Next Window" #k"control-x o")
 (bind-key "Previous Window" #k"control-x p")
 (bind-key "Split Window" #k"control-x 2")
+(bind-key "Enlarge Window" #k"control-x ^")
 (bind-key "New Window" #k"control-x control-n")
 (bind-key "Delete Window" #k"control-x d")
 (bind-key "Delete Next Window" #k"control-x 1")

@@ -106,7 +106,7 @@
       (setf (tty-device-lines device) (or lines (termcap :lines termcap)))
       (let ((cols (or cols (termcap :columns termcap))))
         (setf (tty-device-columns device)
-              (if (termcap :auto-margins-p termcap)
+              (if (hemlock.terminfo:capability :auto-right-margin)
                   (1- cols) cols)))
       (setf (tty-device-speed device) speed))
     ;;
@@ -217,6 +217,7 @@
       (dotimes (i lines)
         (setf (svref screen-image i) (make-si-line columns)))
       (setf (tty-device-screen-image device) screen-image))
+    (hemlock.terminfo:set-terminal)
     device))
 
 
@@ -268,6 +269,64 @@
         (setf *screen-image-trashed* t)
         new-window))))
 
+
+
+;;;; Changing window size
+
+(defun enlarge-window (window offset)
+  "offset in lines.  Can be negative."
+  (device-enlarge-window (device-hunk-device (window-hunk window))
+                         window
+                         offset))
+
+(defmethod device-enlarge-window ((device tty-device) window offset)
+  (let* ((hunk (window-hunk window))
+         (victim
+          (cond
+            ((eq hunk (device-hunks (device-hunk-device hunk)))
+             ;; we're the first hunk
+             (let ((victim (device-hunk-next hunk)))
+               (when (eq hunk victim)
+                 ;; ... the first and only hunk
+                 (editor-error "Cannot enlarge only window"))
+               ;; move the victim down
+               (incf (device-hunk-position hunk) offset)
+               (incf (tty-hunk-text-position hunk) offset)
+               victim))
+            (t
+             ;; we're not first hunk, so there is a victim in front of us
+             ;; move us up
+             (let ((victim (device-hunk-previous hunk)))
+               (decf (device-hunk-position victim) offset)
+               (decf (tty-hunk-text-position victim) offset)
+               victim)))))
+    ;; bump up our height
+    (incf (device-hunk-height hunk) offset)
+    (incf (tty-hunk-text-height hunk) offset)
+    ;; make the victim smaller
+    (decf (device-hunk-height victim) offset)
+    (decf (tty-hunk-text-height victim) offset)
+    ;; housekeeping
+    (let ((w (device-hunk-window victim)))
+      (change-window-image-height w (- offset (window-height w))))
+    (let ((w (device-hunk-window hunk)))
+      (change-window-image-height w (+ offset (window-height w))))
+    (setf *screen-image-trashed* t)))
+
+(defmethod enlarge-device
+    ((device tty-device) offset)
+  (let ((first (device-hunks device)))
+    (incf (device-hunk-position first) offset)
+    (incf (tty-hunk-text-position first) offset)
+    (incf (device-hunk-height first) offset)
+    (incf (tty-hunk-text-height first) offset)
+    (let ((w (device-hunk-window first)))
+      (change-window-image-height w (+ offset (window-height w))))
+    (do ((hunk (device-hunk-next first) (device-hunk-next hunk)))
+        ((eq hunk first))
+      (incf (device-hunk-position hunk) offset)
+      (incf (tty-hunk-text-position hunk) offset))
+    (setf *screen-image-trashed* t)))
 
 
 ;;;; Deleting a window

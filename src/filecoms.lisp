@@ -1189,6 +1189,10 @@
     (unless new (editor-error "Could not make a new window."))
     (setf (current-window) new)))
 
+(defcommand "Enlarge Window" (p)
+  "" ""
+  (hi::enlarge-window (current-window) (or p 1)))
+
 (defcommand "New Window" (p)
   "Make a new window and go to it.
    The window will display the same buffer as the current one."
