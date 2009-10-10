@@ -97,7 +97,7 @@ to aborting due to a throw)."
                  ,form)
                (wire-force-output ,wire)
                (loop
-                  (process-one-event/qt)
+                  (dispatch-events)
                   (when (remote-wait-finished ,remote)
                     (return)))
                (unless (remote-wait-abort ,remote)
@@ -273,12 +273,13 @@ to aborting due to a throw)."
 ;;; On synchronous connections, it is the caller's responsibility to call it
 ;;; while waiting for requests.
 ;;;
-(defun serve-requests (wire)
+(defun serve-requests (wire &optional force)
   (loop
-     (unless (wire-listen wire)
+     (unless (or force (wire-listen wire))
        (return))
+     (setf force nil)
      (wire-get-object wire))
   (values))
 
-(defun device-serve-requests (device)
-  (serve-requests (device-wire device)))
+(defun device-serve-requests (device &optional force)
+  (serve-requests (device-wire device) force))

@@ -48,5 +48,7 @@
    #:device-listen
    #:device-write
    #:device-close
-   #:device-serve-requests))
+   #:device-serve-requests
 
+   #:dispatch-events
+   #:dispatch-events-no-hang))

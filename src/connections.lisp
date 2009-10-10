@@ -1,12 +1,35 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
-(in-package :qt-hemlock)
-(named-readtables:in-readtable :qt-hemlock)
+(in-package :hi)
 
 (defvar *all-connections* nil)
 
 (defun list-all-connections ()
   (copy-seq *all-connections*))
+
+(defvar *event-base*)
+
+(defmethod invoke-with-event-loop ((backend (eql :iolib)) fun)
+  (iolib:with-event-base (*event-base*)
+    (funcall fun)))
+
+(defun dispatch-events ()
+  (dispatch-events-with-backend *connection-backend*))
+
+(defun dispatch-events-no-hang ()
+  (dispatch-events-no-hang-with-backend *connection-backend*))
+
+(defmethod dispatch-events-with-backend ((backend (eql :iolib)))
+  (iolib:event-dispatch *event-base* :one-shot t))
+
+(defmethod dispatch-events-no-hang-with-backend ((backend (eql :iolib)))
+  (iolib:event-dispatch *event-base*
+                        :one-shot t
+                        :timeout 0
+                        #+nil #+nil :min-step 0))
+
+(defmethod invoke-later ((backend (eql :iolib)) fun)
+  (iolib.multiplex:add-timer *event-base* fun 0 :one-shot t))
 
 
 ;;;;
@@ -31,6 +54,16 @@
 (defmethod print-object ((instance connection) stream)
   (print-unreadable-object (instance stream :identity nil :type t)
     (format stream "~A" (connection-name instance))))
+
+(defun make-buffer-with-unique-name (name &rest keys)
+  (or (apply #'make-buffer name keys)
+      (iter:iter
+       (iter:for i from 2)
+       (let ((buffer (apply #'make-buffer
+                            (format nil "~A<~D>" name i)
+                            keys)))
+         (when buffer
+           (return buffer))))))
 
 (defmethod initialize-instance :after
     ((instance connection) &key buffer)
@@ -88,9 +121,6 @@
   ((connection-filter :initarg :filter
                       :initform nil
                       :accessor connection-filter)
-   (io-device :initarg :io-device
-              :initform nil
-              :accessor connection-io-device)
    (input-buffer :initform (make-array +input-buffer-size+
                                        :element-type '(unsigned-byte 8))
                  :accessor connection-input-buffer)
@@ -103,13 +133,7 @@
   (let ((enc (connection-encoding instance)))
     (when (symbolp enc)
       (setf (connection-encoding instance)
-            (babel-encodings:get-character-encoding enc))))
-  (when (connection-io-device instance)
-    (connect-io-device-signals instance)))
-
-(defmethod delete-connection :before ((connection io-connection))
-  (when (connection-io-device connection)
-    (#_close (connection-io-device connection))))
+            (babel-encodings:get-character-encoding enc)))))
 
 (defun filter-connection-output (connection data)
   (etypecase data
@@ -117,43 +141,6 @@
      (babel:string-to-octets data :encoding (connection-encoding connection)))
     ((array (unsigned-byte 8) (*))
      data)))
-
-(defun connection-listen (connection)
-  (check-type connection io-connection)
-  (plusp (#_bytesAvailable (connection-io-device connection))))
-
-(defun connection-write (data connection)
-  (check-type connection io-connection)
-  (let ((bytes (filter-connection-output connection data)))
-    ;; fixme: with-pointer-to-vector-data isn't portable
-    (cffi-sys:with-pointer-to-vector-data (ptr bytes)
-      (let ((n-bytes-written
-             (#_write (connection-io-device connection)
-                      (qt::char* ptr)
-                      (length bytes))))
-        (when (minusp n-bytes-written)
-          (error "error on socket: ~A" connection))
-        (unless (eql n-bytes-written (length bytes))
-          ;; fixme: buffering
-          (error "oops, not implemented"))))))
-
-(defun %read (connection)
-  (let* ((io (connection-io-device connection))
-         (n-bytes-available (#_bytesAvailable io))
-         (buffer (connection-input-buffer connection)))
-    (when (< (length buffer) n-bytes-available)
-      (setf buffer (make-array n-bytes-available
-                               :element-type '(unsigned-byte 8))))
-    ;; fixme: with-pointer-to-vector-data isn't portable
-    (subseq buffer
-            0
-            (cffi-sys:with-pointer-to-vector-data (ptr buffer)
-              (let ((n-bytes-read
-                     (#_read io (qt::char* ptr) n-bytes-available)))
-                (when (minusp n-bytes-read)
-                  (error "error on socket: ~A" connection))
-                (assert (>= n-bytes-read n-bytes-available))
-                n-bytes-read)))))
 
 (defun note-connected (connection)
   (connection-note-event connection :connected))
@@ -178,16 +165,12 @@
       (write-string str stream))))
 
 (defun note-disconnected (connection)
-  (print :note-disconnected)
-  (force-output)
   (connection-note-event connection :disconnected)
   (format-to-connection-buffer-or-stream connection
                                         "~&* Connection ~S disconnected."
                                         connection))
 
 (defun note-error (connection)
-  (print :note-error)
-  (force-output)
   (connection-note-event connection :error)
   (format-to-connection-buffer-or-stream
    connection
@@ -199,6 +182,11 @@
            connection
            bytes))
 
+(defun default-filter (connection bytes)
+  ;; fixme: what about multibyte characters that got split between two
+  ;; input events data?
+  (babel:octets-to-string bytes :encoding (connection-encoding connection)))
+
 (defun process-incoming-data (connection)
   (let* ((bytes (%read connection))
          (characters (filter-incoming-data connection bytes))
@@ -207,34 +195,95 @@
     (when (and characters (or buffer stream))
       (insert-into-connection-buffer-or-stream connection characters))))
 
-(defun default-filter (connection bytes)
-  ;; fixme: what about multibyte characters that got split between two
-  ;; input events data?
-  (babel:octets-to-string bytes :encoding (connection-encoding connection)))
 
-(defun connect-io-device-signals (connection)
-  (let ((device (connection-io-device connection)))
-    ;; ...
-    (connect device
-             (QSIGNAL "readyRead()")
-             (lambda ()
-               (process-incoming-data connection)
-               (redraw-needed)))))
+;;;;
+;;;; IOLIB-CONNECTION
+;;;;
 
-(defmethod (setf connection-io-device)
+(defclass iolib-connection (io-connection)
+  ((fd :initarg :fd
+       :initform nil
+       :accessor connection-fd)
+   (write-buffers :initform nil
+                  :accessor connection-write-buffers)))
+
+(defmethod initialize-instance :after
+    ((instance iolib-connection) &key)
+  )
+
+(defmethod (setf connection-fd)
     :after
-    ((newval t) (connection io-connection))
-  (connect-io-device-signals connection))
+    ((newval t) (connection iolib-connection))
+  (when (connection-fd instance)
+    (set-iolib-handlers instance)))
+
+(defun set-iolib-handlers (connection)
+  (let ((fd (connection-fd connection)))
+    (iolib:set-io-handler
+     *event-base*
+     fd
+     :read
+     (lambda (.fd event error)
+       (declare (ignore event))
+       (when (eq error :error) (error "error with ~A" .fd))
+       (process-incoming-data connection)))))
+
+(defmethod %read ((connection iolib-connection))
+  (let* ((fd (connection-fd connection))
+         (buffer (connection-input-buffer connection)))
+    ;; fixme: with-pointer-to-vector-data isn't portable
+    (subseq buffer
+            0
+            (cffi-sys:with-pointer-to-vector-data (ptr buffer)
+              (iolib.syscalls:%sys-read fd ptr (length buffer))))))
+
+(defmethod delete-connection :before ((connection iolib-connection))
+  (let ((fd (connection-fd connection)))
+    (when fd
+      (iolib.syscalls:%sys-close fd))))
+
+(defmethod connection-listen ((connection iolib-connection))
+  (error "connection-listen not implemented"))
+
+(defmethod connection-write (data (connection iolib-connection))
+  (let ((bytes (filter-connection-output connection data))
+        (fd (connection-fd connection))
+        (need-handler (null (connection-write-buffers connection)))
+        handler)
+    (setf (connection-write-buffers connection)
+          (nconc (connection-write-buffers connection)
+                 (list bytes)))
+    (when need-handler
+      (setf handler
+            (iolib:set-io-handler
+             *event-base*
+             fd
+             :write
+             (lambda (.fd event error)
+               (declare (ignore event))
+               (when (eq error :error) (error "error with ~A" .fd))
+               ;; fixme: with-pointer-to-vector-data isn't portable
+               (let ((bytes (pop (connection-write-buffers connection))))
+                 (assert (typep bytes 'array))
+                 (cffi-sys:with-pointer-to-vector-data (ptr bytes)
+                   (let ((n-bytes-written
+                          (iolib.syscalls:%sys-write fd ptr (length bytes))))
+                     (unless (eql n-bytes-written (length bytes))
+                       (push (subseq bytes n-bytes-written)
+                             (connection-write-buffers connection)))))
+                 (setf (iolib.multiplex::fd-handler-one-shot-p handler)
+                       (null (connection-write-buffers connection)))))
+             :one-shot t)))))
 
 
 ;;;;
-;;;; PROCESS-CONNECTION
+;;;; PROCESS-CONNECTION-MIXIN
 ;;;;
 
 (defun listify (x)
   (if (listp x) x (list x)))
 
-(defclass process-connection (io-connection)
+(defclass process-connection-mixin ()
   ((command :initarg :command
             :accessor connection-command)
    (exit-code :initform nil
@@ -244,146 +293,123 @@
                 :initarg :exit-status
                 :accessor connection-exit-status)))
 
-(defmethod initialize-instance :after ((instance process-connection) &key)
-  (let ((process (#_new QProcess)))
-    (setf (connection-io-device instance) process)
-    (connection-note-event instance :initialized)
-    (#_start process (format nil "~{ ~A~}" (connection-command instance)))))
+(defmethod class-for
+    ((backend (eql :iolib)) (type (eql 'process-connection-mixin)))
+  'process-connection/iolib)
 
-(defmethod (setf connection-io-device)
-    :after
-    (newval (connection process-connection))
-  (connect newval
-           (QSIGNAL "finished(int,QProcess::ExitStatus)")
-           (lambda (&rest *)
-             (note-finished connection)
-             (redraw-needed))))
-
-(defun note-finished (connection)
-  (let* ((process (connection-io-device connection))
-         (code (#_exitCode process))
-         (status (#_exitStatus process)))
-    (setf (connection-exit-code connection) code)
-    (setf (connection-exit-status connection) status)
-    (connection-note-event connection :finished)
-    (format-to-connection-buffer-or-stream
-     connection
-     "~&* Process ~S finished with code ~A and status ~A."
-     connection
-     code
-     status)))
+(defmethod class-for
+    ((backend (eql :qt)) (type (eql 'process-connection-mixin)))
+  'process-connection/qt)
 
 (defun make-process-connection
     (command &rest args &key name buffer stream filter sentinel)
   (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
-         'process-connection
+         (class-for *connection-backend* 'process-connection-mixin)
          :name (or name (princ-to-string command))
          :command (listify command)
          args))
 
 
 ;;;;
-;;;; TCP-CONNECTION
+;;;; PROCESS-CONNECTION/IOLIB
 ;;;;
 
-(defclass tcp-connection (io-connection)
+(defclass process-connection/iolib
+    (process-connection-mixin)
+  ())
+
+
+;;;;
+;;;; TCP-CONNECTION-MIXIN
+;;;;
+
+(defclass tcp-connection-mixin ()
   ((host :initarg :host
          :accessor connection-host)
    (port :initarg :port
          :accessor connection-port)))
 
-(defmethod initialize-instance :after ((instance tcp-connection) &key)
-  (unless (connection-io-device instance)
-    (let ((socket (#_new QTcpSocket)))
-      (setf (connection-io-device instance) socket)
-      (connection-note-event instance :initialized)
-      (#_connectToHost socket
-                       (connection-host instance)
-                       (connection-port instance)))))
-
-(defmethod print-object ((instance tcp-connection) stream)
+(defmethod print-object ((instance tcp-connection-mixin) stream)
   (print-unreadable-object (instance stream :identity nil :type t)
     (format stream "~A, connected to ~A:~D"
             (connection-name instance)
             (connection-host instance)
             (connection-port instance))))
 
-(defmethod (setf connection-io-device)
-    :after
-    (newval (connection tcp-connection))
-  (connect newval
-           (QSIGNAL "connected()")
-           (lambda ()
-             (note-connected connection)
-             (redraw-needed)))
-  (connect newval
-           (QSIGNAL "disconnected()")
-           (lambda ()
-             (note-disconnected connection)
-             (redraw-needed)))
-  (connect newval
-           (QSIGNAL "error()")
-           (lambda ()
-             (note-error connection)
-             (redraw-needed))))
+(defmethod class-for
+    ((backend (eql :iolib)) (type (eql 'tcp-connection-mixin)))
+  'tcp-connection/iolib)
+
+(defmethod class-for
+    ((backend (eql :qt)) (type (eql 'tcp-connection-mixin)))
+  'tcp-connection/qt)
 
 (defun make-tcp-connection
     (name host port &rest args &key buffer stream filter sentinel)
   (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
-         'tcp-connection
+         (class-for *connection-backend* 'tcp-connection-mixin)
          :name name
          :host host
          :port port
          args))
 
-(defun test ()
-  (flet ((connected (c event)
-           (case event
-             (:connected
-              (connection-write
-               (format nil "GET / HTTP/1.0~C~C~C~C"
-                       #\return #\newline
-                       #\return #\newline)
-               c))
-             #+(or)
-             (:disconnected
-              (delete-connection c)))))
-    (make-tcp-connection "test" "localhost" 80
-                         :buffer t
-                         :sentinel #'connected)))
+
+;;;;
+;;;; TCP-CONNECTION/IOLIB
+;;;;
+
+(defclass tcp-connection/iolib (tcp-connection-mixin iolib-connection)
+  ((socket :accessor connection-socket)))
+
+(defmethod initialize-instance :after ((instance tcp-connection/iolib) &key)
+  (with-slots (fd socket host port) instance
+    (connection-note-event instance :initialized)
+    (unless fd
+      (setf socket
+            (iolib.sockets:make-socket :address-family :internet
+                                       :connect :active
+                                       :type :stream
+                                       :remote-host host
+                                       :remote-port port))
+      (setf fd (iolib.sockets:socket-os-fd socket)))
+    (set-iolib-handlers instance)
+    (note-connected instance)))
 
 
 ;;;;
 ;;;; FILE-CONNECTION
 ;;;;
 
-(defclass file-connection (io-connection)
-  ((filename :initarg :filename
-             :accessor connection-filename)))
+;;; not needed at the moment
 
-(defmethod initialize-instance :after ((instance file-connection) &key)
-  (let ((socket (#_new QFile (connection-filename instance))))
-    (setf (connection-io-device instance) socket)
-    (connection-note-event instance :initialized)
-    (#_open socket (#_QIODevice::ReadWrite))))
+#+nil
+(progn
+  (defclass file-connection (qiodevice-connection)
+    ((filename :initarg :filename
+               :accessor connection-filename)))
 
-#+(or)
-(defmethod (setf connection-io-device)
-    :after
-    (newval (connection file-connection))
-  )
+  (defmethod initialize-instance :after ((instance file-connection) &key)
+    (let ((socket (#_new QFile (connection-filename instance))))
+      (setf (connection-io-device instance) socket)
+      (connection-note-event instance :initialized)
+      (#_open socket (#_QIODevice::ReadWrite))))
 
-(defun make-file-connection
-    (filename &rest args &key name buffer stream filter sentinel)
-  (declare (ignore buffer stream filter sentinel))
-  (apply #'make-instance
-         'file-connection
-         :filename filename
-         :name (or name filename)
-         args))
+  #+(or)
+  (defmethod (setf connection-io-device)
+      :after
+      (newval (connection file-connection))
+    )
 
+  (defun make-file-connection
+      (filename &rest args &key name buffer stream filter sentinel)
+    (declare (ignore buffer stream filter sentinel))
+    (apply #'make-instance
+           'file-connection
+           :filename filename
+           :name (or name filename)
+           args)))
 
 
 ;;;;
@@ -432,55 +458,29 @@
                                                (null stream))
                                    :stream stream))))
 
-(defclass pty-connection (io-connection)
-  ((descriptor :initarg :descriptor
-               :accessor connection-descriptor)
+(defclass pty-connection-mixin ()
+  ((fd :initarg :descriptor
+       :accessor connection-descriptor)
    (process-connection :initarg :process-connection
                        :accessor connection-process-connection)))
 
-(defmethod delete-connection :before ((connection pty-connection))
-  (delete-connection (connection-process-connection connection)))
-
 (macrolet ((defproxy (name)
-             `(defmethod ,name ((connection pty-connection))
+             `(defmethod ,name ((connection pty-connection-mixin))
                 (,name (connection-process-connection connection)))))
   (defproxy connection-command)
   (defproxy connection-exit-code)
   (defproxy connection-exit-status))
 
-(defmethod initialize-instance :after ((instance pty-connection) &key)
-  (let ((socket
-         ;; hack: QFile doesn't work for device files, so use a QLocalSocket
-         ;; instead and set its descriptor.  Technically, the file isn't
-         ;; a named pipe in our case, but it works.
-         (#_new QLocalSocket)))
-    (setf (connection-io-device instance) socket)
-    (connection-note-event instance :initialized)
-    (#_setSocketDescriptor
-     socket
-     (connection-descriptor instance)
-     ;; (#_QLocalSocket::ConnectedState)
-     ;; (#_QIODevice::ReadWrite)
-     )))
+(defmethod delete-connection :before ((connection pty-connection-mixin))
+  (delete-connection (connection-process-connection connection)))
 
-(defmethod (setf connection-io-device)
-    :after
-    (newval (connection pty-connection))
-  (connect newval
-           (QSIGNAL "connected()")
-           (lambda ()
-             (note-connected connection)
-             (redraw-needed)))
-  (connect newval
-           (QSIGNAL "disconnected()")
-           (lambda ()
-             (note-disconnected connection)
-             (redraw-needed)))
-  (connect newval
-           (QSIGNAL "error()")
-           (lambda ()
-             (note-error connection)
-             (redraw-needed))))
+(defmethod class-for
+    ((backend (eql :iolib)) (type (eql 'pty-connection-mixin)))
+  'pty-connection/iolib)
+
+(defmethod class-for
+    ((backend (eql :qt)) (type (eql 'pty-connection-mixin)))
+  'pty-connection/qt)
 
 (defun %make-pty-connection
     (descriptor
@@ -488,11 +488,12 @@
      &key name buffer stream filter sentinel process-connection)
   (declare (ignore buffer stream filter sentinel process-connection))
   (apply #'make-instance
-         'pty-connection
+         (class-for *connection-backend* 'pty-connection-mixin)
          :descriptor descriptor
          :name (or name (format nil "descriptor ~D" descriptor))
-         :filter (lambda (connection bytes)
-                   (default-filter connection bytes))
+         :filter (or filter
+                     (lambda (connection bytes)
+                       (default-filter connection bytes)))
          args))
 
 (defgeneric stream-fd (stream))
@@ -515,16 +516,35 @@
   ;; sockets appear to be direct instances of STREAM
   (ignore-errors (socket:stream-handles stream)))
 
+(defmethod stream-fd ((stream integer))
+  stream)
+
 (defun %pty-connection-from-stream
-    (process-connection pty-stream name &key buffer stream)
-  (cffi:with-foreign-object (place :int)
-    (setf (cffi:mem-ref place :int) (stream-fd pty-stream))
-    (%make-pty-connection
-     (qt::quintptr place)
-     :process-connection process-connection
-     :name name
-     :buffer buffer
-     :stream stream)))
+    (process-connection pty-stream name &key buffer stream filter)
+  (%make-pty-connection (stream-fd pty-stream)
+                        :process-connection process-connection
+                        :name name
+                        :filter filter
+                        :buffer buffer
+                        :stream stream))
+
+
+;;;
+;;; PTY-CONNECTION/IOLIB
+;;;
+
+(defclass pty-connection/iolib (pty-connection-mixin iolib-connection)
+  ())
+
+(defmethod initialize-instance :after ((instance pty-connection/iolib) &key)
+  (connection-note-event instance :initialized)
+  (set-iolib-handlers instance))
+
+(defmethod (setf connection-fd)
+    :after
+    (newval (connection pty-connection/iolib))
+  ;; ...
+  )
 
 
 ;;;;
@@ -542,37 +562,6 @@
              :initform nil
              :accessor connection-initargs)))
 
-(defmethod initialize-instance :after
-    ((instance listening-connection) &key)
-  (when (connection-server instance)
-    (connect-server-signals instance)))
-
-(defmethod delete-connection :before ((connection listening-connection))
-  (when (connection-server connection)
-    (#_close (connection-server connection))))
-
-(defmethod (setf connection-server)
-    :after
-    ((newval t) (connection listening-connection))
-  (connect-server-signals connection))
-
-(defun connect-server-signals (connection)
-  (let ((server (connection-server connection)))
-    ;; ...
-    (connect server
-             (QSIGNAL "newConnection()")
-             (lambda ()
-               (process-incoming-connection connection)))))
-
-(defun %tcp-connection-from-io-device (name io-device initargs)
-  (apply #'make-instance
-         'tcp-connection
-         :name name
-         :io-device io-device
-         :host (#_peerName io-device)
-         :port (#_peerPort io-device)
-         initargs))
-
 (defgeneric convert-pending-connection (listener))
 
 (defun process-incoming-connection (listener)
@@ -584,29 +573,86 @@
 
 
 ;;;;
-;;;; TCP-LISTENER
+;;;; LISTENING-CONNECTION/IOLIB
 ;;;;
 
-(defclass tcp-listener (listening-connection)
+(defclass listening-connection/iolib (listening-connection)
+  ((socket :accessor connection-socket)
+   (fd :initform nil
+       :accessor connection-fd)))
+
+(defmethod initialize-instance :after
+    ((instance listening-connection/iolib) &key)
+  (with-slots (fd socket host port) instance
+    (unless fd
+      (connection-note-event instance :initialized)
+      (let ((addr (if host
+                      (iolib.sockets:ensure-hostname host)
+                      iolib.sockets:+ipv4-unspecified+)))
+        (setf socket
+              (flet ((doit (port)
+                       (iolib.sockets:make-socket :address-family :internet
+                                                  :connect :passive
+                                                  :type :stream
+                                                  :local-host addr
+                                                  :local-port port)))
+                (if port
+                    (doit port)
+                    (iter:iter (iter:for p from 1024 below 65536)
+                               (handler-case
+                                   (doit p)
+                                 (:no-error (socket)
+                                   (setf port p)
+                                   (return socket))
+                                 (error (c)
+                                   (warn "trying next port"))))))))
+      (setf fd (iolib.sockets:socket-os-fd socket)))
+    (set-iolib-server-handlers instance)))
+
+(defun set-iolib-server-handlers (instance)
+  (iolib:set-io-handler
+   *event-base*
+   (connection-fd instance)
+   :read
+   (lambda (.fd event error)
+     (declare (ignore event))
+     (when (eq error :error) (error "error with ~A" .fd))
+     (process-incoming-connection instance))))
+
+(defmethod delete-connection :before ((connection listening-connection/iolib))
+  (close (connection-socket connection)))
+
+(defmethod (setf connection-fd)
+    :after
+    ((newval t) (connection listening-connection/iolib))
+  (set-iolib-server-handlers connection))
+
+(defun %tcp-connection-from-fd (name fd host port initargs)
+  (apply #'make-instance
+         'tcp-connection/iolib
+         :name name
+         :fd fd
+         :host host
+         :port port
+         initargs))
+
+
+;;;;
+;;;; TCP-LISTENER-MIXIN
+;;;;
+
+(defclass tcp-listener-mixin ()
   ((host :initarg :host
          :accessor connection-host)
    (port :initarg :port
          :accessor connection-port)))
 
-(defmethod initialize-instance :after ((instance tcp-listener) &key)
+(defmethod initialize-instance :after ((instance tcp-listener-mixin) &key)
   (check-type (connection-host instance) string)
   (check-type (connection-port instance)
-              (or null (unsigned-byte 16)))
-  (let ((server (#_new QTcpServer)))
-    (setf (connection-server instance) server)
-    (connection-note-event instance :initialized)
-    (unless (#_listen server
-                      (#_new QHostAddress (connection-host instance))
-                      (or (connection-port instance) 0))
-      (error "failed to listen on connection ~A" instance))
-    (setf (connection-port instance) (#_serverPort server))))
+              (or null (unsigned-byte 16))))
 
-(defmethod print-object ((instance tcp-listener) stream)
+(defmethod print-object ((instance tcp-listener-mixin) stream)
   (print-unreadable-object (instance stream :identity nil :type t)
     (format stream "~A ~A:~D"
             (connection-name instance)
@@ -617,17 +663,45 @@
     (name host port &rest args &key buffer stream acceptor sentinel initargs)
   (declare (ignore buffer stream acceptor sentinel initargs))
   (apply #'make-instance
-         'tcp-listener
+         (class-for *connection-backend* 'tcp-listener-mixin)
          :name name
          :host host
          :port port
          args))
 
-(defmethod convert-pending-connection ((connection tcp-listener))
-  (%tcp-connection-from-io-device
-   (format nil "Accepted for: ~A" (connection-name connection))
-   (#_nextPendingConnection (connection-server connection))
-   (connection-initargs connection)))
+(defmethod class-for
+    ((backend (eql :iolib)) (type (eql 'tcp-listener-mixin)))
+  'tcp-listener/iolib)
+
+(defmethod class-for
+    ((backend (eql :qt)) (type (eql 'tcp-listener-mixin)))
+  'tcp-listener/qt)
+
+
+
+;;;;
+;;;; TCP-LISTENER/IOLIB
+;;;;
+
+(defclass tcp-listener/iolib (tcp-listener-mixin listening-connection/iolib)
+  ())
+
+(defmethod initialize-instance :after ((instance tcp-listener/iolib) &key)
+  ;; ...
+  )
+
+(defmethod convert-pending-connection ((connection tcp-listener/iolib))
+  (iolib.sockets::with-sockaddr-storage-and-socklen (ss size)
+    (let* ((socket (connection-socket connection))
+           (fd (iolib.sockets::%accept (iolib.streams:fd-of socket) ss size)))
+      (multiple-value-bind (host port)
+          (iolib.sockets::sockaddr-storage->sockaddr ss)
+        (%tcp-connection-from-fd
+         (format nil "Accepted for: ~A" (connection-name connection))
+         fd
+         host
+         port
+         (connection-initargs connection))))))
 
 
 ;;; wire interaction
@@ -664,7 +738,7 @@
    (incf (device-filter-counter device))
    (hemlock.wire:device-append-to-input-buffer device bytes)
    (when (zerop (device-reading device))
-     (hemlock.wire:device-serve-requests device)))
+     (hemlock.wire:device-serve-requests device t)))
   nil)
 
 (defun connection-device-sentinel (device connection event)
@@ -688,6 +762,6 @@
        (let ((previous-counter (device-filter-counter device)))
          (incf (device-reading device))
          (iter (while (eql previous-counter (device-filter-counter device)))
-               (process-one-event)))
+               (dispatch-events)))
     (decf (device-reading device)))
   0)

@@ -61,7 +61,7 @@
   "Welcome to the low-level Eval buffer.~@
    ~@
    This buffer is useful for debugging purposes, but be careful:~@
-   You are running code directly in Hemlock's GUI loop.~%~%")
+   You are running code directly in Hemlock's event loop.~%~%")
 
 (defun setup-eval-mode (buffer)
   (let ((point (buffer-point buffer)))

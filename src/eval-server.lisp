@@ -340,7 +340,7 @@
                  (lambda (connection bytes)
                    (ts-buffer-output-string
                     ts
-                    (qt-hemlock::default-filter connection bytes))
+                    (hi::default-filter connection bytes))
                    nil)))
       server-info)))
 
@@ -389,7 +389,7 @@
                            *trace-output*
                            *background-io*
                            cl-user::*io*)
-                          (start-slave editor-name slave background))))))
+               (start-slave editor-name slave background))))))
        :name slave)
       server-info)))
 
@@ -760,9 +760,13 @@
              (declare (ignore orig))
              (invoke-debugger c))))
       (format t "Connecting to ~A:~D~%" machine port)
-      (qt-hemlock::qthread-event-loop
-       (lambda ()
-         (connect-to-editor machine port slave-buffer background-buffer))))))
+      (hi::with-event-loop ()
+        (connect-to-editor machine port slave-buffer background-buffer)
+        (iter (dispatch-events)
+              (until cl-user::*io*)
+              (write-line "Waiting for typestream buffer...")
+              (force-output))
+        (prepl:repl)))))
 
 (defun start-slave (editor &optional slave-buffer background-buffer)
   (let ((*original-terminal-io* *terminal-io*))
@@ -824,10 +828,10 @@
    port
    (lambda (wire)
      (let ((hemlock.wire::*current-wire* wire))
-     (hemlock.wire:remote-value-bind wire
+       (hemlock.wire:remote-value-bind wire
          (slave background)
          (set-up-buffers-for-slave)
-       (made-buffers-for-typescript slave background))))
+         (made-buffers-for-typescript slave background))))
    'editor-died))
 
 (defun set-up-buffers-for-slave (&optional (wire hemlock.wire:*current-wire*))

@@ -215,3 +215,23 @@
 (bind-key "Back To Clbuild Buffer" #k"l" :mode "Graphics")
 
 #+nil (bind-key "Enter Foreign Widget" #k"enter" :mode "Graphics")
+
+#+(or)
+(defcommand "Clbuild Dependency Graph" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((name (mapcar #'clbuild-info-name (list-marked-clbuild-projects))))
+    (if *dependency-graph-buffer*
+        (qt-hemlock::add-project-to-graph nil name)
+        (qt-hemlock::show-project-graph-command nil names))))
+
+(defcommand "Clbuild Dependency Graph" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((names (mapcar #'clbuild-info-name
+                       (list-marked-clbuild-projects))))
+    (if qt-hemlock::*dependency-graph-buffer*
+        (progn
+          (change-to-buffer qt-hemlock::*dependency-graph-buffer*)
+          (qt-hemlock::add-projects-to-current-graph names))
+        (qt-hemlock::show-project-graph-command nil names))))

@@ -83,26 +83,6 @@
          (array-element-from-mark (current-point) *clbuild-info*)))
        (editor-error "connection has no buffer"))))
 
-#+(or)
-(defcommand "Clbuild Dependency Graph" (p)
-  "" ""
-  (declare (ignore p))
-  (let ((name (mapcar #'clbuild-info-name (list-marked-clbuild-projects))))
-    (if *dependency-graph-buffer*
-        (qt-hemlock::add-project-to-graph nil name)
-        (qt-hemlock::show-project-graph-command nil names))))
-
-(defcommand "Clbuild Dependency Graph" (p)
-  "" ""
-  (declare (ignore p))
-  (let ((names (mapcar #'clbuild-info-name
-                       (list-marked-clbuild-projects))))
-    (if qt-hemlock::*dependency-graph-buffer*
-        (progn
-          (change-to-buffer qt-hemlock::*dependency-graph-buffer*)
-          (qt-hemlock::add-projects-to-current-graph names))
-        (qt-hemlock::show-project-graph-command nil names))))
-
 (defcommand "Install Clbuild Project" (p)
   "" ""
   (let ((projects (list-marked-clbuild-projects)))
@@ -128,12 +108,11 @@
            (make-process-connection
             cmd
             :filter (lambda (connection bytes)
-                      (write-string (qt-hemlock::default-filter
-                                        connection bytes)
+                      (write-string (hi::default-filter connection bytes)
                                     s)
                       nil))))
       (iter:iter (iter:until (connection-exit-code proc))
-                 (qt-hemlock::process-one-event)))
+                 (dispatch-events)))
     (message "Done" )))
 
 (defvar *clbuild-directory* nil)

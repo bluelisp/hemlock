@@ -1053,7 +1053,7 @@
         (static-graph-to-scene tmp scene)
         (iter (for i from 1 to n)
               (update-interpolation-graph node-specs (/ i n))
-              (qt-hemlock::process-events-no-hang)))
+              (qt-hemlock::dispatch-events-no-hang)))
       (static-graph-to-scene new scene))))
 
 (defun make-interpolation-graph (a b)

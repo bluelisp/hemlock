@@ -160,7 +160,7 @@
     (or (check)
         #+(or)
         (progn
-          (hemlock.wire::nonblocking-process-one-event/qt)
+          (dispatch-events-no-hang)
           (check)))))
 
 (defmethod hi::stream-listen ((stream ts-stream))
@@ -244,7 +244,7 @@
         (hemlock.wire:wire-force-output wire))
       (iter:iter
        (iter:until (%ts-stream-listen stream))
-       (hemlock.wire::process-one-event/qt)))))
+       (dispatch-events)))))
 
 ;;; %TS-STREAM-FLSBUF --- internal.
 ;;;

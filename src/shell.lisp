@@ -591,3 +591,24 @@
 (defun deliver-signal-to-subprocess (signal process)
   "Delivers a signal to a subprocess of a shell."
   (process-kill process signal :pty-process-group))
+
+(defcommand "Shell Command"
+    (p &optional (command (hi::prompt-for-string :prompt "Command: ")))
+  "" ""
+  (declare (ignore p))
+  (change-to-buffer
+   (connection-buffer (make-process-connection command :buffer t))))
+
+(bind-key "Shell Command" #k"meta-!")
+
+(defun concat (&rest args) (apply #'concatenate 'string args))
+
+(defcommand "Grep"
+    (p &optional (command (hi::prompt-for-string
+                           :prompt "Run grep (like this): "
+                           :default "grep -nH -e ")))
+  "" ""
+  (declare (ignore p))
+  (change-to-buffer
+   (connection-buffer
+    (make-process-connection command :buffer t))))

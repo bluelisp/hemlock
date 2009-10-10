@@ -241,7 +241,10 @@ object. Passing that remote object to remote-object-value will new return NIL."
   "Return T iff anything is in the input buffer or available on the socket."
   (or (< (wire-ibuf-offset wire)
          (wire-ibuf-end wire))
-      (device-listen (wire-device wire))))
+      (progn
+        (dispatch-events-no-hang)
+        (< (wire-ibuf-offset wire)
+           (wire-ibuf-end wire)))))
 
 (defmethod device-listen ((device stream-device))
   (listen (device-stream device)))

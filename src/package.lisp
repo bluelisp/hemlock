@@ -511,7 +511,9 @@
    #:make-descriptor-connection
    #:listening-connection
    #:make-tcp-listener
-   #:make-connection-device))
+   #:make-connection-device)
+  (:import-from :hemlock.wire #:dispatch-events #:dispatch-events-no-hang)
+  (:export #:dispatch-events #:dispatch-events-no-hang))
 
 (defpackage :hemlock-ext
   (:use :common-lisp
@@ -837,11 +839,6 @@
 (defpackage :clim-hemlock
     (:use :common-lisp :hemlock-interface)
   )
-
-(defpackage :qt-hemlock
-  (:use :common-lisp :hemlock-interface :qt :iterate)
-  (:shadow #:enable-syntax)
-  (:export #:enable-syntax))
 
 (defpackage :hemlock.terminfo
   (:use :common-lisp)

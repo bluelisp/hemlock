@@ -67,9 +67,14 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:qt :bordeaux-threads :qt-repl
-                      :trivial-gray-streams :iterate
-                      :prepl :osicat)
+     :depends-on (:bordeaux-threads
+                  :trivial-gray-streams
+                  :iterate
+                  :prepl
+                  :osicat
+                  :iolib
+                  :iolib.os
+                  :cl-ppcre)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
@@ -255,9 +260,5 @@
                            *hemlock-base-directory*)
               :depends-on (bitmap-2 core-1)
               :components
-              ((:file "qt")
-               (:file "browser" :depends-on ("qt"))
-               (:file "connections" :depends-on ("qt"))
-               (:file "sugiyama" :depends-on ("qt"))
-               (:file "graphics" :depends-on ("sugiyama"))
-               (:file "clbuild" :depends-on ("graphics"))))))
+              ((:file "connections")
+               (:file "clbuild")))))

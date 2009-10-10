@@ -645,3 +645,11 @@
   get a Lisp error due to some action of the user."
   `(handler-bind ((error #'lisp-error-error-handler))
      ,@body))
+
+(defvar *connection-backend* :iolib)
+
+(defmacro with-event-loop ((&optional) &body body)
+  `(invoke-with-event-loop *connection-backend* (lambda () ,@body)))
+
+(defmacro later (&body body)
+  `(invoke-later *connection-backend* (lambda () ,@body)))

@@ -257,8 +257,6 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
-;; another function that looks clever but doesn't currently work.
-;; see the Qt-specific hack below instead
 (defun old-hemlock (&optional x
                          &key (init t)
                               (display #+nil(hemlock-ext:getenv "DISPLAY")))
@@ -272,41 +270,46 @@ GB
    different name.  Any compiled version of the source is preferred when
    choosing the file to load.  If the argument is non-nil and not t, then it
    should be a pathname that will be merged with the home directory."
-  (when *in-the-editor* (error "You are already in the editor"))
-  (let ((*in-the-editor* t)
-        (display (unless *editor-has-been-entered*
-                   (maybe-load-hemlock-init init)
-                   ;; Device dependent initializaiton.
-                   (init-raw-io display))))
-    (catch 'editor-top-level-catcher
-      (site-wrapper-macro
-       (unless *editor-has-been-entered*
-         ;; Make an initial window, and set up redisplay's internal
-         ;; data structures.
-         (%init-redisplay display)
-         (setq *editor-has-been-entered* t)
-         ;; Pick up user initializations to be done after initialization.
-         (invoke-hook (reverse *after-editor-initializations-funs*)))
-       (catch 'hemlock-exit
+  (cond
+    (*in-the-editor*
+     (process-command-line-argument x))
+    (*in-hemlock-slave-p*
+     (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
+                                (process-command-line-argument x)))
+    (t
+     (with-event-loop ()
+       (let ((*in-the-editor* t)
+             (display (unless *editor-has-been-entered*
+                        (maybe-load-hemlock-init init)
+                        ;; Device dependent initializaiton.
+                        (init-raw-io display))))
          (catch 'editor-top-level-catcher
-           (%hemlock-process-argument x))
-         (invoke-hook hemlock::entry-hook)
-         (qt-hemlock::nonqt-hemlock
-          (lambda ()
-            (%hemlock-process-argument x))
-          (lambda ()
-            (unwind-protect
-                 (loop
-                    (catch 'command-loop-catcher
-                      (catch 'editor-top-level-catcher
-                        (handler-bind ((error #'(lambda (condition)
-                                                  (lisp-error-error-handler condition
-                                                                            :internal))))
-                          (invoke-hook hemlock::abort-hook)
-                          (%command-loop)))))
-              (invoke-hook hemlock::exit-hook)))))))))
+           (site-wrapper-macro
+            (unless *editor-has-been-entered*
+              ;; Make an initial window, and set up redisplay's internal
+              ;; data structures.
+              (%init-redisplay display)
+              (setq *editor-has-been-entered* t)
+              ;; Pick up user initializations to be done after initialization.
+              (invoke-hook (reverse *after-editor-initializations-funs*)))
+            (catch 'hemlock-exit
+              (catch 'editor-top-level-catcher
+                (process-command-line-argument x))
+              (invoke-hook hemlock::entry-hook)
+              (unwind-protect
+                   (progn
+                     (process-command-line-argument x)
+                     (loop
+                        (catch 'command-loop-catcher
+                          (catch 'editor-top-level-catcher
+                            (handler-bind ((error #'(lambda (condition)
+                                                      (lisp-error-error-handler condition
+                                                                                :internal))))
+                              (invoke-hook hemlock::abort-hook)
+                              (%command-loop))))))
+                (invoke-hook hemlock::exit-hook))))))))))
 
-(defun %hemlock-process-argument (x)
+(defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher
     (cond ((and x (symbolp x))
            (let* ((name (nstring-capitalize
@@ -329,33 +332,6 @@ GB
   (invoke-hook hemlock::entry-hook))
 
 (defvar *in-hemlock-slave-p* nil)
-
-(defun hemlock (&optional x)
-  (cond
-    (*in-the-editor*
-     (%hemlock-process-argument x))
-    (*in-hemlock-slave-p*
-     (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
-                                (%hemlock-process-argument x)))
-    (t
-     (let ((*in-the-editor* t))
-       (catch 'editor-top-level-catcher
-         (catch 'hemlock-exit
-           (qt-hemlock::qt-hemlock
-            (lambda ()
-              (%hemlock-process-argument x))
-            (lambda ()
-              (unwind-protect
-                   (loop
-                      (catch 'command-loop-catcher
-                        (catch 'editor-top-level-catcher
-                          (handler-bind
-                              ((error #'(lambda (condition)
-                                          (lisp-error-error-handler condition
-                                                                    :internal))))
-                            (invoke-hook hemlock::abort-hook)
-                            (%command-loop)))))
-                (invoke-hook hemlock::exit-hook))))))))))
 
 (defun hemlock-ed-function (x)
   (hemlock x)
