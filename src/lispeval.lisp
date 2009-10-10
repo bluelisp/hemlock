@@ -630,6 +630,10 @@
    (cl-ppcre:register-groups-bind
        (package)
        ("^\\(in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
+     (return (string-upcase package)))
+   (cl-ppcre:register-groups-bind
+       (package)
+       ("^\\(in-package \"([^)]*)\"\\)" (line-string line))
      (return (string-upcase package)))))
 
 #+(or)
