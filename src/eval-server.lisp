@@ -1130,6 +1130,11 @@
 (defswitch "edit" 'edit-switch-demon)
 )
 
-#+SBCL
-(defun hemlock.wire::serve-all-events ()
-  (sleep .1))
+(defcommand "Start Swank Server"
+    (p &optional (port (hemlock-interface::prompt-for-integer
+                        :prompt "Port: "
+                        :default-string "4005")))
+  "" ""
+  (declare (ignore p))
+  (asdf:operate 'asdf:load-op :swank)
+  (eval (read-from-string (format nil "(swank:create-server :port ~D)" port))))
