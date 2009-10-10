@@ -658,131 +658,72 @@
 
 ;;;; complete-file
 
-#-CMU
-(progn
-  (defun complete-file (pathname &key (defaults *default-pathname-defaults*)
-                                      ignore-types)
-    (let ((files (complete-file-directory pathname defaults)))
-      (cond ((null files)
-             (values nil nil))
-            ((null (cdr files))
-             (values (car files)
-                     t))
-            (t
-             (let ((good-files
-                    (delete-if #'(lambda (pathname)
-                                   (and (simple-string-p
-                                         (pathname-type pathname))
-                                        (member (pathname-type pathname)
-                                                ignore-types
-                                                :test #'string=)))
-                               files)))
-               (cond ((null good-files))
-                     ((null (cdr good-files))
-                      (return-from complete-file
-                        (values (car good-files)
-                                t)))
-                     (t
-                      (setf files good-files)))
-               (let ((common (file-namestring (car files))))
-                 (dolist (file (cdr files))
-                   (let ((name (file-namestring file)))
-                     (dotimes (i (min (length common) (length name))
-                               (when (< (length name) (length common))
-                                 (setf common name)))
-                       (unless (char= (schar common i) (schar name i))
-                         (setf common (subseq common 0 i))
-                         (return)))))
-                 (values (merge-pathnames common pathname)
-                         nil)))))))
+(defun complete-file (pathname &key (defaults *default-pathname-defaults*)
+                      ignore-types)
+  (let ((files (complete-file-directory pathname defaults)))
+    (cond ((null files)
+           (values nil nil))
+          ((null (cdr files))
+           (values (car files)
+                   t))
+          (t
+           (let ((good-files
+                  (delete-if #'(lambda (pathname)
+                                 (and (simple-string-p
+                                       (pathname-type pathname))
+                                      (member (pathname-type pathname)
+                                              ignore-types
+                                              :test #'string=)))
+                             files)))
+             (cond ((null good-files))
+                   ((null (cdr good-files))
+                    (return-from complete-file
+                      (values (car good-files)
+                              t)))
+                   (t
+                    (setf files good-files)))
+             (let ((common (file-namestring (car files))))
+               (dolist (file (cdr files))
+                 (let ((name (file-namestring file)))
+                   (dotimes (i (min (length common) (length name))
+                             (when (< (length name) (length common))
+                               (setf common name)))
+                     (unless (char= (schar common i) (schar name i))
+                       (setf common (subseq common 0 i))
+                       (return)))))
+               (values (merge-pathnames common pathname)
+                       nil)))))))
 
 ;;; COMPLETE-FILE-DIRECTORY-ARG -- Internal.
 ;;;
-  (defun complete-file-directory (pathname defaults)
-    (let* ((pathname (merge-pathnames pathname (directory-namestring defaults)))
-           (type (pathname-type pathname)))
-      (setf pathname
-            (make-pathname :defaults (truename (make-pathname :defaults pathname :name nil :type nil))
-                           :name (pathname-name pathname)
-                           :type type))
-      (delete-if-not (lambda (candidate)
-                       (search (namestring pathname) (namestring candidate)))
-                     (append
-                      #+CLISP
-                      (directory
-                       (make-pathname :defaults pathname
-                                      :name :wild
-                                      :type nil)) ;gosh!
-                      #+CLISP
-                      (directory
-                       (make-pathname :defaults pathname
-                                      :directory (append (pathname-directory pathname) (list "*")) ;gosh gosh!
-                                      :name nil
-                                      :type nil))))))
+(defun complete-file-directory (pathname defaults)
+  (let* ((namestring
+          (namestring
+           (merge-pathnames pathname (directory-namestring defaults))))
+         (directory
+          (if (eq (iolib.os::get-file-kind namestring t) :directory)
+              namestring
+              (iolib.pathnames:file-path-directory namestring :namestring t))))
+    (delete-if-not (lambda (candidate)
+                     (search namestring candidate))
+                   (append
+                    (when (probe-file namestring)
+                      (list namestring))
+                    (mapcar #'iolib.pathnames:file-path-namestring
+                            (iolib.os:list-directory directory
+                                                     :absolute-paths t))))))
 
 ;;; Ambiguous-Files  --  Public
 ;;;
-  (defun ambiguous-files (pathname
-                          &optional (defaults *default-pathname-defaults*))
-    "Return a list of all files which are possible completions of Pathname.
+(defun ambiguous-files (pathname
+                        &optional (defaults *default-pathname-defaults*))
+  "Return a list of all files which are possible completions of Pathname.
    We look in the directory specified by Defaults as well as looking down
    the search list."
-    (complete-file-directory pathname defaults)) )
+  (complete-file-directory pathname defaults))
 
 
 ;;;; CLISP fixage
-
-#+(and CLISP hemlock-clx clx)
-(in-package :xlib)
-
-#+(and CLISP hemlock-clx clx)
-'(progn
-  (defvar *lookahead* nil)
-
-  (setf *buffer-read-polling-time* .01)
-
-  (defun buffer-input-wait-default (display timeout)
-    (declare (type display display)
-             (type (or null number) timeout))
-    (declare (values timeout))
-
-    (let ((stream (display-input-stream display)))
-      (declare (type (or null stream) stream))
-      (cond ((null stream))
-            ((setf *lookahead* (or *lookahead* (ext:read-byte-no-hang stream))) nil)
-            ((eql timeout 0) :timeout)
-            ((not (null timeout))
-             (multiple-value-bind (npoll fraction)
-                 (truncate timeout *buffer-read-polling-time*)
-               (dotimes (i npoll)       ; Sleep for a time, then listen again
-                 (sleep *buffer-read-polling-time*)
-                 (when (setf *lookahead* (or *lookahead* (ext:read-byte-no-hang stream)))
-                   (return-from buffer-input-wait-default nil)))
-               (when (plusp fraction)
-                 (sleep fraction)       ; Sleep a fraction of a second
-                 (when (setf *lookahead* (or *lookahead* (ext:read-byte-no-hang stream))) ; and listen one last time
-                   (return-from buffer-input-wait-default nil)))
-               :timeout)))))
-
-  (defun buffer-read-default (display vector start end timeout)
-    (declare (type display display)
-             (type buffer-bytes vector)
-             (type array-index start end)
-             (type (or null fixnum) timeout))
-    ;; #.(declare-buffun)
-    (let ((stream (display-input-stream display)))
-      (cond ((and (eql timeout 0)
-                  (not (setf *lookahead* (or *lookahead* (ext:read-byte-no-hang stream)))) )
-             :timeout)
-            (t
-             (if *lookahead*
-                 (progn
-                   (setf (aref vector start) *lookahead*)
-                   (setf *lookahead* nil)
-                   (system::read-n-bytes stream vector (+ start 1) (- end start 1)))
-                 (system::read-n-bytes stream vector start (- end start)))
-             nil)) ) ) )
-
 
 ;;;;;;
 
