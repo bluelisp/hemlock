@@ -155,13 +155,13 @@
 (defhvar "Pathname Defaults"
   "This variable contains a pathname which is used to supply defaults
    when we don't have anything better."
-  :value (pathname "gazonk.del"))
+  :value (pathname ""))
 
 (defhvar "Last Resort Pathname Defaults"
   "This variable contains a pathname which is used to supply defaults when
    we don't have anything better, but unlike \"Pathname Defaults\", this is
    never set to some buffer's pathname."
-  :value (pathname "gazonk"))
+  :value (pathname ""))
 
 (defhvar "Last Resort Pathname Defaults Function"
   "This variable contains a function that is called when a default pathname is
@@ -186,6 +186,15 @@
                            (value pathname-defaults))
           (funcall (value last-resort-pathname-defaults-function) buffer))))
 
+(defun buffer-default-directory (buffer)
+  "Like buffer-default-pathname, but prefer a directory."
+  (let ((p (buffer-pathname buffer)))
+    (if p
+        (make-pathname :name nil :type nil :defaults p)
+        (if (every #'alphanumericp (the simple-string (buffer-name buffer)))
+            (merge-pathnames (make-pathname :name (buffer-name buffer))
+                             (value pathname-defaults))
+            (funcall (value last-resort-pathname-defaults-function) buffer)))))
 
 (defun pathname-to-buffer-name (pathname)
   "Returns a simple-string using components from pathname."
@@ -351,7 +360,7 @@
                   :prompt "Find File: "
                   :must-exist nil
                   :help "Name of file to read into its own buffer."
-                  :default (buffer-default-pathname (current-buffer)))))
+                  :default (buffer-default-directory (current-buffer)))))
          (buffer (find-file-buffer pn)))
     (change-to-buffer buffer)
     buffer))
