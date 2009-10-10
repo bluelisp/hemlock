@@ -77,20 +77,9 @@
 ;;;
 (defun write-and-maybe-wait (count)
   (declare (fixnum count))
-  (with-open-file (s "/dev/tty"
-                     :direction :output
-                     :if-exists :overwrite)
-    (write-sequence *redisplay-output-buffer* s :end count))
-  #+(or)
-  (unix:unix-write 1 *redisplay-output-buffer* 0 count)
-  #+(or)
-  (let ((speed *terminal-baud-rate*))
-    (when speed
-      ;; this function used to call editor-sleep, which has been removed.
-      ;; I suspect -- without understanding the TTY code yet, -- that this
-      ;; small wait period here actually serves a purpose, so I am replacing
-      ;; it with a call to the ordinary sleep function.
-      (sleep (/ (* (float count) 10.0) (float speed))))))
+  (connection-write (subseq *redisplay-output-buffer* 0 count)
+                    *tty-connection*)
+  (dispatch-events-no-hang))
 
 
 ;;; TTY-WRITE-STRING blasts the string into the redisplay output buffer.

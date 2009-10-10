@@ -582,24 +582,28 @@
 
 (defun process-editor-tty-input (&optional fd)
   (declare (ignore fd))
-  (let ((char (read-char-no-hang *terminal-io* #+nil sb-sys::*tty*)))
-    (when char
-      (let ((sym
-             (cond
-               ((eql char #\newline)    ;### hmm
-                (hemlock-ext:key-event-keysym #k"Return"))
-               ((eql char #\tab)        ;### hmm
-                (hemlock-ext:key-event-keysym #k"Tab"))
-               ((eql char #\Backspace)
-                (hemlock-ext:key-event-keysym #k"Backspace"))
-               ((eql char #\Escape)
-                (hemlock-ext:key-event-keysym #k"Escape"))
-               ((eql char #\rubout)
-                (hemlock-ext:key-event-keysym #k"delete")))))
-      (q-event *real-editor-input*
-               (if sym
-                   (hemlock-ext:make-key-event sym 0)
-                   (hemlock-ext:char-key-event char)))))))
+  ;; no-op
+  )
+
+(defun tty-key-event (data)
+  (declare (ignore fd))
+  (iter:iter (iter:for char in-vector data)
+             (let ((sym
+                    (cond
+                      ((eql char #\newline) ;### hmm
+                       (hemlock-ext:key-event-keysym #k"Return"))
+                      ((eql char #\tab) ;### hmm
+                       (hemlock-ext:key-event-keysym #k"Tab"))
+                      ((eql char #\Backspace)
+                       (hemlock-ext:key-event-keysym #k"Backspace"))
+                      ((eql char #\Escape)
+                       (hemlock-ext:key-event-keysym #k"Escape"))
+                      ((eql char #\rubout)
+                       (hemlock-ext:key-event-keysym #k"delete")))))
+               (q-event *real-editor-input*
+                        (if sym
+                            (hemlock-ext:make-key-event sym 0)
+                            (hemlock-ext:char-key-event char))))))
 
 #||
 (defun get-terminal-name ()
