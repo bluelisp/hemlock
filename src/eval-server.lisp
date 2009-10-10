@@ -1024,10 +1024,10 @@
         (with-open-file (s tmp :direction :output :if-exists :supersede)
           (write-string text s))
         (terpri error-output)
-        (compile-file tmp
-                      ;; :error-stream error-output
-                      ;; :source-info defined-from
-                      )))))
+        (load (compile-file tmp
+                            ;; :error-stream error-output
+                            ;; :source-info defined-from
+                            ))))))
 
 ;;; SERVER-COMPILE-FILE -- Public.
 ;;;
@@ -1042,13 +1042,13 @@
                   ,x)))
     (let ((error-stream (frob background)))
       (do-compiler-operation (note package terminal error-stream)
-        (compile-file (frob input)
-                      :output-file (frob output)
+        (load (compile-file (frob input)
+                            :output-file (frob output)
 ;;;                   :error-file (frob error)
-                      :trace-file (frob trace)
+                            :trace-file (frob trace)
 ;;;                   :load load
 ;;;                   :error-output error-stream
-                      )))))
+                            ))))))
 
 
 ;;;; Other random eval server stuff.
