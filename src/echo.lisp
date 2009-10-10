@@ -464,6 +464,22 @@
          (*parse-type* :keyword))
     (parse-for-something)))
 
+(defun listify (x) (if (listp x) x (list x)))
+
+(defun key-event-dispatch (&rest clauses)
+  (let ((key-event (get-key-event *editor-input*)))
+    (iter:iter (iter:for (keys body) on clauses by #'cddr)
+               (when (or (eq keys t) (find key-event keys))
+                 (return (funcall body))))))
+
+(defmacro key-event-case (&rest clauses)
+  `(key-event-dispatch
+    ,@(iter:iter (iter:for (keys . body) in clauses)
+                 (iter:collect (if (eq keys t) t
+                                   ;; `',
+                                   `(list ,@keys)))
+                 (iter:collect `(lambda () ,@body)))))
+
 (defun prompt-for-y-or-n (&key ((:must-exist must-exist) t)
                                (default nil defaultp)
                                default-string

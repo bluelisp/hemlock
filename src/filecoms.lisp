@@ -1254,3 +1254,28 @@
   "Moves current line to the center of the window."
   (declare (ignore p))
   (center-window (current-window) (current-point)))
+
+(defun quickselect-slave (&optional *)
+  (let ((info (variable-value 'current-eval-server :global)))
+    (when info
+      (change-to-buffer (server-info-slave-buffer info)))))
+
+(defun quickselect-help (&optional *)
+  (message "Press space for Slave buffer"))
+
+(defcommand "Quickselect" (p)
+  "" ""
+  p
+  (funcall (let ((old-window (current-window)))
+             (unwind-protect
+                  (progn
+                    (setf (current-window) *echo-area-window*)
+                    (hi::display-prompt-nicely "Quickselect? [h for help]")
+                    (hi::key-event-case
+                     ((#k"s") 'quickselect-slave)
+                     ((#k"h") 'quickselect-help)
+                     ((#k"c") 'coned-command)
+                     ((#k"b") 'bufed-command)
+                     (t (lambda ()))))
+               (setf (current-window) old-window)))
+           nil))

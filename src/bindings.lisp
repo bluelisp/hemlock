@@ -895,6 +895,8 @@
 (bind-key "New Undo"           #k"control-Delete")
 (bind-key "New Undo"           #k"control-x u")
 
+(bind-key "Quickselect"           #k"control-c space")
+
 ;;;; Logical characters.
 
 (setf (logical-key-event-p #k"control-s" :forward-search) t)
