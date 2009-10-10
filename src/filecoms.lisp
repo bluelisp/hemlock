@@ -377,30 +377,30 @@
          (found (find trial-pathname (the list *buffer-list*)
                      :key #'buffer-pathname :test #'equal)))
     (cond ((not found)
-           (if (and (null (pathname-name trial-pathname))
-                    (null (pathname-type trial-pathname))
-                    (pathname-directory trial-pathname)
-                    nil) ; dired-guts is commented out for now --amb
-               ;; This looks like a directory -- make dired buffer
-               nil ; (dired-guts nil nil trial-pathname)
-
-               (let* ((name (pathname-to-buffer-name trial-pathname))
-                      (found (getstring name *buffer-names*))
-                      (use (if found
-                               (prompt-for-buffer
-                                :prompt "Buffer to use: "
-                                :help
-                                "Buffer name in use; give another buffer name, or confirm to reuse."
-                                :default found
-                                :must-exist nil)
-                               (make-buffer name)))
-                      (buffer (if (stringp use) (make-buffer use) use)))
-                 (when (and (buffer-modified buffer)
-                            (prompt-for-y-or-n :prompt
-                                               "Buffer is modified, save it? "))
-                   (save-file-command () buffer))
-                 (read-buffer-file pathname buffer)
-                 (values buffer (stringp use)))))
+           (let ((kind (iolib.os::get-file-kind (namestring trial-pathname) t)))
+             (case kind
+               (:directory
+                (dired-guts nil nil trial-pathname))
+               (:regular-file
+                (let* ((name (pathname-to-buffer-name trial-pathname))
+                       (found (getstring name *buffer-names*))
+                       (use (if found
+                                (prompt-for-buffer
+                                 :prompt "Buffer to use: "
+                                 :help
+                                 "Buffer name in use; give another buffer name, or confirm to reuse."
+                                 :default found
+                                 :must-exist nil)
+                                (make-buffer name)))
+                       (buffer (if (stringp use) (make-buffer use) use)))
+                  (when (and (buffer-modified buffer)
+                             (prompt-for-y-or-n :prompt
+                                                "Buffer is modified, save it? "))
+                    (save-file-command () buffer))
+                  (read-buffer-file pathname buffer)
+                  (values buffer (stringp use))))
+               (t
+                (editor-error "cannot open a file of type ~A" kind)))))
           ((check-disk-version-consistent pathname found)
            (values found nil))
           (t
