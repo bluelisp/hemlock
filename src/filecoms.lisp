@@ -902,7 +902,7 @@
              (T ,@(if check-type `((check-type ,svar ,check-type)))
                 ,svar)))))
 
-(defun print-directory (pathname &optional stream &key all verbose return-list)
+(defun print-directory (pathname &key stream pattern all verbose return-list)
   "Like Directory, but prints a terse, multi-column directory listing
    instead of returning a list of pathnames.  When :all is supplied and
    non-nil, then Unix dot files are included too (as ls -a).  When :verbose
@@ -911,79 +911,97 @@
   (let ((*standard-output* (out-synonym-of stream))
         (pathname pathname))
     (if verbose
-        (print-directory-verbose pathname all return-list)
-        (print-directory-formatted pathname all return-list))))
+        (print-directory-verbose pathname all pattern return-list)
+        (print-directory-formatted pathname all pattern return-list))))
 
-(defun %directory (pathname all)
-  (declare (ignorable all))
-  #+sbcl (setf pathname (merge-pathnames "*.*" pathname))
-  (directory pathname
-             #+cmu #+cmu :all all
-             #+cmu #+cmu :check-for-subdirs nil
-             #+cmu #+cmu :truenamep nil))
+(defun %directory (pathname &optional all pattern)
+  (when pattern
+    (message "file name patterns not yet implemented in dired: ~S" pattern))
+  (unless all
+    (message "cannot suppress dot files in dired yet"))
+  (sort (iolib.os:list-directory pathname :absolute-paths t)
+        #'string<
+        :key #'iolib.pathnames:file-path-file))
 
-#+sbcl
-(defun print-directory-verbose (pathname all return-list)
-  (let ((contents (%directory pathname all))
-        (result nil))
+(defun write-file-mode (mode)
+  (macrolet ((frob (bit name &optional sbit sname negate)
+               `(if ,(if negate
+                         `(not (logbitp ,bit mode))
+                         `(logbitp ,bit mode))
+                    ,(if sbit
+                         `(if (logbitp ,sbit mode)
+                              (write-char ,sname)
+                              (write-char ,name))
+                         `(write-char ,name))
+                    (write-char #\-))))
+    (frob 15 #\d nil nil t)
+    (frob 8 #\r)
+    (frob 7 #\w)
+    (frob 6 #\x 11 #\s)
+    (frob 5 #\r)
+    (frob 4 #\w)
+    (frob 3 #\x 10 #\s)
+    (frob 2 #\r)
+    (frob 1 #\w)
+    (frob 0 #\x)))
+
+(defun print-directory-verbose (pathname all pattern return-list)
+  (let* ((contents (%directory pathname all pattern))
+         (result nil)
+         (n (length contents)))
     (format t "Directory of ~A:~%" (namestring pathname))
-    (dolist (file contents)
-      (let* ((namestring (sb-int:unix-namestring file))
+    (iter:iter (iter:for file in contents)
+               (iter:for i from 0)
+               (when (zerop (mod i 100))
+                 (message "Dired: reading files (~D/~D)" i n))
+      (let* ((namestring (iolib.pathnames:file-path-namestring file))
              (tail (subseq namestring
                            (1+ (or (position #\/ namestring
                                              :from-end t
                                              :test #'char=)
                                    -1)))))
-        (multiple-value-bind
-            (reslt dev-or-err ino mode nlink uid gid rdev size atime mtime)
-            (sb-unix:unix-stat namestring)
-          (declare (ignore ino gid rdev atime)
-                   (fixnum uid mode))
-          (cond (reslt
-                 ;;
-                 ;; Print characters for file modes.
-                 (macrolet ((frob (bit name &optional sbit sname negate)
-                              `(if ,(if negate
-                                        `(not (logbitp ,bit mode))
-                                        `(logbitp ,bit mode))
-                                   ,(if sbit
-                                        `(if (logbitp ,sbit mode)
-                                             (write-char ,sname)
-                                             (write-char ,name))
-                                        `(write-char ,name))
-                                   (write-char #\-))))
-                   (frob 15 #\d nil nil t)
-                   (frob 8 #\r)
-                   (frob 7 #\w)
-                   (frob 6 #\x 11 #\s)
-                   (frob 5 #\r)
-                   (frob 4 #\w)
-                   (frob 3 #\x 10 #\s)
-                   (frob 2 #\r)
-                   (frob 1 #\w)
-                   (frob 0 #\x))
-                 ;;
-                 ;; Print the rest.
-                 (multiple-value-bind (sec min hour date month year)
-                                      (get-decoded-time)
-                   (declare (ignore sec min hour date month))
-                   (format t "~2D ~8A ~8D ~12A ~A~@[/~]~%"
-                           nlink
-                           (let ((user-info (sb-posix:getpwuid uid)))
-                             (if user-info (sb-posix:passwd-name user-info) uid))
-                           size
-                           (decode-universal-time-for-files mtime year)
-                           tail
-                           (= (logand mode sb-unix:s-ifmt) sb-unix:s-ifdir))))
-                (t (format t "Couldn't stat ~A -- ~A.~%"
-                           tail
-                           dev-or-err
-                           #+nil (unix:get-unix-error-msg ))))
-          (when return-list
-            (push (if (= (logand mode sb-unix:s-ifmt) sb-unix:s-ifdir)
-                      (pathname (concatenate 'string namestring "/"))
-                      file)
-                  result)))))
+        (handler-case
+            (isys:%sys-lstat namestring)
+          ((or isys:enoent isys:eloop) (c)
+            (format t "Couldn't stat ~A -- ~A.~%" tail c))
+          (:no-error (stat)
+            (let ((mode (iolib.syscalls:stat-mode stat))
+                  (uid (iolib.syscalls:stat-uid stat))
+                  (nlink (iolib.syscalls:stat-nlink stat))
+                  (size (iolib.syscalls:stat-size stat))
+                  (mtime (iolib.syscalls:stat-mtime stat)))
+              ;;
+              ;; Print characters for file modes.
+              (write-file-mode mode)
+
+              ;;
+              ;; Print the rest.
+              (multiple-value-bind (sec min hour date month year)
+                  (get-decoded-time)
+                (declare (ignore sec min hour date month))
+                (let ((name (cdr (assoc :name (iolib.os:user-info uid)))))
+                  (format t "~2D ~8A ~8D ~12A ~A~@[/~]~%"
+                          nlink
+                          (or name uid)
+                          size
+                          (decode-universal-time-for-files mtime year)
+                          tail
+                          (= (logand mode iolib.syscalls:s-ifmt)
+                             iolib.syscalls:s-ifdir))))
+              ;;
+              ;; return
+              (when return-list
+                (push (if (= (logand mode iolib.syscalls:s-ifmt)
+                             iolib.syscalls:s-ifdir)
+                          (pathname (concatenate 'string namestring "/"))
+                          ;; let's return a namestring rather than an
+                          ;; IOLIB pathname for now, to insulate the rest
+                          ;; of the code base (which still expects standard
+                          ;; Common Lisp pathnames) from the new iolib world.
+                          namestring)
+                      result)))))))
+    (clear-echo-area)
+    (message "Dired: ~D files read" n)
     (nreverse result)))
 
 (defconstant unix-to-universal-time 2208988800)
@@ -998,7 +1016,6 @@
                    (1- month))
             day (= current-year year) year hour min)))
 
-#+sbcl
 (defun print-directory-formatted (pathname all return-list)
   (let ((width (or (line-length *standard-output*) 80))
         (names ())
@@ -1009,7 +1026,7 @@
     ;;
     ;; Get the data.
     (dolist (file result)
-      (let* ((name (sb-int:unix-namestring file))
+      (let* ((name (iolib.pathnames:file-path-namestring file))
              (length (length name))
              (end (if (and (plusp length)
                            (char= (schar name (1- length)) #\/))
