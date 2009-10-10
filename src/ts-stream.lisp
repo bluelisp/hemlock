@@ -370,9 +370,7 @@
   t)
 
 (defmethod hi::stream-force-output ((stream ts-stream))
-  (when (ts-stream-wire stream)
-    (%ts-stream-flsbuf stream)
-    (hemlock.wire:wire-force-output (ts-stream-wire stream)))
+  (hi::stream-finish-output stream)
   t)
 
 (defmethod hi::stream-line-column ((stream ts-stream))
