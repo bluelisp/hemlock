@@ -86,15 +86,14 @@
 
 (defun dired-guts (patternp dot-files-p directory)
   (let* ((dpn (value pathname-defaults))
-         (directory (dired-directorify
-                     (or directory
-                         (prompt-for-file
-                          :prompt "Edit Directory: "
-                          :help "Pathname to edit."
-                          :default (make-pathname
-                                    :device (pathname-device dpn)
-                                    :directory (pathname-directory dpn))
-                          :must-exist nil))))
+         (directory (or directory
+                        (prompt-for-file
+                         :prompt "Edit Directory: "
+                         :help "Pathname to edit."
+                         :default (make-pathname
+                                   :device (pathname-device dpn)
+                                   :directory (pathname-directory dpn))
+                         :must-exist nil)))
          (pattern (if patternp
                       (prompt-for-string
                        :prompt "Filename pattern: "
@@ -155,10 +154,14 @@
 ;;; CALL-PRINT-DIRECTORY gives us a nice way to report PRINT-DIRECTORY errors
 ;;; to the user and to clean up the dired buffer.
 ;;;
-(defun call-print-directory (directory mark dot-files-p)
+(defun call-print-directory (directory mark pattern dot-files-p)
   (handler-case (with-output-to-mark (s mark :full)
-                  (print-directory directory s
-                                   :all dot-files-p :verbose t :return-list t))
+                  (print-directory directory
+                                   :stream s
+                                   :pattern pattern
+                                   :all dot-files-p
+                                   :verbose t
+                                   :return-list t))
     (error (condx)
       (delete-buffer-if-possible (line-buffer (mark-line mark)))
       (editor-error "~A" condx))))
@@ -402,10 +405,9 @@
   (let ((point (buffer-point buffer)))
     (with-writable-buffer (buffer)
       (let* ((pathnames (call-print-directory
-                         (if pattern
-                             (merge-pathnames directory pattern)
-                             directory)
+                         directory
                          point
+                         pattern
                          dot-files-p))
              (dired-files (make-array (length pathnames))))
         (declare (list pathnames) (simple-vector dired-files))
@@ -779,19 +781,6 @@
     (if (char= (schar string last) #\/)
         (subseq string 0 last)
         string)))
-;;;
-;;; This is necessary to derive a canonical representation for directory
-;;; names, so "Dired" can map various strings naming one directory to that
-;;; one directory.
-;;;
-#+sbcl
-(defun dired-directorify (pathname)
-  (let ((directory (sb-int:unix-namestring pathname)))
-    (if (directoryp directory)
-        directory
-        (pathname (concatenate 'simple-string (namestring directory) "/")))))
-
-
 
 ;;;; View Mode.
 

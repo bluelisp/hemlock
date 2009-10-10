@@ -91,7 +91,6 @@
           (wild-match-file obj) (wild-match-substitute obj)))
 
 
-#+sbcl
 (defun copy-file (spec1 spec2 &key (update *update-default*)
                                    (clobber *clobber-default*)
                                    (directory () directoryp))
@@ -110,9 +109,9 @@
    user will be asked whether it should be overwritten or not."
   (cond
    ((not directoryp)
-    (let* ((ses-name1 (sb-int:unix-namestring spec1 t))
-           (exists1p (sb-unix:unix-file-kind ses-name1))
-           (ses-name2 (sb-int:unix-namestring spec2 nil))
+    (let* ((ses-name1 (iolib.pathnames:file-path-namestring spec1))
+           (exists1p (iolib.os::get-file-kind spec1))
+           (ses-name2 (iolib.pathnames:file-path-namestring spec2))
            (pname1 (pathname ses-name1))
            (pname2 (pathname ses-name2))
            (dirp1 (directoryp pname1))
@@ -156,7 +155,7 @@
        (funcall *error-function*
                 "Spec1 is just a pattern when supplying directory -- ~S."
                 spec1))
-     (let* ((pname2 (pathname (sb-int:unix-namestring spec2 nil)))
+     (let* ((pname2 (pathname (iolib.pathnames:file-path-namestring spec2)))
             (dirp2 (directoryp pname2))
             (wildp1 (wildcardp spec1))
             (wildp2 (wildcardp (file-namestring pname2))))
@@ -286,8 +285,9 @@
              (do-the-copy ses-name1 ses-name2 secs1)))
           (t (do-the-copy ses-name1 ses-name2 secs1)))))
 
-#+(or)
 (defun do-the-copy (ses-name1 ses-name2 secs1)
+  (alexandria:copy-file ses-name1 ses-name2)
+  #+(or)
   (let* ((fd (open-file ses-name1)))
     (unwind-protect
         (multiple-value-bind (data byte-count mode)
@@ -295,13 +295,13 @@
           (unwind-protect (write-file ses-name2 data byte-count mode)
             (system:deallocate-system-memory data byte-count)))
       (close-file fd)))
+  #+(or)
   (set-write-date ses-name2 secs1)
   (funcall *report-function* "~&~S  ==>~%  ~S~%" ses-name1 ses-name2))
 
 
 ;;;; Rename-File
 
-#+sbcl
 (defun rename-file (spec1 spec2 &key (clobber *clobber-default*)
                           (directory () directoryp))
   "Rename file spec1 to spec2.  A single wildcard is acceptable, and spec2 may
@@ -311,9 +311,9 @@
    specify the trailing slash."
   (cond
    ((not directoryp)
-    (let* ((ses-name1 (sb-int:unix-namestring spec1 t))
-           (exists1p (sb-unix:unix-file-kind ses-name1))
-           (ses-name2 (sb-int:unix-namestring spec2 nil))
+    (let* ((ses-name1 (iolib.pathnames:file-path-namestring spec1))
+           (exists1p (iolib.os::get-file-kind ses-name1))
+           (ses-name2 (iolib.pathnames:file-path-namestring spec2))
            (pname1 (pathname ses-name1))
            (pname2 (pathname ses-name2))
            (dirp2 (directoryp pname2))
@@ -341,7 +341,7 @@
                 "Spec1 is just a pattern when supplying directory -- ~S."
                 spec1))
 
-     (let* ((pname2 (pathname (sb-int:unix-namestring spec2 nil)))
+     (let* ((pname2 (pathname (iolib.pathnames:file-path-namestring spec2)))
             (dirp2 (directoryp pname2))
             (wildp1 (wildcardp spec1))
             (wildp2 (wildcardp (file-namestring pname2))))
@@ -442,7 +442,6 @@
 ;;; down through, letting LISP:DELETE-FILE signal an error if the directory
 ;;; is not empty.
 ;;;
-#+sbcl
 (defun delete-file (spec &key (recursive *recursive-default*)
                               (clobber *clobber-default*))
   "Delete spec asking confirmation on each file if clobber is nil.  A single
@@ -451,7 +450,7 @@
    subdirectory structure.  An empty directory may be specified without
    recursive being non-nil.  When specifying a directory, the trailing slash
    must be included."
-  (let* ((ses-name (sb-int:unix-namestring spec t))
+  (let* ((ses-name (iolib.pathnames:file-path-namestring spec))
          (pname (pathname ses-name))
          (wildp (wildcardp (file-namestring pname)))
          (dirp (directoryp pname)))
@@ -564,11 +563,10 @@
 
 ;;;; Miscellaneous Utilities (e.g., MAKEDIR).
 
-#+sbcl
 (defun make-directory (name)
   "Creates directory name.  If name exists, then an error is signaled."
-  (let ((ses-name (sb-int:unix-namestring name nil)))
-    (when (sb-unix:unix-file-kind ses-name)
+  (let ((ses-name (iolib.pathnames:file-path-namestring name)))
+    (when (iolib.os::get-file-kind ses-name)
       (funcall *error-function* "Name already exists -- ~S" ses-name))
     (enter-directory ses-name))
   t)
@@ -577,71 +575,10 @@
 
 ;;;; Mach Operations
 
-#+(or)
-(defun open-file (ses-name)
-  (multiple-value-bind (fd err)
-                       (sb-unix:unix-open ses-name sb-unix:o_rdonly 0)
-    (unless fd
-      (funcall *error-function* "Opening ~S failed: ~A." ses-name err))
-    fd))
-
-#+(or)
-(defun close-file (fd)
-  (sb-unix:unix-close fd))
-
-#+(or)
-(defun read-file (fd ses-name)
-  (multiple-value-bind (winp dev-or-err ino mode nlink uid gid rdev size)
-                       (sb-unix:unix-fstat fd)
-    (declare (ignore ino nlink uid gid rdev))
-    (unless winp (funcall *error-function*
-                          "Opening ~S failed: ~A."  ses-name dev-or-err))
-    (let ((storage (system:allocate-system-memory size)))
-      (multiple-value-bind (read-bytes err)
-                           (sb-unix:unix-read fd storage size)
-        (when (or (null read-bytes) (not (= size read-bytes)))
-          (system:deallocate-system-memory storage size)
-          (funcall *error-function*
-                   "Reading file ~S failed: ~A." ses-name err)))
-      (values storage size mode))))
-
-#+(or)
-(defun write-file (ses-name data byte-count mode)
-  (multiple-value-bind (fd err) (sb-unix:unix-creat ses-name #o644)
-    (unless fd
-      (funcall *error-function* "Couldn't create file ~S: ~A"
-               ses-name (sb-unix:get-unix-error-msg err)))
-    (multiple-value-bind (winp err) (sb-unix:unix-write fd data 0 byte-count)
-      (unless winp
-        (funcall *error-function* "Writing file ~S failed: ~A"
-               ses-name
-               (sb-unix:get-unix-error-msg err))))
-    (sb-unix:unix-fchmod fd (logand mode #o777))
-    (sb-unix:unix-close fd)))
-
-#+(or)
-(defun set-write-date (ses-name secs)
-  (multiple-value-bind (winp dev-or-err ino mode nlink uid gid rdev size atime)
-                       (sb-unix:unix-stat ses-name)
-    (declare (ignore ino mode nlink uid gid rdev size))
-    (unless winp
-      (funcall *error-function* "Couldn't stat file ~S failed: ~A."
-               ses-name dev-or-err))
-    (multiple-value-bind (winp err)
-        (sb-unix:unix-utimes ses-name atime 0 secs 0)
-      (unless winp
-        (funcall *error-function* "Couldn't set write date of file ~S: ~A"
-                 ses-name (sb-unix:get-unix-error-msg err))))))
-
-#+sbcl
 (defun get-write-date (ses-name)
-  (multiple-value-bind (winp dev-or-err ino mode nlink uid gid rdev size
-                        atime mtime)
-                       (sb-unix:unix-stat ses-name)
-    (declare (ignore ino mode nlink uid gid rdev size atime))
-    (unless winp (funcall *error-function* "Couldn't stat file ~S failed: ~A."
-                          ses-name dev-or-err))
-    mtime))
+  (iolib.syscalls:stat-mtime
+   (or (isys:%sys-stat ses-name)
+       (funcall *error-function* "Couldn't stat file ~S" ses-name))))
 
 ;;; SUB-RENAME-FILE must exist because we can't use Common Lisp's RENAME-FILE.
 ;;; This is because it merges the new name with the old name to pick up
@@ -649,18 +586,12 @@
 ;;; "foo.bar" to ".baz" causes a result of "foo.baz"!  This routine doesn't
 ;;; have this problem.
 ;;;
-#+(or)
 (defun sub-rename-file (ses-name1 ses-name2)
-  (multiple-value-bind (res err) (sb-unix:unix-rename ses-name1 ses-name2)
-    (unless res
-      (funcall *error-function* "Failed to rename ~A to ~A: ~A."
-               ses-name1 ses-name2 (sb-unix:get-unix-error-msg err)))))
+  (isys:%sys-rename ses-name1 ses-name2))
 
-#+sbcl
 (defun directory-existsp (ses-name)
-  (eq (sb-unix:unix-file-kind ses-name) :directory))
+  (eq (iolib.os::get-file-kind ses-name) :directory))
 
-#+(or)
 (defun enter-directory (ses-name)
   (declare (simple-string ses-name))
   (let* ((length-1 (1- (length ses-name)))
@@ -668,22 +599,11 @@
                       length-1)
                    (subseq ses-name 0 (1- (length ses-name)))
                    ses-name)))
-    (multiple-value-bind (winp err) (sb-unix:unix-mkdir name #o755)
-      (unless winp
-        (funcall *error-function* "Couldn't make directory ~S: ~A"
-                 name
-                 (sb-unix:get-unix-error-msg err))))))
+    (isys:%sys-mkdir name #o755)))
 
-#+(or)
 (defun delete-directory (ses-name)
   (declare (simple-string ses-name))
-  (multiple-value-bind (winp err)
-                       (sb-unix:unix-rmdir (subseq ses-name 0
-                                                (1- (length ses-name))))
-    (unless winp
-      (funcall *error-function* "Couldn't delete directory ~S: ~A"
-               ses-name
-               (sb-unix:get-unix-error-msg err)))))
+  (isys:%sys-rmdir (subseq ses-name 0 (1- (length ses-name)))))
 
 
 
