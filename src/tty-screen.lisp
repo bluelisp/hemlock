@@ -340,6 +340,9 @@
         ((eq hunk first))
       (incf (device-hunk-position hunk) offset)
       (incf (tty-hunk-text-position hunk) offset))
+    (let ((hunk (window-hunk *echo-area-window*)))
+      (incf (device-hunk-position hunk) offset)
+      (incf (tty-hunk-text-position hunk) offset))
     (setf *screen-image-trashed* t)))
 
 
