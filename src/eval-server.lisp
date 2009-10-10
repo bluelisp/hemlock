@@ -650,40 +650,14 @@
                                             (subseq (string symbol) 1)))
                  ,symbol
                  ,symbol ,new-value)))
-    #+NILGB
-    (let ((wire hemlock.wire:*current-wire*))
-      (frob system:*beep-function*
-            #'(lambda (&optional stream)
-                (declare (ignore stream))
-                (hemlock.wire:remote-value wire (beep))))
-      (frob ext:*gc-notify-before*
-            #'(lambda (bytes-in-use)
-                (hemlock.wire:remote wire
-                                     (slave-gc-notify-before
-                                      slave-info
-                                      (format nil
-                                              "~%[GC threshold exceeded with ~:D bytes in use.  ~
-                           Commencing GC.]~%"
-                                              bytes-in-use)))
-                (hemlock.wire:wire-force-output wire)))
-      (frob ext:*gc-notify-after*
-            #'(lambda (bytes-retained bytes-freed new-trigger)
-                (hemlock.wire:remote wire
-                                     (slave-gc-notify-after
-                                      slave-info
-                                      (format nil
-                                              "[GC completed with ~:D bytes retained and ~:D ~
-                           bytes freed.]~%[GC will next occur when at least ~
-                           ~:D bytes are in use.]~%"
-                                              bytes-retained bytes-freed new-trigger)))
-                (hemlock.wire:wire-force-output wire))))
     (frob *terminal-io* (connect-stream slave-info))
     (frob *standard-input* (make-synonym-stream '*terminal-io*))
     (frob *standard-output* (make-synonym-stream '*terminal-io*))
     (frob *error-output* (make-synonym-stream '*terminal-io*))
     (frob *debug-io* (make-synonym-stream '*terminal-io*))
     (frob *query-io* (make-synonym-stream '*terminal-io*))
-    (frob *trace-output* (make-synonym-stream '*terminal-io*)))
+    ;; (frob *trace-output* (make-synonym-stream '*terminal-io*))
+    )
   (setf *background-io* (connect-stream background-info))
   (setf cl-user::*io* *terminal-io*)
   nil)
@@ -762,10 +736,12 @@
       (format t "Connecting to ~A:~D~%" machine port)
       (hi::with-event-loop ()
         (connect-to-editor machine port slave-buffer background-buffer)
-        (iter (dispatch-events)
-              (until cl-user::*io*)
-              (write-line "Waiting for typestream buffer...")
-              (force-output))
+        (iter:iter
+         (dispatch-events)
+         (iter:until cl-user::*io*)
+         (write-line "Waiting for typestream buffer..."
+                     *original-terminal-io*)
+         (force-output *original-terminal-io*))
         (prepl:repl)))))
 
 (defun start-slave (editor &optional slave-buffer background-buffer)

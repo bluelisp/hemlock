@@ -8,5 +8,6 @@ stty -icanon -echo stop ^- start ^- intr ^-
 
 clbuild lisp <<EOF
 (asdf:operate 'asdf:load-op :ttyhemlock)
+(asdf:operate 'asdf:load-op :qthemlock)
 (hi::old-hemlock)
 EOF

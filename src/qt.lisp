@@ -366,10 +366,10 @@
 
 (defvar *in-main-qthread* nil)
 
-(defmethod dispatch-events-with-backend ((backend (eql :qt)))
+(defmethod hi::dispatch-events-with-backend ((backend (eql :qt)))
   (process-one-event))
 
-(defmethod dispatch-events-no-hang-with-backend ((backend (eql :qt)))
+(defmethod hi::dispatch-events-no-hang-with-backend ((backend (eql :qt)))
   (process-one-event (#_QEventLoop::AllEvents)))
 
 (defun process-one-event (&optional (mode (#_QEventLoop::WaitForMoreEvents)))
@@ -409,12 +409,6 @@
 (defvar *echo-hunk-widget*)
 (defvar *executor*)
 (defvar *notifier*)
-
-(defun wire::magically-get-object-in-different-thread (lock cv wire)
-  (qt-repl::%eval-in-gui-thread *notifier*
-                                `(progn ;bt:with-recursive-lock-held (,lock)
-                                   (wire:wire-get-object ,wire)
-                                   (bt:condition-notify ,cv))))
 
 (defun make-hemlock-widget ()
   (let* ((wrapper (#_new QSplitter))
@@ -603,105 +597,97 @@
         (funcall (pop *invoke-later-thunks*))))
 
 (defun qt-hemlock (init-fun command-loop-fun)
-  (hi::with-event-loop ()
-    (multiple-value-bind (main echo *font* widget *tabs*)
-        (make-hemlock-widget)
-      (let* ((window (#_new QMainWindow))
-             (*window-list* *window-list*)
-             (*editor-input*
-              (make-instance 'qt-editor-input))
-
-             (*in-main-qthread* t)
-             (*invoke-later-thunks* '())
-             (*invoke-later-timer* (#_new QTimer))
-             (*really-redisplay* nil))
-        (#_setWindowTitle window "Hemlock")
-        (#_setCentralWidget window widget)
-        (connect *invoke-later-timer*
-                 (QSIGNAL "timeout()")
-                 #'process-invoke-later-thunks)
-        (let ((menu (#_addMenu (#_menuBar window) "File")))
-          (add-command-action menu "Find File")
-          (add-command-action menu "Save File")
-          (#_addSeparator menu)
-          (add-command-action menu "Write File")
-          (#_addSeparator menu)
-          (add-command-action menu "Exit Hemlock"))
-        (let ((menu (#_addMenu (#_menuBar window) "Lisp")))
-          (add-command-action menu "Select Self As Slave")
-          (add-command-action menu "Select Slave")
-          (add-command-action menu "Select Eval Buffer"))
-        (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
-          (add-command-action menu "Bufed")
-          (add-command-action menu "Select Buffer"))
-        (let ((menu (#_addMenu (#_menuBar window) "Browser")))
-          (add-command-action menu "Browse")
-          (add-command-action menu "Browse Qt Class")
-          (add-command-action menu "CLHS")
-          (add-command-action menu "Google")
-          (#_addSeparator menu)
-          (add-command-action menu "Enter Foreign Widget")
-          (add-command-action menu "Leave Foreign Widget"))
-        (let ((menu (#_addMenu (#_menuBar window) "Preferences")))
-          (add-command-action menu "Select Font")
-          (#_addSeparator menu)
-          (add-command-action menu "Save Window Geometry")
-          (add-command-action menu "Restore Window Geometry"))
-        (setf hi::*real-editor-input* *editor-input*)
-        (redraw-all-widgets main echo nil)
-        (when init-fun
-          (funcall init-fun))
-        (setf (widget-modeline main) (#_statusBar window))
-        (dolist (buffer hi::*buffer-list*)
-          (unless (eq buffer *echo-area-buffer*)
-            (add-buffer-tab-hook buffer)))
-        (connect/int *tabs*
-                     (qsignal "currentChanged(int)")
-                     (lambda (index)
-                       (change-to-buffer (find-buffer (#_tabText *tabs* index)))
-                       (redraw-needed)))
-        (connect (#_new QShortcut
-                        (#_new QKeySequence "Ctrl+G")
-                        (#_window *main-hunk-widget*))
-                 (QSIGNAL "activated()")
-                 'control-g-handler)
-        (restore-window-geometry window)
-        (#_show window)
-        ;; undo the minimum set before, so that it's only a default
-        ;; (fixme: it still overrides a saved geometry):
-        (#_setMinimumSize widget 0 0)
-        (setf *notifier* (make-instance 'qt-repl::repl-notifier))
-        (setf *executor* (make-instance 'qt-repl::repl-executer
-                                        :notifier *notifier*))
-        (setf *editor-name* nil)        ;reinit slave stuff
-        (unwind-protect
-             (funcall command-loop-fun)
-          (#_hide window))))))
-
-(defmethod hi::invoke-with-event-loop ((backend (eql :qt)) fun)
-  (ensure-smoke)
-  (let* ((*qapp*
-          ;; fixme: misuse of this variable
-          (if *qapp*
-              (#_new QEventLoop)
-              (make-qapplication)))
-         (*do-not-gc-list* '())
-         (*invoke-later-thunks* '())
-         (*invoke-later-timer* (#_new QTimer)))
-    (connect *invoke-later-timer*
-             (QSIGNAL "timeout()")
-             #'process-invoke-later-thunks)
-    #-sbcl (funcall fun)
-    #+sbcl (sb-int:with-float-traps-masked
-               (:overflow :invalid :divide-by-zero)
-             (funcall fun))))
-
-(defun nonqt-hemlock (init-fun command-loop-fun)
-  (with-event-loop ()
-    (let ((*really-redisplay* nil))
+  (multiple-value-bind (main echo *font* widget *tabs*)
+      (make-hemlock-widget)
+    (let* ((window (#_new QMainWindow))
+           (*window-list* *window-list*)
+           (*editor-input*
+            (make-instance 'qt-editor-input))
+           (*in-main-qthread* t)
+           (*invoke-later-thunks* '())
+           (*invoke-later-timer* (#_new QTimer))
+           (*really-redisplay* nil))
+      (#_setWindowTitle window "Hemlock")
+      (#_setCentralWidget window widget)
+      (connect *invoke-later-timer*
+               (QSIGNAL "timeout()")
+               #'process-invoke-later-thunks)
+      (let ((menu (#_addMenu (#_menuBar window) "File")))
+        (add-command-action menu "Find File")
+        (add-command-action menu "Save File")
+        (#_addSeparator menu)
+        (add-command-action menu "Write File")
+        (#_addSeparator menu)
+        (add-command-action menu "Exit Hemlock"))
+      (let ((menu (#_addMenu (#_menuBar window) "Lisp")))
+        (add-command-action menu "Select Self As Slave")
+        (add-command-action menu "Select Slave")
+        (add-command-action menu "Select Eval Buffer"))
+      (let ((menu (#_addMenu (#_menuBar window) "Buffer")))
+        (add-command-action menu "Bufed")
+        (add-command-action menu "Select Buffer"))
+      (let ((menu (#_addMenu (#_menuBar window) "Browser")))
+        (add-command-action menu "Browse")
+        (add-command-action menu "Browse Qt Class")
+        (add-command-action menu "CLHS")
+        (add-command-action menu "Google")
+        (#_addSeparator menu)
+        (add-command-action menu "Enter Foreign Widget")
+        (add-command-action menu "Leave Foreign Widget"))
+      (let ((menu (#_addMenu (#_menuBar window) "Preferences")))
+        (add-command-action menu "Select Font")
+        (#_addSeparator menu)
+        (add-command-action menu "Save Window Geometry")
+        (add-command-action menu "Restore Window Geometry"))
+      (setf hi::*real-editor-input* *editor-input*)
+      (redraw-all-widgets main echo nil)
       (when init-fun
         (funcall init-fun))
-      (funcall command-loop-fun))))
+      (setf (widget-modeline main) (#_statusBar window))
+      (dolist (buffer hi::*buffer-list*)
+        (unless (eq buffer *echo-area-buffer*)
+          (add-buffer-tab-hook buffer)))
+      (connect/int *tabs*
+                   (qsignal "currentChanged(int)")
+                   (lambda (index)
+                     (change-to-buffer (find-buffer (#_tabText *tabs* index)))
+                     (redraw-needed)))
+      (connect (#_new QShortcut
+                      (#_new QKeySequence "Ctrl+G")
+                      (#_window *main-hunk-widget*))
+               (QSIGNAL "activated()")
+               'control-g-handler)
+      (restore-window-geometry window)
+      (#_show window)
+      ;; undo the minimum set before, so that it's only a default
+      ;; (fixme: it still overrides a saved geometry):
+      (#_setMinimumSize widget 0 0)
+      (setf *notifier* (make-instance 'qt-repl::repl-notifier))
+      (setf *executor* (make-instance 'qt-repl::repl-executer
+                                      :notifier *notifier*))
+      (unwind-protect
+           (funcall command-loop-fun)
+        (#_hide window)))))
+
+(defmethod hi::invoke-with-event-loop ((backend (eql :qt)) fun)
+  (setf *editor-name* nil)              ;reinit slave stuff
+  (ensure-smoke)
+  (let ((in-second-thread (and *qapp* t)))
+    (unless in-second-thread
+      (setf *qapp* (make-qapplication)))
+    (let* ((*qapp*
+            ;; fixme: misuse of this variable
+            (if in-second-thread (#_new QEventLoop) *qapp*))
+           (*do-not-gc-list* '())
+           (*invoke-later-thunks* '())
+           (*invoke-later-timer* (#_new QTimer)))
+      (connect *invoke-later-timer*
+               (QSIGNAL "timeout()")
+               #'process-invoke-later-thunks)
+      #-sbcl (funcall fun)
+      #+sbcl (sb-int:with-float-traps-masked
+                 (:overflow :invalid :divide-by-zero)
+               (funcall fun)))))
 
 
 ;;; Keysym translations
@@ -1199,21 +1185,22 @@
      (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
                                 (process-command-line-argument x)))
     (t
-     (let ((*in-the-editor* t))
-       (catch 'editor-top-level-catcher
-         (catch 'hemlock-exit
-           (qt-hemlock::qt-hemlock
-            (lambda ()
-              (process-command-line-argument x))
-            (lambda ()
-              (unwind-protect
-                   (loop
-                      (catch 'command-loop-catcher
-                        (catch 'editor-top-level-catcher
-                          (handler-bind
-                              ((error #'(lambda (condition)
-                                          (lisp-error-error-handler condition
-                                                                    :internal))))
-                            (invoke-hook hemlock::abort-hook)
-                            (%command-loop)))))
-                (invoke-hook hemlock::exit-hook))))))))))
+     (with-event-loop ()
+       (let ((*in-the-editor* t))
+         (catch 'editor-top-level-catcher
+           (catch 'hemlock-exit
+             (qt-hemlock::qt-hemlock
+              (lambda ()
+                (process-command-line-argument x))
+              (lambda ()
+                (unwind-protect
+                     (loop
+                        (catch 'command-loop-catcher
+                          (catch 'editor-top-level-catcher
+                            (handler-bind
+                                ((error #'(lambda (condition)
+                                            (lisp-error-error-handler condition
+                                                                      :internal))))
+                              (invoke-hook hemlock::abort-hook)
+                              (%command-loop)))))
+                  (invoke-hook hemlock::exit-hook)))))))))))

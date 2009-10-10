@@ -646,7 +646,7 @@
   `(handler-bind ((error #'lisp-error-error-handler))
      ,@body))
 
-(defvar *connection-backend* :iolib)
+(defvar *connection-backend* :qt)
 
 (defmacro with-event-loop ((&optional) &body body)
   `(invoke-with-event-loop *connection-backend* (lambda () ,@body)))
