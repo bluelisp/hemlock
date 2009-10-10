@@ -1143,38 +1143,6 @@
   (setf *steal-focus-out* t)
   (#_setFocus *echo-hunk-widget*))
 
-(defun %find-definitions (name)
-  (let ((data
-         (conium:find-definitions (hemlock::resolve-slave-symbol name))))
-    (hemlock::eval-in-master `(%definitions-found ',name ',data))))
-
-(defun %definitions-found (name data)
-  (dolist (definition data
-           (message "No definition found for: ~A" name))
-    (let* ((location (cdr (assoc :location definition)))
-           (file (second (assoc :file location)))
-           (position (second (assoc :position location))))
-      (when file
-        (change-to-buffer (find-file-buffer file))
-        (when position
-          (buffer-start (current-point))
-          (character-offset (current-point) (1- position)))
-        (return)))))
-
-(defun find-definitions (name)
-  (hemlock::eval-in-slave `(%find-definitions ',name)))
-
-(defcommand "Find Definition"
-    (p &optional name)
-  "" ""
-  (find-definitions
-   (or name
-       (and (null p) (hemlock::slave-symbol-at-point))
-       (hemlock::parse-slave-symbol
-        (hemlock-interface::prompt-for-string :prompt "Name: ")))))
-
-(bind-key "Find Definition" #k"meta-." :mode "Lisp")
-
 (in-package :hi)
 (defun hemlock (&optional x)
   (setf *connection-backend* :qt)
