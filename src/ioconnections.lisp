@@ -12,7 +12,7 @@
 
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
-      (iolib:event-dispatch *event-base* :one-shot t)
+      (iolib:event-dispatch *event-base* :one-shot t :min-step 0)
     (iolib.syscalls:etimedout (c)
       (warn "ignoring ~A in dispatch-events" c))))
 
