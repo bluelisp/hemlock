@@ -13,14 +13,15 @@
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
       (iolib:event-dispatch *event-base* :one-shot t :min-step 0)
-    (iolib.syscalls:etimedout (c)
-      (warn "ignoring ~A in dispatch-events" c))))
+    ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
 
 (defmethod dispatch-events-no-hang-with-backend ((backend (eql :iolib)))
-  (iolib:event-dispatch *event-base*
-                        :one-shot t
-                        :timeout 0
-                        :min-step 0))
+  (handler-case
+      (iolib:event-dispatch *event-base*
+                            :one-shot t
+                            :timeout 0
+                            :min-step 0)
+    ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
 
 (defmethod invoke-later ((backend (eql :iolib)) fun)
   (iolib.multiplex:add-timer *event-base* fun 0 :one-shot t))
