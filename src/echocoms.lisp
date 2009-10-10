@@ -172,24 +172,28 @@
       (:file
        (file-completion-action typein))
       (:keyword
-       (let ((point (current-point)))
-         (unless (blank-after-p point)
-           (insert-character point
-                             (hemlock-ext:key-event-char *last-key-event-typed*))))
-       (multiple-value-bind
-           (prefix key value field ambig)
-           (complete-string typein *parse-string-tables*)
-         (declare (ignore value ambig))
-         (when (eq key :none) (editor-error "No possible completion."))
-         (delete-region *parse-input-region*)
-         (let ((new-typein (if (and (eq key :unique) (null field))
-                               (subseq prefix 0 field)
-                               (concatenate 'string
-                                            (subseq prefix 0 field)
-                                            (string
-                                             (hemlock-ext:key-event-char
-                                              *last-key-event-typed*))))))
-           (insert-string (region-start *parse-input-region*) new-typein))))
+       (let ((spacep
+              ;; due to the use of spaces in command names, let's special
+              ;; case on spaces here: The space key both completes and
+              ;; self inserts, where other keys (like tab) only complete.
+              (eql (hemlock-ext:key-event-char *last-key-event-typed*)
+                   #\space)))
+         (when spacep
+           (let ((point (current-point)))
+             (unless (blank-after-p point)
+               (insert-character point #\space))))
+         (multiple-value-bind
+               (prefix key value field ambig)
+             (complete-string typein *parse-string-tables*)
+           (declare (ignore value ambig))
+           (when (eq key :none) (editor-error "No possible completion."))
+           (delete-region *parse-input-region*)
+           (let ((new-typein (if (and spacep (or field (not (eq key :unique))))
+                                 (concatenate 'string
+                                              (subseq prefix 0 field)
+                                              " ")
+                                 (subseq prefix 0 field))))
+             (insert-string (region-start *parse-input-region*) new-typein)))))
       (t
        (editor-error "Cannot complete input for this prompt.")))))
 

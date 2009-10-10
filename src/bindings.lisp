@@ -262,6 +262,7 @@
 
 (bind-key "Complete Keyword" #k"escape" :mode "Echo Area")
 (bind-key "Complete Field" #k"control-i" :mode "Echo Area")
+(bind-key "Complete Field" #k"tab" :mode "Echo Area")
 (bind-key "Complete Field" #k"space" :mode "Echo Area")
 (bind-key "Confirm Parse" #k"return" :mode "Echo Area")
 
@@ -871,8 +872,8 @@
 (bind-key "Completion Self Insert" #k"return" :mode "Completion")
 (bind-key "Completion Self Insert" #k"linefeed" :mode "Completion")
 
-(bind-key "Completion Complete Word" #k"tab")
-(bind-key "Completion Rotate Completions" #k"meta-end")
+(bind-key "Completion Complete Word" #k"tab" :mode "Completion")
+(bind-key "Completion Rotate Completions" #k"meta-end" :mode "Completion")
 
 
 
