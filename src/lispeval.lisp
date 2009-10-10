@@ -555,7 +555,8 @@
                  :package-name (etypecase package
                                  (package (package-name package))
                                  (string package)
-                                 (null (package-at-point)))
+                                 (null (or (package-at-point)
+                                           "COMMON-LISP")))
                  :name name))
 
 (defun casify-char (char)
@@ -606,7 +607,7 @@
   (multiple-value-bind (sname pname) (tokenize-symbol-thoroughly string)
     (when (plusp (length sname))
       (make-slave-symbol sname
-                         (cond ((string= pname "") "KEYWORD")
+                         (cond ((equal pname "") "KEYWORD")
                                (pname)
                                (t package))))))
 
@@ -618,7 +619,8 @@
      (form-offset start -1)
      (character-offset end -1)
      (form-offset end 1)
-     (region-to-string (region start end)))))
+     (when (< (mark-charpos start) (mark-charpos end))
+       (region-to-string (region start end))))))
 
 (defun package-at-point ()
   (iter:iter
