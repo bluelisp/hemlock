@@ -180,9 +180,7 @@
 ;;;
 (defmethod device-finish-output ((device tty-device) window)
   (declare (ignore window))
-  (let ((force-output (device-force-output device)))
-    (when force-output
-      (funcall force-output))))
+  (device-force-output device))
 
 
 
