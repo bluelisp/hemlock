@@ -3,14 +3,18 @@
 (in-package :hi)
 
 (defmethod invoke-with-event-loop ((backend (eql :iolib)) fun)
-  (iolib:with-event-base (*event-base*)
-    (funcall fun)))
+  (let ((iolib.multiplex::*default-multiplexer*
+         ;; the epoll muxer gives me segfaults and memory corruption.
+         ;; Don't know why, but select works, so let's use it:
+         'iolib.multiplex::select-multiplexer))
+    (iolib:with-event-base (*event-base*)
+      (funcall fun))))
 
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
-      (iolib:event-dispatch *event-base* :one-shot t :timeout 0.5)
+      (iolib:event-dispatch *event-base* :one-shot t)
     (iolib.syscalls:etimedout (c)
-      (warn "ignoring ~A dispatch-events" c))))
+      (warn "ignoring ~A in dispatch-events" c))))
 
 (defmethod dispatch-events-no-hang-with-backend ((backend (eql :iolib)))
   (iolib:event-dispatch *event-base*
@@ -76,6 +80,7 @@
         (fd (connection-fd connection))
         (need-handler (null (connection-write-buffers connection)))
         handler)
+    (check-type bytes (simple-array (unsigned-byte 8) (*)))
     (setf (connection-write-buffers connection)
           (nconc (connection-write-buffers connection)
                  (list bytes)))
@@ -90,7 +95,7 @@
                (when (eq error :error) (error "error with ~A" .fd))
                ;; fixme: with-pointer-to-vector-data isn't portable
                (let ((bytes (pop (connection-write-buffers connection))))
-                 (assert (typep bytes 'array))
+                 (check-type bytes (simple-array (unsigned-byte 8) (*)))
                  (cffi-sys:with-pointer-to-vector-data (ptr bytes)
                    (let ((n-bytes-written
                           (iolib.syscalls:%sys-write fd ptr (length bytes))))
@@ -98,8 +103,7 @@
                        (push (subseq bytes n-bytes-written)
                              (connection-write-buffers connection)))))
                  (setf (iolib.multiplex::fd-handler-one-shot-p handler)
-                       (null (connection-write-buffers connection)))))
-             :one-shot t)))))
+                       (null (connection-write-buffers connection))))))))))
 
 
 ;;;;
@@ -237,3 +241,9 @@
          host
          port
          (connection-initargs connection))))))
+
+#+(or)
+(trace connection-write
+       %read
+       iolib.syscalls:%sys-read
+       iolib.syscalls:%sys-write)

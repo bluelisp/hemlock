@@ -266,7 +266,7 @@
            (dolist (f (variable-value 'hemlock::input-hook)) (funcall f))
            (return))
          (invoke-scheduled-events)
-         (dispatch-events-no-hang)
+         #+nil (dispatch-events-no-hang)
          (unless (or #+nil (hemlock-ext:serve-event 0)
                      (internal-redisplay))
            (internal-redisplay)

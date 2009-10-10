@@ -26,7 +26,7 @@
 
 (defmethod connection-write (data (connection qiodevice-connection))
   (let ((bytes (filter-connection-output connection data)))
-    (check-type bytes simple-array)
+    (check-type bytes (simple-array (unsigned-byte 8) (*)))
     ;; fixme: with-pointer-to-vector-data isn't portable
     (cffi-sys:with-pointer-to-vector-data (ptr bytes)
       (let ((n-bytes-written

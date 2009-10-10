@@ -239,14 +239,12 @@ object. Passing that remote object to remote-object-value will new return NIL."
 
 (defun wire-listen (wire)
   "Return T iff anything is in the input buffer or available on the socket."
-  (or (< (wire-ibuf-offset wire)
-         (wire-ibuf-end wire))
-      (device-listen (wire-device wire))
-      #+nil
+  (or (< (wire-ibuf-offset wire) (wire-ibuf-end wire))
+      #+(or)
       (progn
-        (dotimes (x 10) (dispatch-events-no-hang))
-        (< (wire-ibuf-offset wire)
-           (wire-ibuf-end wire)))))
+        (dispatch-events-no-hang)
+        (< (wire-ibuf-offset wire) (wire-ibuf-end wire)))
+      (device-listen (wire-device wire))))
 
 (defmethod device-listen ((device stream-device))
   (listen (device-stream device)))
