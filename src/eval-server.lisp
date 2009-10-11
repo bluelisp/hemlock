@@ -736,9 +736,10 @@
       (format t "Connecting to ~A:~D~%" machine port)
       (hi::with-event-loop ()
         (connect-to-editor machine port slave-buffer background-buffer)
+        (dispatch-events-no-hang)
         (iter:iter
-         (dispatch-events)
          (iter:until cl-user::*io*)
+         (dispatch-events)
          (write-line "Waiting for typestream buffer..."
                      *original-terminal-io*)
          (force-output *original-terminal-io*))

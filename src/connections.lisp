@@ -320,8 +320,7 @@
            (make-process-connection
             (list* "/home/david/clbuild/source/hemlock/c/setpty"
                    slave-name
-                   (listify command))
-            :buffer t))
+                   (listify command))))
           (fd (stream-fd master)))
       (close slave)
       (make-pipelike-connection fd

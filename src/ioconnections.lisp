@@ -155,13 +155,13 @@
 
 (defun %exec (stdin-read stdin-write stdout-read stdout-write file args)
   (maybe-without-interrupts
-;;;    (iolib.syscalls:%sys-close stdin-write)
-;;;    (iolib.syscalls:%sys-close stdout-read)
+   (iolib.syscalls:%sys-close stdin-write)
+   (iolib.syscalls:%sys-close stdout-read)
    (iolib.syscalls:%sys-dup2 stdin-read 0)
    (iolib.syscalls:%sys-dup2 stdout-write 1)
    (iolib.syscalls:%sys-dup2 stdout-write 2)
-;;;    (iolib.syscalls:%sys-close stdin-read)
-;;;    (iolib.syscalls:%sys-close stdout-write)
+   (iolib.syscalls:%sys-close stdin-read)
+   (iolib.syscalls:%sys-close stdout-write)
    (let ((n (length args)))
      (cffi:with-foreign-object (argv :pointer (1+ n))
        (iter:iter (iter:for i from 0)
@@ -181,8 +181,8 @@
         (case pid
           (0 (%exec stdin-read stdin-write stdout-read stdout-write file args))
           (t
-;;;        (iolib.syscalls:%sys-close stdin-read)
-;;;        (iolib.syscalls:%sys-close stdout-write)
+           (iolib.syscalls:%sys-close stdin-read)
+           (iolib.syscalls:%sys-close stdout-write)
            (values pid stdout-read stdin-write)))))))
 
 
