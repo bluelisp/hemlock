@@ -127,7 +127,6 @@
   ())
 
 
-
 ;;;;
 ;;;; TCP-CONNECTION/IOLIB
 ;;;;
@@ -151,16 +150,27 @@
     (note-connected instance)))
 
 ;;;
-;;; PTY-CONNECTION/IOLIB
+;;; PIPELIKE-CONNECTION/IOLIB
 ;;;
 
-(defclass pty-connection/iolib (pty-connection-mixin iolib-connection)
-  ((read-fd :initarg :descriptor)
-   (write-fd :initarg :descriptor)))
+(defclass pipelike-connection/iolib
+    (pipelike-connection-mixin iolib-connection)
+  ())
 
-(defmethod initialize-instance :after ((instance pty-connection/iolib) &key)
+(defmethod initialize-instance
+    :after
+    ((instance pipelike-connection/iolib) &key)
   (connection-note-event instance :initialized)
   (set-iolib-handlers instance))
+
+
+;;;
+;;; PROCESS-WITH-PTY-CONNECTION/IOLIB
+;;;
+
+(defclass pipelike-connection/iolib
+    (process-with-pty-connection-mixin iolib-connection)
+  ())
 
 
 ;;;;

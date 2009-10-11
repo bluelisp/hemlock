@@ -286,7 +286,7 @@
 
 
 ;;;;
-;;;; PTY-CONNECTION
+;;;; PIPELIKE-CONNECTION
 ;;;;
 
 (defun find-a-pty ()
@@ -312,7 +312,7 @@
                             slave-stream
                             slave-name)))))))))))
 
-(defun make-pty-connection
+(defun make-process-with-pty-connection
     (command &key name (buffer nil bufferp) stream)
   (multiple-value-bind (master slave slave-name)
       (find-a-pty)
@@ -321,48 +321,66 @@
             (format nil "~A ~A~{ ~A~}"
                     "/home/david/clbuild/source/hemlock/c/setpty"
                     slave-name
-                    (listify command)))))
+                    (listify command))))
+          (fd (stream-fd master)))
       (close slave)
-      (%pty-connection-from-stream pc
-                                   master
-                                   (or name (princ-to-string command))
-                                   :buffer (if bufferp
-                                               buffer
-                                               (null stream))
-                                   :stream stream))))
+      (make-pipelike-connection fd
+                                fd
+                                (or name (princ-to-string command))
+                                :process-connection (stream-fd pc)
+                                :buffer (if bufferp
+                                            buffer
+                                            (null stream))
+                                :stream stream))))
 
-(defclass pty-connection-mixin ()
-  ((fd :initarg :descriptor
-       :accessor connection-descriptor)
-   (process-connection :initarg :process-connection
+(defclass pipelike-connection-mixin ()
+  ())
+
+(defclass process-with-pty-connection-mixin (pipelike-connection-mixin)
+  ((process-connection :initarg :process-connection
                        :accessor connection-process-connection)))
 
 (macrolet ((defproxy (name)
-             `(defmethod ,name ((connection pty-connection-mixin))
+             `(defmethod ,name ((connection process-with-pty-connection-mixin))
                 (,name (connection-process-connection connection)))))
   (defproxy connection-command)
   (defproxy connection-exit-code)
   (defproxy connection-exit-status))
 
-(defmethod delete-connection :before ((connection pty-connection-mixin))
+(defmethod delete-connection
+    :before
+    ((connection process-with-pty-connection-mixin))
   (delete-connection (connection-process-connection connection)))
 
 (defmethod class-for
-    ((backend (eql :iolib)) (type (eql 'pty-connection-mixin)))
-  'pty-connection/iolib)
+    ((backend (eql :iolib)) (type (eql 'process-with-pty-connection-mixin)))
+  'process-with-pty-connection/iolib)
 
 (defmethod class-for
-    ((backend (eql :qt)) (type (eql 'pty-connection-mixin)))
-  'pty-connection/qt)
+    ((backend (eql :qt)) (type (eql 'process-with-pty-connection-mixin)))
+  'process-with-pty-connection/qt)
 
-(defun %make-pty-connection
-    (descriptor
+(defmethod class-for
+    ((backend (eql :iolib)) (type (eql 'pipelike-connection-mixin)))
+  'pipelike-connection/iolib)
+
+(defmethod class-for
+    ((backend (eql :qt)) (type (eql 'pipelike-connection-mixin)))
+  'pipelike-connection/qt)
+
+(defun make-pipelike-connection
+    (read-fd
+     write-fd
      &rest args
      &key name buffer stream filter sentinel process-connection encoding)
-  (declare (ignore buffer stream filter sentinel process-connection))
+  (declare (ignore buffer stream filter sentinel))
   (apply #'make-instance
-         (class-for *connection-backend* 'pty-connection-mixin)
-         :descriptor descriptor
+         (class-for *connection-backend*
+                    (if process-connection
+                        'process-with-pty-connection-mixin
+                        'pipelike-connection-mixin))
+         :read-fd read-fd
+         :write-fd write-fd
          :name (or name (format nil "descriptor ~D" descriptor))
          :filter (or filter
                      (lambda (connection bytes)
@@ -392,15 +410,6 @@
 
 (defmethod stream-fd ((stream integer))
   stream)
-
-(defun %pty-connection-from-stream
-    (process-connection pty-stream name &key buffer stream filter)
-  (%make-pty-connection (stream-fd pty-stream)
-                        :process-connection process-connection
-                        :name name
-                        :filter filter
-                        :buffer buffer
-                        :stream stream))
 
 
 ;;;;

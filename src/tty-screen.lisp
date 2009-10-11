@@ -29,16 +29,18 @@
   (setf *line-wrap-char* #\!)
   (setf *window-list* ())
   (setf *tty-connection*
-        (%pty-connection-from-stream
-         nil
-         (setf *do-not-finalize*
-               (open "/dev/tty" :direction :io :if-exists :overwrite))
-         "tty"
-         :buffer nil
-         :filter (lambda (connection bytes)
-                   (tty-key-event
-                    (hi::default-filter connection bytes))
-                   nil)))
+        (let* ((stream (open "/dev/tty" :direction :io :if-exists :overwrite))
+               (fd (stream-fd stream)))
+          (setf *do-not-finalize* stream)
+          (make-pipelike-connection
+           fd
+           fd
+           :name "tty"
+           :buffer nil
+           :filter (lambda (connection bytes)
+                     (tty-key-event
+                      (hi::default-filter connection bytes))
+                     nil))))
   (let* ((device (make-tty-device tty-name))
          (width (tty-device-columns device))
          (height (tty-device-lines device))

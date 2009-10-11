@@ -357,7 +357,7 @@
     (defhvar "Process Connection"
         "The process for Shell and Process buffers."
       :buffer buffer
-      :value (make-pty-connection
+      :value (make-process-with-pty-connection
               (if suppress-shell-executable
                   command
                   (list "/bin/sh" "-c" command))

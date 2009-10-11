@@ -152,13 +152,18 @@
              (qt-hemlock::redraw-needed))))
 
 ;;;
-;;; PTY-CONNECTION/QT
+;;; PIPELIKE-CONNECTION/QT
 ;;;
 
-(defclass pty-connection/qt (pty-connection-mixin qiodevice-connection)
+(defclass pipelike-connection/qt
+    (pipelike-connection-mixin qiodevice-connection)
   ())
 
-(defmethod initialize-instance :after ((instance pty-connection/qt) &key)
+(defmethod initialize-instance
+    :after
+    ((instance pipelike-connection/qt) &key read-fd write-fd)
+  (assert (eql read-fd write-fd))
+  (assert (plusp read-fd))
   (let ((socket
          ;; hack: QFile doesn't work for device files, so use a QLocalSocket
          ;; instead and set its descriptor.  Technically, the file isn't
@@ -167,7 +172,7 @@
     (setf (connection-io-device instance) socket)
     (connection-note-event instance :initialized)
     (cffi:with-foreign-object (place :int)
-      (setf (cffi:mem-ref place :int) (connection-descriptor instance))
+      (setf (cffi:mem-ref place :int) read-fd)
       (#_setSocketDescriptor
        socket
        (qt::quintptr place)
@@ -177,7 +182,7 @@
 
 (defmethod (setf connection-io-device)
     :after
-    (newval (connection pty-connection/qt))
+    (newval (connection pipelike-connection/qt))
   (qt-hemlock::connect newval
            (qt:QSIGNAL "connected()")
            (lambda ()
@@ -193,6 +198,15 @@
            (lambda ()
              (note-error connection)
              (qt-hemlock::redraw-needed))))
+
+
+;;;
+;;; PROCESS-WITH-PTY-CONNECTION/QT
+;;;
+
+(defclass process-with-pty-connection/qt
+    (process-with-pty-connection-mixin pipelike-connection/qt)
+  ())
 
 
 ;;;;
