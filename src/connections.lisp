@@ -358,7 +358,7 @@
 (defun %make-pty-connection
     (descriptor
      &rest args
-     &key name buffer stream filter sentinel process-connection)
+     &key name buffer stream filter sentinel process-connection encoding)
   (declare (ignore buffer stream filter sentinel process-connection))
   (apply #'make-instance
          (class-for *connection-backend* 'pty-connection-mixin)
@@ -367,6 +367,7 @@
          :filter (or filter
                      (lambda (connection bytes)
                        (default-filter connection bytes)))
+         :encoding (or encoding :iso-8859-1)
          args))
 
 (defgeneric stream-fd (stream))

@@ -32,9 +32,14 @@
 ;;;;
 
 (defclass iolib-connection (io-connection)
-  ((fd :initarg :fd
-       :initform nil
-       :accessor connection-fd)
+  ((read-fd :initarg :read-fd
+            :initarg :fd
+            :initform nil
+            :accessor connection-read-fd)
+   (write-fd :initarg :write-fd
+             :initarg :fd
+             :initform nil
+             :accessor connection-write-fd)
    (write-buffers :initform nil
                   :accessor connection-write-buffers)))
 
@@ -42,14 +47,20 @@
     ((instance iolib-connection) &key)
   )
 
-(defmethod (setf connection-fd)
+(defmethod (setf connection-read-fd)
     :after
     ((newval t) (connection iolib-connection))
-  (when (connection-fd instance)
+  (when (connection-read-fd instance)
+    (set-iolib-handlers instance)))
+
+(defmethod (setf connection-write-fd)
+    :after
+    ((newval t) (connection iolib-connection))
+  (when (connection-write-fd instance)
     (set-iolib-handlers instance)))
 
 (defun set-iolib-handlers (connection)
-  (let ((fd (connection-fd connection)))
+  (let ((fd (connection-read-fd connection)))
     (iolib:set-io-handler
      *event-base*
      fd
@@ -60,7 +71,7 @@
        (process-incoming-data connection)))))
 
 (defmethod %read ((connection iolib-connection))
-  (let* ((fd (connection-fd connection))
+  (let* ((fd (connection-read-fd connection))
          (buffer (connection-input-buffer connection)))
     ;; fixme: with-pointer-to-vector-data isn't portable
     (subseq buffer
@@ -69,16 +80,16 @@
               (iolib.syscalls:%sys-read fd ptr (length buffer))))))
 
 (defmethod delete-connection :before ((connection iolib-connection))
-  (let ((fd (connection-fd connection)))
-    (when fd
-      (iolib.syscalls:%sys-close fd))))
+  (with-slots (read-fd write-fd) connection
+    (when read-fd (iolib.syscalls:%sys-close read-fd))
+    (when write-fd (iolib.syscalls:%sys-close write-fd))))
 
 (defmethod connection-listen ((connection iolib-connection))
-  (iolib.multiplex:fd-readablep (connection-fd connection)))
+  (iolib.multiplex:fd-readablep (connection-read-fd connection)))
 
 (defmethod connection-write (data (connection iolib-connection))
   (let ((bytes (filter-connection-output connection data))
-        (fd (connection-fd connection))
+        (fd (connection-write-fd connection))
         (need-handler (null (connection-write-buffers connection)))
         handler)
     (check-type bytes (simple-array (unsigned-byte 8) (*)))
@@ -116,6 +127,7 @@
   ())
 
 
+
 ;;;;
 ;;;; TCP-CONNECTION/IOLIB
 ;;;;
@@ -124,16 +136,17 @@
   ((socket :accessor connection-socket)))
 
 (defmethod initialize-instance :after ((instance tcp-connection/iolib) &key)
-  (with-slots (fd socket host port) instance
+  (with-slots (read-fd write-fd socket host port) instance
     (connection-note-event instance :initialized)
-    (unless fd
+    (unless (or read-fd write-fd)
       (setf socket
             (iolib.sockets:make-socket :address-family :internet
                                        :connect :active
                                        :type :stream
                                        :remote-host host
                                        :remote-port port))
-      (setf fd (iolib.sockets:socket-os-fd socket)))
+      (setf read-fd (iolib.sockets:socket-os-fd socket))
+      (setf write-fd (iolib.sockets:socket-os-fd socket)))
     (set-iolib-handlers instance)
     (note-connected instance)))
 
@@ -142,17 +155,13 @@
 ;;;
 
 (defclass pty-connection/iolib (pty-connection-mixin iolib-connection)
-  ())
+  ((read-fd :initarg :descriptor)
+   (write-fd :initarg :descriptor)))
 
 (defmethod initialize-instance :after ((instance pty-connection/iolib) &key)
   (connection-note-event instance :initialized)
   (set-iolib-handlers instance))
 
-(defmethod (setf connection-fd)
-    :after
-    (newval (connection pty-connection/iolib))
-  ;; ...
-  )
 
 ;;;;
 ;;;; LISTENING-CONNECTION/IOLIB

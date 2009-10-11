@@ -407,6 +407,8 @@
 (bind-key "Debug Flush Errors" #k"control-meta-hyper-F")
 )
 
+(bind-key "Find Definition" #k"meta-." :mode "Lisp")
+
 
 ;;;; More Miscellaneous bindings.
 

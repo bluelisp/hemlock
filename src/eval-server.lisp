@@ -1148,5 +1148,3 @@
        (and (null p) (hemlock::slave-symbol-at-point))
        (hemlock::parse-slave-symbol
         (hemlock-interface::prompt-for-string :prompt "Name: ")))))
-
-(bind-key "Find Definition" #k"meta-." :mode "Lisp")
