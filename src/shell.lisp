@@ -593,7 +593,7 @@
   (process-kill process signal :pty-process-group))
 
 (defcommand "Shell Command"
-    (p &optional (command (hi::prompt-for-string :prompt "Command: ")))
+    (p &optional (command (hi::prompt-for-string :prompt "Shell command: ")))
   "" ""
   (declare (ignore p))
   (change-to-buffer

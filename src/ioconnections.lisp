@@ -50,14 +50,14 @@
 (defmethod (setf connection-read-fd)
     :after
     ((newval t) (connection iolib-connection))
-  (when (connection-read-fd instance)
-    (set-iolib-handlers instance)))
+  (when (connection-read-fd connection)
+    (set-iolib-handlers connection)))
 
 (defmethod (setf connection-write-fd)
     :after
     ((newval t) (connection iolib-connection))
-  (when (connection-write-fd instance)
-    (set-iolib-handlers instance)))
+  (when (connection-write-fd connection)
+    (set-iolib-handlers connection)))
 
 (defun set-iolib-handlers (connection)
   (let ((fd (connection-read-fd connection)))
@@ -123,8 +123,67 @@
 ;;;;
 
 (defclass process-connection/iolib
-    (process-connection-mixin)
-  ())
+    (process-connection-mixin iolib-connection)
+  ((pid :initform nil
+        :accessor connection-pid)))
+
+(defmethod initialize-instance
+    :after
+    ((instance process-connection/iolib) &key)
+  (with-slots (read-fd write-fd command) instance
+    (connection-note-event instance :initialized)
+    (when (stringp command)
+      (setf command (cl-ppcre:split " " command)))
+    (assert (every #'stringp command))
+    (assert command)
+    (setf (values pid read-fd write-fd)
+          (%fork-and-exec (car command) command))
+    (set-iolib-handlers instance)
+    (note-connected instance)))
+
+;; ccl gives an exception in foreign code without this:
+#+ccl
+(defun invoke-without-interrupts (fun)
+  (ccl::without-interrupts (funcall fun)))
+
+#-ccl
+(defun invoke-without-interrupts (fun)
+  (funcall fun))
+
+(defmacro maybe-without-interrupts (&body body)
+  `(invoke-without-interrupts (lambda () ,@body)))
+
+(defun %exec (stdin-read stdin-write stdout-read stdout-write file args)
+  (maybe-without-interrupts
+;;;    (iolib.syscalls:%sys-close stdin-write)
+;;;    (iolib.syscalls:%sys-close stdout-read)
+   (iolib.syscalls:%sys-dup2 stdin-read 0)
+   (iolib.syscalls:%sys-dup2 stdout-write 1)
+   (iolib.syscalls:%sys-dup2 stdout-write 2)
+;;;    (iolib.syscalls:%sys-close stdin-read)
+;;;    (iolib.syscalls:%sys-close stdout-write)
+   (let ((n (length args)))
+     (cffi:with-foreign-object (argv :pointer (1+ n))
+       (iter:iter (iter:for i from 0)
+                  (iter:for arg in args)
+                  (setf (cffi:mem-aref argv :pointer i)
+                        (cffi:foreign-string-alloc arg)))
+       (setf (cffi:mem-aref argv :pointer n) (cffi:null-pointer))
+       (iolib.syscalls:%sys-execvp file argv)))
+   (iolib.syscalls::%sys-exit 1)))
+
+(defun %fork-and-exec (file args)
+  (multiple-value-bind (stdin-read stdin-write)
+      (iolib.syscalls:%sys-pipe)
+    (multiple-value-bind (stdout-read stdout-write)
+        (iolib.syscalls:%sys-pipe)
+      (let ((pid (iolib.syscalls:%sys-fork)))
+        (case pid
+          (0 (%exec stdin-read stdin-write stdout-read stdout-write file args))
+          (t
+;;;        (iolib.syscalls:%sys-close stdin-read)
+;;;        (iolib.syscalls:%sys-close stdout-write)
+           (values pid stdout-read stdin-write)))))))
 
 
 ;;;;
@@ -168,8 +227,8 @@
 ;;; PROCESS-WITH-PTY-CONNECTION/IOLIB
 ;;;
 
-(defclass pipelike-connection/iolib
-    (process-with-pty-connection-mixin iolib-connection)
+(defclass process-with-pty-connection/iolib
+    (process-with-pty-connection-mixin pipelike-connection/iolib)
   ())
 
 
@@ -205,7 +264,7 @@
                                  (:no-error (socket)
                                    (setf port p)
                                    (return socket))
-                                 (error (c)
+                                 (error ()
                                    (warn "trying next port"))))))))
       (setf fd (iolib.sockets:socket-os-fd socket)))
     (set-iolib-server-handlers instance)))

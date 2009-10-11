@@ -90,7 +90,7 @@
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
     (connection-note-event instance :initialized)
-    (#_start process (format nil "~{ ~A~}" (connection-command instance)))))
+    (#_start process (format nil "~{ ~A~}" (listify (connection-command instance))))))
 
 (defmethod (setf connection-io-device)
     :after

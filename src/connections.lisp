@@ -211,7 +211,7 @@
   (apply #'make-instance
          (class-for *connection-backend* 'process-connection-mixin)
          :name (or name (princ-to-string command))
-         :command (listify command)
+         :command command
          args))
 
 
@@ -318,16 +318,16 @@
       (find-a-pty)
     (let ((pc
            (make-process-connection
-            (format nil "~A ~A~{ ~A~}"
-                    "/home/david/clbuild/source/hemlock/c/setpty"
-                    slave-name
-                    (listify command))))
+            (list* "/home/david/clbuild/source/hemlock/c/setpty"
+                   slave-name
+                   (listify command))
+            :buffer t))
           (fd (stream-fd master)))
       (close slave)
       (make-pipelike-connection fd
                                 fd
-                                (or name (princ-to-string command))
-                                :process-connection (stream-fd pc)
+                                :name (or name (princ-to-string command))
+                                :process-connection pc
                                 :buffer (if bufferp
                                             buffer
                                             (null stream))
