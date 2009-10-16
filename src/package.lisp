@@ -519,8 +519,6 @@
 (defpackage :hemlock-ext
   (:use :common-lisp
         :hemlock-interface)
-  #+cmu
-  (:import-from :ext #:complete-file)
   (:shadow #:char-code-limit)
   ;;
   (:export
@@ -531,6 +529,7 @@
    #:getenv
 
    #:delq #:memq #:assq
+   #:concat
    #:fixnump
    #:file-writable
 
@@ -836,10 +835,6 @@
 
 (defpackage :hemlock-user
     (:use :common-lisp :hemlock-interface))
-
-(defpackage :clim-hemlock
-    (:use :common-lisp :hemlock-interface)
-  )
 
 (defpackage :hemlock.terminfo
   (:use :common-lisp)

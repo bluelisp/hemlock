@@ -2,7 +2,7 @@
 
 (in-package :cl-user)
 
-(defpackage :qt-hemlock
+(defpackage :hemlock.qt
   (:use :common-lisp :hemlock-interface :qt :iterate)
   (:shadow #:enable-syntax)
   (:export #:enable-syntax))

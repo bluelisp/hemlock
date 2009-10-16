@@ -1,15 +1,15 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
-(in-package :qt-hemlock)
+(in-package :hemlock.qt)
 
-(named-readtables:in-readtable :qt-hemlock)
+(named-readtables:in-readtable :hemlock.qt)
 
 (defun note-webkit-title-changed (buffer title)
   (rename-buffer-uniquely buffer
                           (format nil "*Webkit* [~A]" title)))
 
 (defun make-browser-buffer (name url)
-  (unless (qt-hemlock::find-buffer name)
+  (unless (hemlock.qt::find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
       (let ((buffer
@@ -40,7 +40,7 @@
 
 (defun ensure-browser-buffer (name url &aux *)
   (cond
-    ((setf * (qt-hemlock::find-buffer name))
+    ((setf * (hemlock.qt::find-buffer name))
      (#_setUrl (hi::buffer-widget *) (#_new QUrl url))
      *)
     (t

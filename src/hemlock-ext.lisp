@@ -656,6 +656,10 @@
 (defun assq (item alist)
   (assoc item alist))
 
+(defun concat (&rest args)
+  (apply #'concatenate 'string args))
+
+
 ;;;; complete-file
 
 (defun complete-file (pathname &key (defaults *default-pathname-defaults*)

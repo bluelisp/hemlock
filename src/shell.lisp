@@ -602,8 +602,6 @@
 
 (bind-key "Shell Command" #k"meta-!")
 
-(defun concat (&rest args) (apply #'concatenate 'string args))
-
 (defcommand "Grep"
     (p &optional (command (hi::prompt-for-string
                            :prompt "Run grep (like this): "

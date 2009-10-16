@@ -44,12 +44,12 @@
   (make-pathname :name nil :type nil :version nil
                  :defaults (parse-namestring *load-truename*)))
 
-(asdf:defsystem :qthemlock
+(asdf:defsystem :hemlock.qt
      :pathname #.(make-pathname
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:hemlock :qt :qt-repl)
+     :depends-on (:hemlock.base :qt :qt-repl)
     :components
     ((:module qt-1
               :pathname #.(merge-pathnames

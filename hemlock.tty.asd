@@ -44,12 +44,12 @@
   (make-pathname :name nil :type nil :version nil
                  :defaults (parse-namestring *load-truename*)))
 
-(asdf:defsystem :ttyhemlock
+(asdf:defsystem :hemlock.tty
      :pathname #.(make-pathname
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:hemlock)
+     :depends-on (:hemlock.base)
     :components
     ((:module tty-1
               :pathname #.(merge-pathnames

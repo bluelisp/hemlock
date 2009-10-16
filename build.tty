@@ -1,0 +1,17 @@
+#!/bin/sh
+clbuild lisp <<EOF
+(asdf:operate 'asdf:load-op :hemlock.tty)
+(defun hemlock-toplevel ()
+  (destructuring-bind (argv0 &optional arg1 arg2) sb-ext:*posix-argv*
+    (setf hemlock::*slave-command* (list argv0 "--slave"))
+    (cond 
+     ((equal arg1 "--slave")
+      (hemlock::start-slave arg2))
+     (t
+      (hi::old-hemlock arg1))))
+  (quit))
+
+(sb-ext:save-lisp-and-die "hemlock.tty"
+			  :toplevel 'hemlock-toplevel
+			  :executable t)
+EOF

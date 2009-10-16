@@ -62,7 +62,7 @@
                                (string-downcase (lisp-implementation-type))))
                  :defaults *hemlock-base-directory*))
 
-(asdf:defsystem :hemlock
+(asdf:defsystem :hemlock.base
      :pathname #.(make-pathname
                         :directory
                         (pathname-directory *hemlock-base-directory*)

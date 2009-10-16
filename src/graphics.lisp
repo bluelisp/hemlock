@@ -1,13 +1,13 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
-(in-package :qt-hemlock)
+(in-package :hemlock.qt)
 
-(named-readtables:in-readtable :qt-hemlock)
+(named-readtables:in-readtable :hemlock.qt)
 
 (defvar *dependency-graph-buffer* nil)
 
 (defun make-graphics-buffer (name projects)
-  (unless (qt-hemlock::find-buffer name)
+  (unless (hemlock.qt::find-buffer name)
     (let* ((widget (#_new QGraphicsView))
            (scene (#_new QGraphicsScene widget)))
       (#_setScene widget scene)
@@ -32,7 +32,7 @@
   "" ""
   (declare (ignore p))
   (let ((name "*Dependency Graph*"))
-    (let ((buf (qt-hemlock::find-buffer name)))
+    (let ((buf (hemlock.qt::find-buffer name)))
       (when buf
         (when (eq buf (current-buffer))
           (change-to-buffer (previous-buffer)))
@@ -40,7 +40,7 @@
     (change-to-buffer (or (make-graphics-buffer name projects)
                           (progn
                             (message "Buffer already exists: ~A" name)
-                            (qt-hemlock::find-buffer name))))))
+                            (hemlock.qt::find-buffer name))))))
 
 (defun add-projects-to-current-graph (projects)
   (let ((graph (variable-value 'hemlock::current-graph))
@@ -222,16 +222,16 @@
   (declare (ignore p))
   (let ((name (mapcar #'clbuild-info-name (list-marked-clbuild-projects))))
     (if *dependency-graph-buffer*
-        (qt-hemlock::add-project-to-graph nil name)
-        (qt-hemlock::show-project-graph-command nil names))))
+        (hemlock.qt::add-project-to-graph nil name)
+        (hemlock.qt::show-project-graph-command nil names))))
 
 (defcommand "Clbuild Dependency Graph" (p)
   "" ""
   (declare (ignore p))
   (let ((names (mapcar #'clbuild-info-name
                        (list-marked-clbuild-projects))))
-    (if qt-hemlock::*dependency-graph-buffer*
+    (if hemlock.qt::*dependency-graph-buffer*
         (progn
-          (change-to-buffer qt-hemlock::*dependency-graph-buffer*)
-          (qt-hemlock::add-projects-to-current-graph names))
-        (qt-hemlock::show-project-graph-command nil names))))
+          (change-to-buffer hemlock.qt::*dependency-graph-buffer*)
+          (hemlock.qt::add-projects-to-current-graph names))
+        (hemlock.qt::show-project-graph-command nil names))))

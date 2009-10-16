@@ -1,16 +1,16 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
-(in-package :qt-hemlock)
+(in-package :hemlock.qt)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (named-readtables:defreadtable :qt-hemlock
+  (named-readtables:defreadtable :hemlock.qt
       (:merge :qt)
     (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun)))
 
-(named-readtables:in-readtable :qt-hemlock)
+(named-readtables:in-readtable :hemlock.qt)
 
 (defun enable-syntax ()
-  (named-readtables:in-readtable :qt-hemlock)
+  (named-readtables:in-readtable :hemlock.qt)
   nil)
 
 (defvar *settings-organization* "Hemlock")
@@ -596,7 +596,7 @@
   (iter (while *invoke-later-thunks*)
         (funcall (pop *invoke-later-thunks*))))
 
-(defun qt-hemlock (init-fun command-loop-fun)
+(defun hemlock.qt (init-fun command-loop-fun)
   (multiple-value-bind (main echo *font* widget *tabs*)
       (make-hemlock-widget)
     (let* ((window (#_new QMainWindow))
@@ -720,13 +720,18 @@
       (string x)
       (pathname (namestring x)))))
 
+(defvar *installation-directory* nil)
+
+(defun installation-directory ()
+  (or *installation-directory*
+      (asdf:component-pathname (asdf:find-system :hemlock.base))))
+
 (defun find-background-svg ()
   (or (probe-namestring *background-svg*)
       (probe-namestring (merge-pathnames ".hemlock/background.svg"
                                          (user-homedir-pathname)))
       (probe-namestring (merge-pathnames "background.svg"
-                                         (asdf:component-pathname
-                                          (asdf:find-system :hemlock))))))
+                                         (installation-directory))))
 
 (defun qt-window-changed (hunk)
   (setf (hunk-widget-background-pixmap (qt-hunk-widget hunk))
@@ -1157,7 +1162,7 @@
        (let ((*in-the-editor* t))
          (catch 'editor-top-level-catcher
            (catch 'hemlock-exit
-             (qt-hemlock::qt-hemlock
+             (hemlock.qt::hemlock.qt
               (lambda ()
                 (process-command-line-argument x))
               (lambda ()

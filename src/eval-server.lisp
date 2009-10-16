@@ -992,9 +992,8 @@
   `(invoke-with-temporary-file-name (lambda (,var) ,@body)))
 
 (defun invoke-with-temporary-file-name (fun)
-  (funcall fun (merge-pathnames ".tmp.lisp"
-                                (asdf:component-pathname
-                                 (asdf:find-system :hemlock)))))
+  ;; FIXME
+  (funcall fun (merge-pathnames ".tmp.lisp" (installation-directory))))
 
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)

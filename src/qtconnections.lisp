@@ -1,7 +1,7 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
 (in-package :hi)
-(named-readtables:in-readtable :qt-hemlock)
+(named-readtables:in-readtable :hemlock.qt)
 
 ;;;;
 ;;;; QIODEVICE-CONNECTION
@@ -60,11 +60,11 @@
 (defun connect-io-device-signals (connection)
   (let ((device (connection-io-device connection)))
     ;; ...
-    (qt-hemlock::connect device
+    (hemlock.qt::connect device
              (qt:QSIGNAL "readyRead()")
              (lambda ()
                (process-incoming-data connection)
-               (qt-hemlock::redraw-needed)))))
+               (hemlock.qt::redraw-needed)))))
 
 (defmethod (setf connection-io-device)
     :after
@@ -95,11 +95,11 @@
 (defmethod (setf connection-io-device)
     :after
     (newval (connection process-connection/qt))
-  (qt-hemlock::connect newval
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "finished(int,QProcess::ExitStatus)")
            (lambda (&rest *)
              (note-finished connection)
-             (qt-hemlock::redraw-needed))))
+             (hemlock.qt::redraw-needed))))
 
 (defun note-finished (connection)
   (let* ((process (connection-io-device connection))
@@ -135,21 +135,21 @@
 (defmethod (setf connection-io-device)
     :after
     (newval (connection tcp-connection/qt))
-  (qt-hemlock::connect newval
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "connected()")
            (lambda ()
              (note-connected connection)
-             (qt-hemlock::redraw-needed)))
-  (qt-hemlock::connect newval
+             (hemlock.qt::redraw-needed)))
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "disconnected()")
            (lambda ()
              (note-disconnected connection)
-             (qt-hemlock::redraw-needed)))
-  (qt-hemlock::connect newval
+             (hemlock.qt::redraw-needed)))
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "error()")
            (lambda ()
              (note-error connection)
-             (qt-hemlock::redraw-needed))))
+             (hemlock.qt::redraw-needed))))
 
 ;;;
 ;;; PIPELIKE-CONNECTION/QT
@@ -183,21 +183,21 @@
 (defmethod (setf connection-io-device)
     :after
     (newval (connection pipelike-connection/qt))
-  (qt-hemlock::connect newval
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "connected()")
            (lambda ()
              (note-connected connection)
-             (qt-hemlock::redraw-needed)))
-  (qt-hemlock::connect newval
+             (hemlock.qt::redraw-needed)))
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "disconnected()")
            (lambda ()
              (note-disconnected connection)
-             (qt-hemlock::redraw-needed)))
-  (qt-hemlock::connect newval
+             (hemlock.qt::redraw-needed)))
+  (hemlock.qt::connect newval
            (qt:QSIGNAL "error()")
            (lambda ()
              (note-error connection)
-             (qt-hemlock::redraw-needed))))
+             (hemlock.qt::redraw-needed))))
 
 
 ;;;
@@ -233,7 +233,7 @@
 (defun connect-server-signals (connection)
   (let ((server (connection-server connection)))
     ;; ...
-    (qt-hemlock::connect server
+    (hemlock.qt::connect server
              (qt:QSIGNAL "newConnection()")
              (lambda ()
                (process-incoming-connection connection)))))

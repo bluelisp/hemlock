@@ -5,7 +5,7 @@
   (:export #:test))
 
 (in-package :sugiyama)
-(named-readtables:in-readtable :qt-hemlock)
+(named-readtables:in-readtable :hemlock.qt)
 
 
 ;;;;
@@ -1027,11 +1027,11 @@
 (defun node-pressed (node item)
   (cond
     ((eq (node-key node) :root)
-     (qt-hemlock::add-project-to-graph-command nil)
+     (hemlock.qt::add-project-to-graph-command nil)
      (clear-echo-area)
      (;; fixme: eats away the RET, is there a better way?
       hemlock::trash-character)
-     (qt-hemlock::redraw-needed))
+     (hemlock.qt::redraw-needed))
     (t
      (let ((graph (node-graph node))
            (scene (#_scene item)))
@@ -1053,7 +1053,7 @@
         (static-graph-to-scene tmp scene)
         (iter (for i from 1 to n)
               (update-interpolation-graph node-specs (/ i n))
-              (qt-hemlock::dispatch-events-no-hang)))
+              (hemlock.qt::dispatch-events-no-hang)))
       (static-graph-to-scene new scene))))
 
 (defun make-interpolation-graph (a b)

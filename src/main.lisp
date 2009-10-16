@@ -26,7 +26,7 @@ GB
 ;;;; Definition of *hemlock-version*.
 
 (defparameter *hemlock-version*
-  (let* ((system (asdf:find-system :hemlock))
+  (let* ((system (asdf:find-system :hemlock.base))
          (dir (asdf:component-pathname system))
          (.git (merge-pathnames ".git/" dir))
          (ref (with-open-file (s (merge-pathnames "HEAD" .git))
