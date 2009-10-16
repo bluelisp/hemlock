@@ -84,7 +84,6 @@
                (setf (car ,value) ,tmp
                      (cdr ,value) (%capability ,name ,tmp)))))))
 
-
 (defmacro defcap (name type index)
   (let ((thing (ecase type
                  (boolean 'terminfo-booleans)

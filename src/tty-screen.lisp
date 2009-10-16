@@ -96,129 +96,99 @@
 ;;; on available capability.
 ;;;
 (defun make-tty-device (name)
-  (let ((termcap (get-termcap name))
-        (device (%make-tty-device :name name)))
-    (when (termcap :overstrikes termcap)
+  (hemlock.terminfo:set-terminal)
+  (let ((device (%make-tty-device :name name)))
+    (when (termcap :overstrikes)
       (error "Terminal sufficiently irritating -- not currently supported."))
     ;;
     ;; A few useful values.
     (setf (tty-device-dumbp device)
-          (not (and (termcap :open-line termcap)
-                    (termcap :delete-line termcap))))
+          (not (and (termcap :open-line)
+                    (termcap :delete-line))))
     ;;
     ;; Get size and speed.
     (multiple-value-bind  (lines cols speed)
                           (get-terminal-attributes)
-      (setf (tty-device-lines device) (or lines (termcap :lines termcap)))
-      (let ((cols (or cols (termcap :columns termcap))))
+      (setf (tty-device-lines device) (or lines (termcap :lines)))
+      (let ((cols (or cols (termcap :columns))))
         (setf (tty-device-columns device)
-              (if (hemlock.terminfo:capability :auto-right-margin)
-                  (1- cols) cols)))
+              (if hemlock.terminfo:auto-right-margin (1- cols) cols)))
       (setf (tty-device-speed device) speed))
     ;;
     ;; Some function slots.
     (setf (tty-device-display-string device)
-          (if (termcap :underlines termcap)
+          (if (termcap :underlines)
               #'display-string-checking-underlines
               #'display-string))
     (setf (tty-device-standout-init device) #'standout-init)
     (setf (tty-device-standout-end device) #'standout-end)
     (setf (tty-device-open-line device)
-          (if (termcap :open-line termcap)
+          (if (termcap :open-line)
               #'open-tty-line
               ;; look for scrolling region stuff
               ))
     (setf (tty-device-delete-line device)
-          (if (termcap :delete-line termcap)
+          (if (termcap :delete-line)
               #'delete-tty-line
               ;; look for reverse scrolling stuff
               ))
     (setf (tty-device-clear-to-eol device)
-          (if (termcap :clear-to-eol termcap)
+          (if (termcap :clear-to-eol)
               #'clear-to-eol
               #'space-to-eol))
     (setf (tty-device-clear-lines device) #'clear-lines)
     (setf (tty-device-clear-to-eow device) #'clear-to-eow)
     ;;
     ;; Insert and delete modes.
-    (let ((init-insert-mode (termcap :init-insert-mode termcap))
-          (init-insert-char (termcap :init-insert-char termcap))
-          (end-insert-char (termcap :end-insert-char termcap)))
+    (let ((init-insert-mode (termcap :init-insert-mode))
+          (init-insert-char (termcap :init-insert-char))
+          (end-insert-char (termcap :end-insert-char)))
       (when (and init-insert-mode (string/= init-insert-mode ""))
         (setf (tty-device-insert-string device) #'tty-insert-string)
         (setf (tty-device-insert-init-string device) init-insert-mode)
         (setf (tty-device-insert-end-string device)
-              (termcap :end-insert-mode termcap)))
+              (termcap :end-insert-mode)))
       (when init-insert-char
         (setf (tty-device-insert-string device) #'tty-insert-string)
         (setf (tty-device-insert-char-init-string device) init-insert-char))
       (when (and end-insert-char (string/= end-insert-char ""))
         (setf (tty-device-insert-char-end-string device) end-insert-char)))
-    (let ((delete-char (termcap :delete-char termcap)))
+    (let ((delete-char (termcap :delete-char)))
       (when delete-char
         (setf (tty-device-delete-char device) #'delete-char)
         (setf (tty-device-delete-char-string device) delete-char)
         (setf (tty-device-delete-init-string device)
-              (termcap :init-delete-mode termcap))
+              (termcap :init-delete-mode))
         (setf (tty-device-delete-end-string device)
-              (termcap :end-delete-mode termcap))))
+              (termcap :end-delete-mode))))
     ;;
     ;; Some string slots.
     (setf (tty-device-standout-init-string device)
-          (or (termcap :init-standout-mode termcap) ""))
+          (or (termcap :init-standout-mode) ""))
     (setf (tty-device-standout-end-string device)
-          (or (termcap :end-standout-mode termcap) ""))
+          (or (termcap :end-standout-mode) ""))
     (setf (tty-device-clear-to-eol-string device)
-          (termcap :clear-to-eol termcap))
-    (let ((clear-string (termcap :clear-display termcap)))
+          (termcap :clear-to-eol))
+    (let ((clear-string (termcap :clear-display)))
       (unless clear-string
         (error "Terminal not sufficiently powerful enough to run Hemlock."))
       (setf (tty-device-clear-string device) clear-string))
     (setf (tty-device-open-line-string device)
-          (termcap :open-line termcap))
+          (termcap :open-line))
     (setf (tty-device-delete-line-string device)
-          (termcap :delete-line termcap))
-    (let* ((init-string (termcap :init-string termcap))
-           (init-file (termcap :init-file termcap))
+          (termcap :delete-line))
+    (let* ((init-string (termcap :init-string))
+           (init-file (termcap :init-file))
            (init-file-string (if init-file (get-init-file-string init-file)))
-           (init-cm-string (termcap :init-cursor-motion termcap)))
+           (init-cm-string (termcap :init-cursor-motion)))
       (setf (tty-device-init-string device)
             (concatenate 'simple-string (or init-string "")
                          (or init-file-string "") (or init-cm-string ""))))
     (setf (tty-device-cm-end-string device)
-          (or (termcap :end-cursor-motion termcap) ""))
-    ;;
-    ;; Cursor motion slots.
-    (let ((cursor-motion (termcap :cursor-motion termcap)))
-      (unless cursor-motion
-        (error "Terminal not sufficiently powerful enough to run Hemlock."))
-      (let ((x-add-char (getf cursor-motion :x-add-char))
-            (y-add-char (getf cursor-motion :y-add-char))
-            (x-condx-char (getf cursor-motion :x-condx-char))
-            (y-condx-char (getf cursor-motion :y-condx-char)))
-        (when x-add-char
-          (setf (tty-device-cm-x-add-char device) (char-code x-add-char)))
-        (when y-add-char
-          (setf (tty-device-cm-y-add-char device) (char-code y-add-char)))
-        (when x-condx-char
-          (setf (tty-device-cm-x-condx-char device) (char-code x-condx-char))
-          (setf (tty-device-cm-x-condx-add-char device)
-                (char-code (getf cursor-motion :x-condx-add-char))))
-        (when y-condx-char
-          (setf (tty-device-cm-y-condx-char device) (char-code y-condx-char))
-          (setf (tty-device-cm-y-condx-add-char device)
-                (char-code (getf cursor-motion :y-condx-add-char)))))
-      (setf (tty-device-cm-string1 device) (getf cursor-motion :string1))
-      (setf (tty-device-cm-string2 device) (getf cursor-motion :string2))
-      (setf (tty-device-cm-string3 device) (getf cursor-motion :string3))
-      (setf (tty-device-cm-one-origin device) (getf cursor-motion :one-origin))
-      (setf (tty-device-cm-reversep device) (getf cursor-motion :reversep))
-      (setf (tty-device-cm-x-pad device) (getf cursor-motion :x-pad))
-      (setf (tty-device-cm-y-pad device) (getf cursor-motion :y-pad)))
+          (or (termcap :end-cursor-motion) ""))
     ;;
     ;; Screen image initialization.
     (set-up-screen-image device)
-    (hemlock.terminfo:set-terminal)
     device))
 
 (defun set-up-screen-image (device)

@@ -236,7 +236,7 @@
   (multiple-value-bind (lines cols)
       (hi::get-terminal-attributes)
     (let ((delta (- lines (tty-device-lines device)))
-          #+nil (cols (if (hemlock.terminfo:capability :auto-right-margin)
+          #+nil (cols (if hemlock.terminfo:auto-right-margin
                     (1- cols)
                     cols)))
       (unless (and (zerop delta)
@@ -286,9 +286,9 @@
 (defun modeline-init (hunk)
   (when (eq *terminal-has-colors* :unknown)
     (setf *terminal-has-colors*
-          (and (hemlock.terminfo:capability :set-a-foreground)
-               (hemlock.terminfo:capability :set-a-background)
-               (hemlock.terminfo:capability :exit-attribute-mode))))
+          (and hemlock.terminfo:set-a-foreground
+               hemlock.terminfo:set-a-background
+               hemlock.terminfo:exit-attribute-mode)))
   (cond
     (*terminal-has-colors*
      (setaf *modeline-foreground*)
@@ -1052,30 +1052,8 @@
 ;;; we send first x and then y.
 ;;;
 (defun cursor-motion (device x y)
-  (let ((x-add-char (tty-device-cm-x-add-char device))
-        (y-add-char (tty-device-cm-y-add-char device))
-        (x-condx-add (tty-device-cm-x-condx-char device))
-        (y-condx-add (tty-device-cm-y-condx-char device))
-        (one-origin (tty-device-cm-one-origin device)))
-    (when x-add-char (incf x x-add-char))
-    (when (and x-condx-add (> x x-condx-add))
-      (incf x (tty-device-cm-x-condx-add-char device)))
-    (when y-add-char (incf y y-add-char))
-    (when (and y-condx-add (> y y-condx-add))
-      (incf y (tty-device-cm-y-condx-add-char device)))
-    (when one-origin (incf x) (incf y)))
-  (device-write-string (tty-device-cm-string1 device))
-  (let ((reversep (tty-device-cm-reversep device))
-        (x-pad (tty-device-cm-x-pad device))
-        (y-pad (tty-device-cm-y-pad device)))
-    (if reversep
-        (cm-output-coordinate x x-pad)
-        (cm-output-coordinate y y-pad))
-    (device-write-string (tty-device-cm-string2 device))
-    (if reversep
-        (cm-output-coordinate y y-pad)
-        (cm-output-coordinate x x-pad))
-    (device-write-string (tty-device-cm-string3 device))))
+  (device-write-string
+   (hemlock.terminfo:tparm hemlock.terminfo:cursor-address y x)))
 
 ;;; CM-OUTPUT-COORDINATE outputs the coordinate with respect to the pad.  If
 ;;; there is a pad, then the coordinate needs to be sent as digit-char's (for
@@ -1333,19 +1311,17 @@
 
 (defun setaf (color)
   (device-write-string
-   (hemlock.terminfo:tparm (hemlock.terminfo:capability :set-a-foreground)
-                           color)))
+   (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))
 
 (defun setab (color)
   (device-write-string
-   (hemlock.terminfo:tparm (hemlock.terminfo:capability :set-a-background)
-                           color)))
+   (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))
 
 (defun enter-bold-mode ()
-  (device-write-string (hemlock.terminfo:capability :enter-bold-mode)))
+  (device-write-string hemlock.terminfo:enter-bold-mode))
 
 (defun exit-attribute-mode ()
-  (device-write-string (hemlock.terminfo:capability :exit-attribute-mode)))
+  (device-write-string hemlock.terminfo:exit-attribute-mode))
 
 
 (defun standout-end (hunk)

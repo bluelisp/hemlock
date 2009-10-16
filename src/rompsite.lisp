@@ -356,12 +356,6 @@
   "The character to be displayed to indicate wrapped lines.")
 
 
-;;;; Current terminal character translation.
-
-(defvar termcap-file "/etc/termcap")
-
-
-
 ;;;; Event scheduling.
 
 ;;; The time queue provides a ROUGH mechanism for scheduling events to
@@ -608,10 +602,6 @@
 #||
 (defun get-terminal-name ()
   (cdr (assoc :term *environment-list* :test #'eq)))
-
-(defun get-termcap-env-var ()
-  (cdr (assoc :termcap *environment-list* :test #'eq)))
-
 
 ;;; GET-EDITOR-TTY-INPUT reads from stream's Unix file descriptor queuing events
 ;;; in the stream's queue.
