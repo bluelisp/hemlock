@@ -260,7 +260,9 @@
 (bind-key "Help on Parse" #k"control-_" :mode "Echo Area")
 (bind-key "Help on Parse" #k"control-Delete" :mode "Echo Area")
 
-(bind-key "Complete Keyword" #k"escape" :mode "Echo Area")
+;; disabled, because it breaks the use of escape as meta in the tty
+;;(bind-key "Complete Keyword" #k"escape" :mode "Echo Area")
+
 (bind-key "Complete Field" #k"control-i" :mode "Echo Area")
 (bind-key "Complete Field" #k"tab" :mode "Echo Area")
 (bind-key "Complete Field" #k"space" :mode "Echo Area")
