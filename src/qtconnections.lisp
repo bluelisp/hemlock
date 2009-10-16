@@ -87,6 +87,13 @@
                 :accessor connection-exit-status)))
 
 (defmethod initialize-instance :after ((instance process-connection/qt) &key)
+  (with-slots (command slave-pty-name)
+      instance
+    (when slave-pty-name
+      (setf command
+            (list* (merge-pathnames "setpty" (installation-directory))
+                   slave-name
+                   (listify command)))))
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
     (connection-note-event instance :initialized)

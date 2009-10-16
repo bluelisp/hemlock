@@ -67,8 +67,8 @@
      :read
      (lambda (.fd event error)
        (declare (ignore event))
-       (when (eq error :error) (error "error with ~A" .fd))
-       (when (eq (process-incoming-data connection) :eof)
+       (when (or (eq error :error)
+                 (eq (process-incoming-data connection) :eof))
          (iolib:remove-fd-handlers *event-base* fd :read t))))))
 
 (defmethod %read ((connection iolib-connection))
@@ -135,14 +135,14 @@
 (defmethod initialize-instance
     :after
     ((instance process-connection/iolib) &key)
-  (with-slots (read-fd write-fd command) instance
+  (with-slots (read-fd write-fd pid command slave-pty-name) instance
     (connection-note-event instance :initialized)
     (when (stringp command)
       (setf command (cl-ppcre:split " " command)))
     (assert (every #'stringp command))
     (assert command)
     (setf (values pid read-fd write-fd)
-          (%fork-and-exec (car command) command))
+          (%fork-and-exec (car command) command slave-pty-name))
     (set-iolib-handlers instance)
     (note-connected instance)))
 
@@ -158,7 +158,8 @@
 (defmacro maybe-without-interrupts (&body body)
   `(invoke-without-interrupts (lambda () ,@body)))
 
-(defun %exec (stdin-read stdin-write stdout-read stdout-write file args)
+(defun %exec
+    (stdin-read stdin-write stdout-read stdout-write file args slave-pty-name)
   (maybe-without-interrupts
    (iolib.syscalls:%sys-close stdin-write)
    (iolib.syscalls:%sys-close stdout-read)
@@ -167,6 +168,40 @@
    (iolib.syscalls:%sys-dup2 stdout-write 2)
    (iolib.syscalls:%sys-close stdin-read)
    (iolib.syscalls:%sys-close stdout-write)
+   (when slave-pty-name
+     (iolib.syscalls:%sys-setsid)
+     (handler-case
+         (iolib.syscalls:%sys-open "/dev/tty" iolib.syscalls:o-rdwr)
+       (iolib.syscalls:enoent ())
+       (iolib.syscalls:enxio ())
+       (:no-error (fd)
+         (iolib.syscalls:%sys-ioctl fd osicat-posix:tiocnotty 0)
+         (iolib.syscalls:%sys-close fd)))
+     (iolib.syscalls:%sys-close 0)
+     (iolib.syscalls:%sys-open slave-pty-name iolib.syscalls:o-rdwr)
+     (iolib.syscalls:%sys-dup2 0 1)
+     (iolib.syscalls:%sys-dup2 0 2)
+     (cffi:with-foreign-object (tios 'osicat-posix::termios)
+       (osicat-posix::tcgetattr 0 tios)
+       (cffi:with-foreign-slots ((osicat-posix::iflag
+                                  osicat-posix::oflag
+                                  osicat-posix::cflag
+                                  osicat-posix::lflag
+                                  osicat-posix::cc)
+                                 tios osicat-posix::termios)
+         (setf osicat-posix::lflag
+               (logandc2 osicat-posix::lflag
+                         (logior osicat-posix::tty-echo
+                                 osicat-posix::tty-echonl)))
+         (setf osicat-posix::iflag
+               (logior (logandc2 osicat-posix::iflag
+                                 osicat-posix::tty-brkint)
+                       osicat-posix::tty-icanon
+                       osicat-posix::tty-icrnl))
+         (setf osicat-posix::oflag
+               (logandc2 osicat-posix::oflag
+                         osicat-posix::tty-onlcr ))
+         (osicat-posix::tcsetattr 0 osicat-posix::tcsaflush tios))))
    (let ((n (length args)))
      (cffi:with-foreign-object (argv :pointer (1+ n))
        (iter:iter (iter:for i from 0)
@@ -177,14 +212,20 @@
        (iolib.syscalls:%sys-execvp file argv)))
    (iolib.syscalls::%sys-exit 1)))
 
-(defun %fork-and-exec (file args)
+(defun %fork-and-exec (file args &optional slave-pty-name)
   (multiple-value-bind (stdin-read stdin-write)
       (iolib.syscalls:%sys-pipe)
     (multiple-value-bind (stdout-read stdout-write)
         (iolib.syscalls:%sys-pipe)
       (let ((pid (iolib.syscalls:%sys-fork)))
         (case pid
-          (0 (%exec stdin-read stdin-write stdout-read stdout-write file args))
+          (0 (%exec stdin-read
+                    stdin-write
+                    stdout-read
+                    stdout-write
+                    file
+                    args
+                    slave-pty-name))
           (t
            (iolib.syscalls:%sys-close stdin-read)
            (iolib.syscalls:%sys-close stdout-write)

@@ -16,13 +16,12 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :serial t
               :components
               ((:file "ioconnections")
                (:file "terminfo")
-               (:file "termcap")
+               (:file "termcap" :depends-on ("terminfo"))
                (:file "tty-disp-rt")
-               (:file "tty-display")
-               (:file "tty-screen")
+               (:file "tty-display" :depends-on ("terminfo"))
+               (:file "tty-screen" :depends-on ("terminfo"))
                (:file "tty-stuff")
                (:file "tty-input")))))

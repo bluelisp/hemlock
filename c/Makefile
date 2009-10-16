@@ -13,3 +13,4 @@ clean:
 
 setpty: setpty.o
 	$(CC) -o $@ $^ $(LDFLAGS)
+	cp $@ ../

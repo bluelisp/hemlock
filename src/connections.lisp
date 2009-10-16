@@ -202,7 +202,10 @@
               :accessor connection-exit-code)
    (exit-status :initform nil
                 :initarg :exit-status
-                :accessor connection-exit-status)))
+                :accessor connection-exit-status)
+   (slave-pty-name :initform nil
+                   :initarg :slave-pty-name
+                   :accessor connection-slave-pty-name)))
 
 (defmethod class-for
     ((backend (eql :iolib)) (type (eql 'process-connection-mixin)))
@@ -213,8 +216,8 @@
   'process-connection/qt)
 
 (defun make-process-connection
-    (command &rest args &key name buffer stream filter sentinel)
-  (declare (ignore buffer stream filter sentinel))
+    (command &rest args &key name buffer stream filter sentinel slave-pty-name)
+  (declare (ignore buffer stream filter sentinel slave-pty-name))
   (apply #'make-instance
          (class-for *connection-backend* 'process-connection-mixin)
          :name (or name (princ-to-string command))
@@ -323,11 +326,7 @@
     (command &key name (buffer nil bufferp) stream)
   (multiple-value-bind (master slave slave-name)
       (find-a-pty)
-    (let ((pc
-           (make-process-connection
-            (list* "/home/david/clbuild/source/hemlock/c/setpty"
-                   slave-name
-                   (listify command))))
+    (let ((pc (make-process-connection command :slave-pty-name slave-name))
           (fd (stream-fd master)))
       (close slave)
       (make-pipelike-connection fd
