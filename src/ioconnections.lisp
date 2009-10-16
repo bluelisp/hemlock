@@ -68,16 +68,21 @@
      (lambda (.fd event error)
        (declare (ignore event))
        (when (eq error :error) (error "error with ~A" .fd))
-       (process-incoming-data connection)))))
+       (when (eq (process-incoming-data connection) :eof)
+         (iolib:remove-fd-handlers *event-base* fd :read t))))))
 
 (defmethod %read ((connection iolib-connection))
   (let* ((fd (connection-read-fd connection))
-         (buffer (connection-input-buffer connection)))
-    ;; fixme: with-pointer-to-vector-data isn't portable
-    (subseq buffer
-            0
-            (cffi-sys:with-pointer-to-vector-data (ptr buffer)
-              (iolib.syscalls:%sys-read fd ptr (length buffer))))))
+         (buffer (connection-input-buffer connection))
+         (n
+          ;; fixme: with-pointer-to-vector-data isn't portable
+          (cffi-sys:with-pointer-to-vector-data (ptr buffer)
+            (iolib.syscalls:%sys-read fd ptr (length buffer)))))
+    (cond
+      ((zerop n)
+       :eof)
+      (t
+       (subseq buffer 0 n)))))
 
 (defmethod delete-connection :before ((connection iolib-connection))
   (with-slots (read-fd write-fd) connection

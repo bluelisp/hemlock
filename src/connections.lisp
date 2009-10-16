@@ -172,12 +172,19 @@
   (babel:octets-to-string bytes :encoding (connection-encoding connection)))
 
 (defun process-incoming-data (connection)
-  (let* ((bytes (%read connection))
-         (characters (filter-incoming-data connection bytes))
-         (buffer (connection-buffer connection))
-         (stream (connection-stream connection)))
-    (when (and characters (or buffer stream))
-      (insert-into-connection-buffer-or-stream connection characters))))
+  (let ((bytes (%read connection)))
+    (case bytes
+      (:eof
+       (note-disconnected connection)
+       :eof)
+      (t
+       (let* ((characters (filter-incoming-data connection bytes))
+              (buffer (connection-buffer connection))
+              (stream (connection-stream connection)))
+         (when (and characters (or buffer stream))
+           (insert-into-connection-buffer-or-stream connection
+                                                    characters)))
+       nil))))
 
 
 ;;;;
@@ -380,7 +387,7 @@
                         'pipelike-connection-mixin))
          :read-fd read-fd
          :write-fd write-fd
-         :name (or name (format nil "descriptor ~D" descriptor))
+         :name (or name (format nil "descriptor ~D/~D" read-fd write-fd))
          :filter (or filter
                      (lambda (connection bytes)
                        (default-filter connection bytes)))
