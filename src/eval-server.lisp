@@ -307,6 +307,8 @@
 ;;; CREATE-SLAVE -- Public.
 ;;;
 
+(defvar *slave-command* '("clbuild" "run" "hemlock-slave" "--editor"))
+
 (defun create-slave (&optional name)
   "This creates a slave that tries to connect to the editor.  A preliminary
    slave-information structure is returned immediately, whose details will
@@ -334,8 +336,7 @@
     (message "Spawning slave ... ")
     (let ((server-info (make-buffers-for-typescript slave background)))
       (make-process-connection
-       (format nil "clbuild run hemlock-slave --editor ~A"
-               (get-editor-name))
+       (append *slave-command* (list (get-editor-name)))
        :filter (let ((ts (server-info-slave-info server-info)))
                  (lambda (connection bytes)
                    (ts-buffer-output-string
