@@ -101,16 +101,6 @@
     (when (termcap :overstrikes termcap)
       (error "Terminal sufficiently irritating -- not currently supported."))
     ;;
-    ;; Similar device slots.
-    #+(or)
-    (setf (device-supports-smart-redisplay-p device)
-          (and (termcap :open-line termcap) (termcap :delete-line termcap)))
-;;;     (setf (device-random-typeout-setup device) #'tty-random-typeout-setup)
-;;;     (setf (device-random-typeout-cleanup device) #'tty-random-typeout-cleanup)
-;;;     (setf (device-random-typeout-full-more device) #'do-tty-full-more)
-;;;     (setf (device-random-typeout-line-more device)
-;;;       #'update-tty-line-buffered-stream)
-    ;;
     ;; A few useful values.
     (setf (tty-device-dumbp device)
           (not (and (termcap :open-line termcap)
@@ -227,15 +217,17 @@
       (setf (tty-device-cm-y-pad device) (getf cursor-motion :y-pad)))
     ;;
     ;; Screen image initialization.
-    (let* ((lines (tty-device-lines device))
-           (columns (tty-device-columns device))
-           (screen-image (make-array lines)))
-      (dotimes (i lines)
-        (setf (svref screen-image i) (make-si-line columns)))
-      (setf (tty-device-screen-image device) screen-image))
+    (set-up-screen-image device)
     (hemlock.terminfo:set-terminal)
     device))
 
+(defun set-up-screen-image (device)
+  (let* ((lines (tty-device-lines device))
+         (columns (tty-device-columns device))
+         (screen-image (make-array lines)))
+    (dotimes (i lines)
+      (setf (svref screen-image i) (make-si-line columns)))
+    (setf (tty-device-screen-image device) screen-image)))
 
 
 ;;;; Making a window
@@ -331,6 +323,7 @@
 
 (defmethod enlarge-device
     ((device tty-device) offset)
+  (set-up-screen-image device)
   (let ((first (device-hunks device)))
     (incf (device-hunk-position first) offset)
     (incf (tty-hunk-text-position first) offset)
