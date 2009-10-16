@@ -597,7 +597,8 @@
   "" ""
   (declare (ignore p))
   (change-to-buffer
-   (connection-buffer (make-process-connection command :buffer t))))
+   (connection-buffer
+    (make-process-connection (list "/bin/sh" "-c" command) :buffer t))))
 
 (bind-key "Shell Command" #k"meta-!")
 
@@ -608,7 +609,4 @@
                            :prompt "Run grep (like this): "
                            :default "grep -nH -e ")))
   "" ""
-  (declare (ignore p))
-  (change-to-buffer
-   (connection-buffer
-    (make-process-connection command :buffer t))))
+  (shell-command-command p command))
