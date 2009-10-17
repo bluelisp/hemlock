@@ -185,7 +185,6 @@
        (osicat-posix::tcgetattr 0 tios)
        (cffi:with-foreign-slots ((osicat-posix::iflag
                                   osicat-posix::oflag
-                                  osicat-posix::cflag
                                   osicat-posix::lflag
                                   osicat-posix::cc)
                                  tios osicat-posix::termios)
@@ -201,6 +200,10 @@
          (setf osicat-posix::oflag
                (logandc2 osicat-posix::oflag
                          osicat-posix::tty-onlcr ))
+         (setf (cffi:mem-ref osicat-posix::cc
+                             :uint8
+                             osicat-posix::cflag-verase)
+               #o177)
          (osicat-posix::tcsetattr 0 osicat-posix::tcsaflush tios))))
    (let ((n (length args)))
      (cffi:with-foreign-object (argv :pointer (1+ n))
