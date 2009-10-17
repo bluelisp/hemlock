@@ -710,9 +710,11 @@
                    (append
                     (when (probe-file namestring)
                       (list namestring))
-                    (mapcar #'iolib.pathnames:file-path-namestring
-                            (iolib.os:list-directory directory
-                                                     :absolute-paths t))))))
+                    (mapcar (lambda (f)
+                              (iolib.pathnames:merge-file-paths
+                               (iolib.pathnames:file-path-namestring f)
+                               directory))
+                            (iolib.os:list-directory directory))))))
 
 ;;; Ambiguous-Files  --  Public
 ;;;

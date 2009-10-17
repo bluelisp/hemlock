@@ -914,12 +914,21 @@
         (print-directory-verbose pathname all pattern return-list)
         (print-directory-formatted pathname all pattern return-list))))
 
-(defun %directory (pathname &optional all pattern)
+(defun %directory (directory &optional all pattern)
   (when pattern
     (message "file name patterns not yet implemented in dired: ~S" pattern))
   (unless all
     (message "cannot suppress dot files in dired yet"))
-  (sort (iolib.os:list-directory pathname :absolute-paths t)
+  (sort (remove-if (if all
+                       (constantly nil)
+                       (lambda (f)
+                         (alexandria:starts-with
+                          #\. (iolib.pathnames:file-path-file f))))
+                   (mapcar (lambda (f)
+                             (iolib.pathnames:merge-file-paths
+                              (iolib.pathnames:file-path-namestring f)
+                              directory))
+                           (iolib.os:list-directory directory)))
         #'string<
         :key #'iolib.pathnames:file-path-file))
 
