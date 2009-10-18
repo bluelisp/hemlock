@@ -608,7 +608,7 @@
     (when (plusp (length sname))
       (make-slave-symbol sname
                          (cond ((equal pname "") "KEYWORD")
-                               (pname)
+                               (pname (canonicalize-slave-package-name pname))
                                (t package))))))
 
 (defun slave-symbol-at-point ()
@@ -622,6 +622,9 @@
      (when (< (mark-charpos start) (mark-charpos end))
        (region-to-string (region start end))))))
 
+(defun canonicalize-slave-package-name (str)
+  (cl-ppcre:regex-replace "^SB!" (string-upcase str) "SB-"))
+
 (defun package-at-point ()
   (iter:iter
    (iter:for line initially (mark-line (current-point))
@@ -630,11 +633,11 @@
    (cl-ppcre:register-groups-bind
        (package)
        ("^\\(in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
-     (return (string-upcase package)))
+     (return (canonicalize-slave-package-name package)))
    (cl-ppcre:register-groups-bind
        (package)
        ("^\\(in-package \"([^)]*)\"\\)" (line-string line))
-     (return (string-upcase package)))))
+     (return (canonicalize-slave-package-name package)))))
 
 #+(or)
 (defcommand "Set Buffer Package" (p)
