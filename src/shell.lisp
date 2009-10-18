@@ -593,18 +593,22 @@
   (process-kill process signal :pty-process-group))
 
 (defcommand "Shell Command"
-    (p &optional (command (hi::prompt-for-string :prompt "Shell command: ")))
+    (p &optional (command (hi::prompt-for-string :prompt "Shell command: "))
+                 (directory (default-directory)))
   "" ""
   (declare (ignore p))
   (change-to-buffer
    (connection-buffer
-    (make-process-connection (list "/bin/sh" "-c" command) :buffer t))))
+    (make-process-connection (list "/bin/sh" "-c" command)
+                             :buffer t
+                             :directory directory))))
 
 (bind-key "Shell Command" #k"meta-!")
 
 (defcommand "Grep"
     (p &optional (command (hi::prompt-for-string
                            :prompt "Run grep (like this): "
-                           :default "grep -nH -e ")))
+                           :default "grep -nH -e "))
+                 (directory (default-directory)))
   "" ""
-  (shell-command-command p command))
+  (shell-command-command p command directory))
