@@ -188,13 +188,14 @@
 
 (defun buffer-default-directory (buffer)
   "Like buffer-default-pathname, but prefer a directory."
-  (let ((p (buffer-pathname buffer)))
-    (if p
-        (make-pathname :name nil :type nil :defaults p)
-        (if (every #'alphanumericp (the simple-string (buffer-name buffer)))
-            (merge-pathnames (make-pathname :name (buffer-name buffer))
-                             (value pathname-defaults))
-            (funcall (value last-resort-pathname-defaults-function) buffer)))))
+  (let ((p
+         (or (buffer-pathname buffer)
+             (if (every #'alphanumericp (buffer-name buffer))
+                 (merge-pathnames (make-pathname :name (buffer-name buffer))
+                                  (value pathname-defaults))
+                 (funcall (value last-resort-pathname-defaults-function)
+                          buffer)))))
+    (make-pathname :name nil :type nil :defaults p)))
 
 (defun pathname-to-buffer-name (pathname)
   "Returns a simple-string using components from pathname."

@@ -36,10 +36,9 @@
   "vt100")
 
 (defun default-directory ()
-  "Returns the pathname for the default directory.  This is the place where
-  a file will be written if no directory is specified.  This may be changed
-  with setf."
-  (truename #p""))
+  (namestring
+   (or (hemlock::buffer-default-directory (current-buffer))
+       (truename #p""))))
 
 ;;;;;;;;;;;;
 
