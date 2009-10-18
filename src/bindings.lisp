@@ -784,6 +784,7 @@
 (bind-key "Bufed Expunge" #k"x" :mode "Bufed")
 (bind-key "Bufed Quit" #k"q" :mode "Bufed")
 (bind-key "Bufed Goto" #k"space" :mode "Bufed")
+(bind-key "Bufed Goto" #k"e" :mode "Bufed")
 (bind-key "Bufed Goto and Quit" #k"super-leftdown" :mode "Bufed")
 (bind-key "Bufed Save File" #k"s" :mode "Bufed")
 (bind-key "Next Line" #k"n" :mode "Bufed")
