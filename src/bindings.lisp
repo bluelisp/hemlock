@@ -84,9 +84,8 @@
 (bind-key "Write File" #k"control-x control-w")
 (bind-key "Find File" #k"control-x control-f")
 (bind-key "Backup File" #k"control-x meta-b")
-(bind-key "Save All Files" #k"control-x control-m")
-(bind-key "Save All Files" #k"control-x return")
-(bind-key "Save All Files and Exit" #k"control-x meta-z")
+(bind-key "Save All Files" #k"control-x s")
+(bind-key "Save All Files and Exit" #k"control-x control-c")
 
 (bind-key "Bufed" #k"control-x control-b")
 (bind-key "Buffer Not Modified" #k"meta-~")
@@ -111,7 +110,7 @@
 (bind-key "Top of Window" #k"meta-,")
 #+nil (bind-key "Bottom of Window" #k"meta-.")
 
-(bind-key "Exit Hemlock" #k"control-x control-c")
+#+nil (bind-key "Exit Hemlock" #k"control-x control-c")
 (bind-key "Exit Recursive Edit" #k"control-meta-z")
 (bind-key "Abort Recursive Edit" #k"control-]")
 
@@ -448,8 +447,8 @@
 (bind-key "Activate Region" #k"control-x control-@")
 (bind-key "Activate Region" #k"control-x control-space")
 
-(bind-key "Save Position" #k"control-x s")
-(bind-key "Jump to Saved Position" #k"control-x j")
+;; (bind-key "Save Position" #k"control-x s")
+;; (bind-key "Jump to Saved Position" #k"control-x j")
 (bind-key "Put Register" #k"control-x x")
 (bind-key "Get Register" #k"control-x g")
 
