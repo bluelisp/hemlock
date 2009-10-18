@@ -205,7 +205,10 @@
                 :accessor connection-exit-status)
    (slave-pty-name :initform nil
                    :initarg :slave-pty-name
-                   :accessor connection-slave-pty-name)))
+                   :accessor connection-slave-pty-name)
+   (directory :initform nil
+              :initarg :directory
+              :accessor connection-directory)))
 
 (defmethod class-for
     ((backend (eql :iolib)) (type (eql 'process-connection-mixin)))
@@ -216,8 +219,10 @@
   'process-connection/qt)
 
 (defun make-process-connection
-    (command &rest args &key name buffer stream filter sentinel slave-pty-name)
-  (declare (ignore buffer stream filter sentinel slave-pty-name))
+       (command
+        &rest args
+        &key name buffer stream filter sentinel slave-pty-name directory)
+  (declare (ignore buffer stream filter sentinel slave-pty-name directory))
   (apply #'make-instance
          (class-for *connection-backend* 'process-connection-mixin)
          :name (or name (princ-to-string command))

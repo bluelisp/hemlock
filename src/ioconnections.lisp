@@ -135,14 +135,14 @@
 (defmethod initialize-instance
     :after
     ((instance process-connection/iolib) &key)
-  (with-slots (read-fd write-fd pid command slave-pty-name) instance
+  (with-slots (read-fd write-fd pid command slave-pty-name directory) instance
     (connection-note-event instance :initialized)
     (when (stringp command)
       (setf command (cl-ppcre:split " " command)))
     (assert (every #'stringp command))
     (assert command)
     (setf (values pid read-fd write-fd)
-          (%fork-and-exec (car command) command slave-pty-name))
+          (%fork-and-exec (car command) command directory slave-pty-name))
     (set-iolib-handlers instance)
     (note-connected instance)))
 
@@ -159,7 +159,8 @@
   `(invoke-without-interrupts (lambda () ,@body)))
 
 (defun %exec
-    (stdin-read stdin-write stdout-read stdout-write file args slave-pty-name)
+       (stdin-read stdin-write stdout-read stdout-write file args directory
+                   slave-pty-name)
   (maybe-without-interrupts
    (iolib.syscalls:%sys-close stdin-write)
    (iolib.syscalls:%sys-close stdout-read)
@@ -205,6 +206,8 @@
                              osicat-posix::cflag-verase)
                #o177)
          (osicat-posix::tcsetattr 0 osicat-posix::tcsaflush tios))))
+   (when directory
+     (iolib.syscalls:%sys-chdir directory))
    (let ((n (length args)))
      (cffi:with-foreign-object (argv :pointer (1+ n))
        (iter:iter (iter:for i from 0)
@@ -215,7 +218,7 @@
        (iolib.syscalls:%sys-execvp file argv)))
    (iolib.syscalls::%sys-exit 1)))
 
-(defun %fork-and-exec (file args &optional slave-pty-name)
+(defun %fork-and-exec (file args &optional directory slave-pty-name)
   (multiple-value-bind (stdin-read stdin-write)
       (iolib.syscalls:%sys-pipe)
     (multiple-value-bind (stdout-read stdout-write)
@@ -228,6 +231,7 @@
                     stdout-write
                     file
                     args
+                    directory
                     slave-pty-name))
           (t
            (iolib.syscalls:%sys-close stdin-read)
