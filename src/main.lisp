@@ -416,3 +416,8 @@ GB
 (unless *hemlock-initialized*
   (%init-hemlock))
 
+(defvar *installation-directory* nil)
+
+(defun installation-directory ()
+  (or *installation-directory*
+      (asdf:component-pathname (asdf:find-system :hemlock.base))))

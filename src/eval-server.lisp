@@ -993,7 +993,7 @@
 
 (defun invoke-with-temporary-file-name (fun)
   ;; FIXME
-  (funcall fun (merge-pathnames ".tmp.lisp" (installation-directory))))
+  (funcall fun (merge-pathnames ".tmp.lisp" (hi::installation-directory))))
 
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)

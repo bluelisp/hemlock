@@ -720,18 +720,12 @@
       (string x)
       (pathname (namestring x)))))
 
-(defvar *installation-directory* nil)
-
-(defun installation-directory ()
-  (or *installation-directory*
-      (asdf:component-pathname (asdf:find-system :hemlock.base))))
-
 (defun find-background-svg ()
   (or (probe-namestring *background-svg*)
       (probe-namestring (merge-pathnames ".hemlock/background.svg"
                                          (user-homedir-pathname)))
       (probe-namestring (merge-pathnames "background.svg"
-                                         (installation-directory))))
+                                         (hi::installation-directory))))
 
 (defun qt-window-changed (hunk)
   (setf (hunk-widget-background-pixmap (qt-hunk-widget hunk))
