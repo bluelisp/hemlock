@@ -918,8 +918,6 @@
 (defun %directory (directory &optional all pattern)
   (when pattern
     (message "file name patterns not yet implemented in dired: ~S" pattern))
-  (unless all
-    (message "cannot suppress dot files in dired yet"))
   (sort (remove-if (if all
                        (constantly nil)
                        (lambda (f)
