@@ -25,15 +25,20 @@
 ;;; his init file.  Since these buffers don't have windows yet, these sets
 ;;; won't cause any updates to occur.  This is called from %INIT-REDISPLAY.
 ;;;
-(defun %init-screen-manager (display)
+(defgeneric %init-screen-manager (backend-type display))
+
+(defmethod %init-screen-manager :before ((backend-type t) (display t))
   (setf (buffer-modeline-fields *current-buffer*)
         (value hemlock::default-modeline-fields))
   (setf (buffer-modeline-fields *echo-area-buffer*)
-        (value hemlock::default-status-line-fields))
-  (if (windowed-monitor-p)
-      (init-bitmap-screen-manager display)
-      (init-tty-screen-manager (get-terminal-name))))
+        (value hemlock::default-status-line-fields)))
 
+#+clx
+(defmethod %init-screen-manager ((backend-type (eql :clx)) (display t))
+  (init-bitmap-screen-manager display))
+
+(defmethod %init-screen-manager ((backend-type (eql :tty)) (display t))
+  (init-tty-screen-manager (get-terminal-name)))
 
 
 ;;;; Window operations.

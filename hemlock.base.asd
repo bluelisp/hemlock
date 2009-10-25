@@ -233,6 +233,7 @@
                (:file "diredcoms" :depends-on ("dired"))
                (:file "bufed")
                (:file "coned")
+               (:file "xref")
                #+port-user-lisp-lib (:file "lisp-lib")
                (:file "completion")
                (:file "shell")

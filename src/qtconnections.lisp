@@ -63,8 +63,7 @@
     (hemlock.qt::connect device
              (qt:QSIGNAL "readyRead()")
              (lambda ()
-               (process-incoming-data connection)
-               (hemlock.qt::redraw-needed)))))
+               (process-incoming-data connection)))))
 
 (defmethod (setf connection-io-device)
     :after
@@ -105,8 +104,7 @@
   (hemlock.qt::connect newval
            (qt:QSIGNAL "finished(int,QProcess::ExitStatus)")
            (lambda (&rest *)
-             (note-finished connection)
-             (hemlock.qt::redraw-needed))))
+             (note-finished connection))))
 
 (defun note-finished (connection)
   (let* ((process (connection-io-device connection))
@@ -145,18 +143,15 @@
   (hemlock.qt::connect newval
            (qt:QSIGNAL "connected()")
            (lambda ()
-             (note-connected connection)
-             (hemlock.qt::redraw-needed)))
+             (note-connected connection)))
   (hemlock.qt::connect newval
            (qt:QSIGNAL "disconnected()")
            (lambda ()
-             (note-disconnected connection)
-             (hemlock.qt::redraw-needed)))
+             (note-disconnected connection)))
   (hemlock.qt::connect newval
            (qt:QSIGNAL "error()")
            (lambda ()
-             (note-error connection)
-             (hemlock.qt::redraw-needed))))
+             (note-error connection))))
 
 ;;;
 ;;; PIPELIKE-CONNECTION/QT
@@ -193,18 +188,15 @@
   (hemlock.qt::connect newval
            (qt:QSIGNAL "connected()")
            (lambda ()
-             (note-connected connection)
-             (hemlock.qt::redraw-needed)))
+             (note-connected connection)))
   (hemlock.qt::connect newval
            (qt:QSIGNAL "disconnected()")
            (lambda ()
-             (note-disconnected connection)
-             (hemlock.qt::redraw-needed)))
+             (note-disconnected connection)))
   (hemlock.qt::connect newval
            (qt:QSIGNAL "error()")
            (lambda ()
-             (note-error connection)
-             (hemlock.qt::redraw-needed))))
+             (note-error connection))))
 
 
 ;;;

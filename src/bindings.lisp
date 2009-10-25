@@ -1,7 +1,7 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; **********************************************************************
-;;; This code was written as part of the CMU Common Lisp project at
+;;; This code was wr<itten as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 ;;;
@@ -408,8 +408,6 @@
 (bind-key "Debug Flush Errors" #k"control-meta-hyper-F")
 )
 
-(bind-key "Find Definition" #k"meta-." :mode "Lisp")
-
 
 ;;;; More Miscellaneous bindings.
 
@@ -812,6 +810,22 @@
 
 
 
+;;;; Xref.
+
+(bind-key "Find Definitions" #k"meta-." :mode "Lisp")
+(bind-key "Who Specializes"  #k"control-c control-w control-a" :mode "Lisp")
+(bind-key "Who Binds"        #k"control-c control-w control-b" :mode "Lisp")
+(bind-key "Who Calls"        #k"control-c control-w control-c" :mode "Lisp")
+(bind-key "Who Macroexpands" #k"control-c control-w control-m" :mode "Lisp")
+(bind-key "Who References"   #k"control-c control-w control-r" :mode "Lisp")
+(bind-key "Who Sets"         #k"control-c control-w control-s" :mode "Lisp")
+
+(bind-key "Xref Quit" #k"q" :mode "Xref")
+(bind-key "Xref Goto" #k"space" :mode "Xref")
+(bind-key "Xref Help" #k"?" :mode "Xref")
+
+
+
 ;;;; Dired.
 
 (bind-key "Dired" #k"control-x control-meta-d")
@@ -827,8 +841,11 @@
 
 (bind-key "Dired Expunge Files" #k"!" :mode "Dired")
 (bind-key "Dired Update Buffer" #k"hyper-u" :mode "Dired")
-(bind-key "Dired View File" #k"space" :mode "Dired")
+;; (bind-key "Dired View File" #k"space" :mode "Dired")
+(bind-key "Dired Edit File" #k"space" :mode "Dired")
 (bind-key "Dired Edit File" #k"e" :mode "Dired")
+(bind-key "Dired Edit File" #k"return" :mode "Dired")
+(bind-key "Dired Edit File" #k"control-m" :mode "Dired")
 (bind-key "Dired Up Directory" #k"^" :mode "Dired")
 (bind-key "Dired Quit" #k"q" :mode "Dired")
 (bind-key "Dired Help" #k"?" :mode "Dired")

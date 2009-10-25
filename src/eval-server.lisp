@@ -390,7 +390,10 @@
                            *trace-output*
                            *background-io*
                            cl-user::*io*)
-               (start-slave editor-name slave background))))))
+               (start-slave editor-name
+                            :backend-type hi::*default-backend*
+                            :slave-buffer slave
+                            :background-buffer background))))))
        :name slave)
       server-info)))
 
@@ -428,9 +431,11 @@
 ;;;
 ;;; Return two unused names to use for the slave and background buffers.
 ;;;
-(defun pick-slave-buffer-names ()
+(defun pick-slave-buffer-names (&optional info)
   (loop
-    (let ((slave (format nil "Slave ~D" (incf *next-slave-index*)))
+    (let ((slave (format nil "Slave~@[ ~A~] ~D"
+                         info
+                         (incf *next-slave-index*)))
           (background (format nil "Background Slave ~D" *next-slave-index*)))
       (unless (or (getstring slave *buffer-names*)
                   (getstring background *buffer-names*))
@@ -470,24 +475,27 @@
 
 ;;;; Server Manipulation commands.
 
+(defun prompt-for-slave-command ()
+  (cl-ppcre:split
+   " "
+   (hemlock-interface::prompt-for-string
+    :prompt "Command: "
+    :default (format nil "~{~A~^ ~}" *slave-command*))))
+
 (defcommand "Start Slave Process" (p)
-  "Create a new slave.  When given an argument, ask for its name first."
+  "Create a new slave.  When given an argument, ask for a command first."
   ""
-  (let ((info (create-slave (unless p (pick-slave-buffer-names)))))
+  (let* ((*slave-command*
+          (if p
+              (prompt-for-slave-command)
+              *slave-command*))
+         (info (create-slave (pick-slave-buffer-names "Process"))))
     (change-to-buffer (server-info-slave-buffer info))))
 
 (defcommand "Start Slave Thread" (p)
-  "Create a new thread acting as a slave.  When given an argument, ask for
-   its name first."
+  "Create a new thread acting as a slave."
   ""
-  (let ((info (create-slave-in-thread (unless p (pick-slave-buffer-names)))))
-    (change-to-buffer (server-info-slave-buffer info))))
-
-(defcommand "Test" (p)
-  "Create a new thread acting as a slave.  When given an argument, ask for
-   its name first."
-  ""
-  (let ((info (create-slave-in-thread (unless p (pick-slave-buffer-names)))))
+  (let ((info (create-slave-in-thread (pick-slave-buffer-names "Thread"))))
     (change-to-buffer (server-info-slave-buffer info))))
 
 (defcommand "Select Slave" (p)
@@ -715,8 +723,15 @@
 ;;;
 ;;; Initiate the process by which a lisp becomes a slave.
 ;;;
-(defun %start-slave (editor &optional slave-buffer background-buffer)
-  (let ((seperator (position #\: editor :test #'char=)))
+(defun %start-slave
+    (editor &key slave-buffer
+                 background-buffer
+                 (backend-type hi::*default-backend*))
+  (let ((hi::*connection-backend*
+         (ecase backend-type
+           (:qt :qt)
+           (:tty :iolib)))
+        (seperator (position #\: editor :test #'char=)))
     (unless seperator
       (error "Editor name ~S invalid. ~
               Must be of the form \"MachineName:PortNumber\"."
@@ -746,7 +761,17 @@
          (force-output *original-terminal-io*))
         (prepl:repl)))))
 
-(defun start-slave (editor &optional slave-buffer background-buffer)
+(defun simple-backtrace (&optional (stream *standard-output*))
+  (conium:call-with-debugging-environment
+   (lambda ()
+     (mapcar (lambda (frame)
+               (conium:print-frame frame stream)
+               (terpri stream))
+             (conium:compute-backtrace 0 most-positive-fixnum)))))
+
+(defun start-slave (editor &rest args
+                           &key slave-buffer background-buffer backend-type
+                           &allow-other-keys)
   (let ((*original-terminal-io* *terminal-io*))
     (block nil
       (handler-bind
@@ -757,9 +782,10 @@
               ;; keep it from entering the debugger.
               (when (eq *original-terminal-io* *terminal-io*)
                 (format *original-terminal-io* "Error: ~A~%" c)
+                (simple-backtrace *original-terminal-io*)
                 (force-output *original-terminal-io*)
                 (return)))))
-        (%start-slave editor slave-buffer background-buffer)))))
+        (apply #'%start-slave editor args)))))
 
 
 ;;; PRINT-SLAVE-STATUS  --  Internal
@@ -801,6 +827,7 @@
 ;;; Do the actual connect to the editor.
 ;;;
 (defun connect-to-editor (machine port &optional (slave nil) (background nil))
+  (declare (ignorable slave background)) ;???
   (connect-to-remote-server
    machine
    port
@@ -808,17 +835,22 @@
      (let ((hemlock.wire::*current-wire* wire))
        (hemlock.wire:remote-value-bind wire
          (slave background)
-         (set-up-buffers-for-slave)
+         (set-up-buffers-for-slave (lisp-implementation-type))
          (made-buffers-for-typescript slave background))))
    'editor-died))
 
-(defun set-up-buffers-for-slave (&optional (wire hemlock.wire:*current-wire*))
+(defun set-up-buffers-for-slave
+    (&optional extra-string (wire hemlock.wire:*current-wire*))
   (let* ((server-info (variable-value 'current-eval-server :global))
          (slave-info (server-info-slave-info server-info))
          (background-info (server-info-background-info server-info)))
     (setf (server-info-wire server-info) wire)
     (ts-buffer-wire-connected slave-info wire)
     (ts-buffer-wire-connected background-info wire)
+    (when extra-string
+      (let* ((buf (ts-data-buffer slave-info))
+             (name (format nil "~A ~A" (buffer-name buf) extra-string)))
+        (hemlock-ext::maybe-rename-buffer buf name)))
     (values (hemlock.wire:make-remote-object slave-info)
             (hemlock.wire:make-remote-object background-info))))
 
@@ -992,8 +1024,12 @@
   `(invoke-with-temporary-file-name (lambda (,var) ,@body)))
 
 (defun invoke-with-temporary-file-name (fun)
-  ;; FIXME
-  (funcall fun (merge-pathnames ".tmp.lisp" (hi::installation-directory))))
+  (multiple-value-bind (fd pathname)
+                       (iolib.syscalls:%sys-mkstemp "/tmp/hemlock")
+    (iolib.syscalls:%sys-close fd)
+    (funcall fun pathname)
+    (when (iolib.os::get-file-kind pathname nil)
+      (iolib.syscalls:%sys-unlink pathname))))
 
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)
@@ -1119,33 +1155,3 @@
   (declare (ignore p))
   (asdf:operate 'asdf:load-op :swank)
   (eval (read-from-string (format nil "(swank:create-server :port ~D)" port))))
-
-(defun %find-definitions (name)
-  (let ((data
-         (conium:find-definitions (hemlock::resolve-slave-symbol name))))
-    (hemlock::eval-in-master `(%definitions-found ',name ',data))))
-
-(defun %definitions-found (name data)
-  (dolist (definition data
-           (message "No definition found for: ~A" name))
-    (let* ((location (cdr (assoc :location definition)))
-           (file (second (assoc :file location)))
-           (position (second (assoc :position location))))
-      (when file
-        (change-to-buffer (find-file-buffer file))
-        (when position
-          (buffer-start (current-point))
-          (character-offset (current-point) (1- position)))
-        (return)))))
-
-(defun find-definitions (name)
-  (hemlock::eval-in-slave `(%find-definitions ',name)))
-
-(defcommand "Find Definition"
-    (p &optional name)
-  "" ""
-  (find-definitions
-   (or name
-       (and (null p) (hemlock::slave-symbol-at-point))
-       (hemlock::parse-slave-symbol
-        (hemlock-interface::prompt-for-string :prompt "Name: ")))))

@@ -1289,13 +1289,22 @@
   (declare (ignore p))
   (center-window (current-window) (current-point)))
 
-(defun quickselect-slave (&optional *)
+(defun quickselect-slave-repl (&optional *)
   (let ((info (variable-value 'current-eval-server :global)))
     (when info
       (change-to-buffer (server-info-slave-buffer info)))))
 
 (defun quickselect-help (&optional *)
-  (message "Press space for Slave buffer"))
+  (with-pop-up-display (s)
+    (format s "Quickselect:~%")
+    (terpri s)
+    (format s "  h  this help~%")
+    (terpri s)
+    (format s "  r  Slave REPL~%")
+    (terpri s)
+    (format s "  b  Bufed~%")
+    (format s "  c  Coned~%"))
+  (message "Press q to dismiss this help."))
 
 (defcommand "Quickselect" (p)
   "" ""
@@ -1304,10 +1313,10 @@
              (unwind-protect
                   (progn
                     (setf (current-window) *echo-area-window*)
-                    (hi::display-prompt-nicely "Quickselect? [h for help]")
+                    (hi::display-prompt-nicely "Quickselect? [?rcb]")
                     (hi::key-event-case
-                     ((#k"s") 'quickselect-slave)
-                     ((#k"h") 'quickselect-help)
+                     ((#k"r") 'quickselect-slave-repl)
+                     ((#k"?" #k"h") 'quickselect-help)
                      ((#k"c") 'coned-command)
                      ((#k"b") 'bufed-command)
                      (t (lambda ()))))

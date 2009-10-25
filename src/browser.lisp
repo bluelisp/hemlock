@@ -5,11 +5,11 @@
 (named-readtables:in-readtable :hemlock.qt)
 
 (defun note-webkit-title-changed (buffer title)
-  (rename-buffer-uniquely buffer
-                          (format nil "*Webkit* [~A]" title)))
+  (hemlock-ext::rename-buffer-uniquely buffer
+                                       (format nil "*Webkit* [~A]" title)))
 
 (defun make-browser-buffer (name url)
-  (unless (hemlock.qt::find-buffer name)
+  (unless (hemlock-ext::find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
       (let ((buffer
@@ -17,30 +17,26 @@
         (connect/string widget
                         (QSIGNAL "titleChanged(const QString&)")
                         (lambda (title)
-                          (note-webkit-title-changed buffer title)
-                          (redraw-needed)))
+                          (note-webkit-title-changed buffer title)))
         (connect widget
                  (QSIGNAL "loadStarted()")
                  (lambda ()
-                   (message "Loading page...")
-                   (redraw-needed)))
+                   (message "Loading page...")))
         (connect/boolean widget
                          (QSIGNAL "loadFinished(bool)")
                          (lambda (ok)
                            (message (if ok
                                         "Page loaded."
-                                        "Failed to load page."))
-                           (redraw-needed)))
+                                        "Failed to load page."))))
         (connect/int widget
                      (QSIGNAL "loadProgress(int)")
                      (lambda (p)
-                       (message "Loading page... ~D%" p)
-                       (redraw-needed)))
+                       (message "Loading page... ~D%" p)))
         buffer))))
 
 (defun ensure-browser-buffer (name url &aux *)
   (cond
-    ((setf * (hemlock.qt::find-buffer name))
+    ((setf * (hemlock-ext::find-buffer name))
      (#_setUrl (hi::buffer-widget *) (#_new QUrl url))
      *)
     (t

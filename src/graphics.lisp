@@ -7,7 +7,7 @@
 (defvar *dependency-graph-buffer* nil)
 
 (defun make-graphics-buffer (name projects)
-  (unless (hemlock.qt::find-buffer name)
+  (unless (hemlock-ext::find-buffer name)
     (let* ((widget (#_new QGraphicsView))
            (scene (#_new QGraphicsScene widget)))
       (#_setScene widget scene)
@@ -32,7 +32,7 @@
   "" ""
   (declare (ignore p))
   (let ((name "*Dependency Graph*"))
-    (let ((buf (hemlock.qt::find-buffer name)))
+    (let ((buf (hemlock-ext::find-buffer name)))
       (when buf
         (when (eq buf (current-buffer))
           (change-to-buffer (previous-buffer)))
@@ -40,7 +40,7 @@
     (change-to-buffer (or (make-graphics-buffer name projects)
                           (progn
                             (message "Buffer already exists: ~A" name)
-                            (hemlock.qt::find-buffer name))))))
+                            (hemlock-ext::find-buffer name))))))
 
 (defun add-projects-to-current-graph (projects)
   (let ((graph (variable-value 'hemlock::current-graph))
@@ -220,7 +220,7 @@
 (defcommand "Clbuild Dependency Graph" (p)
   "" ""
   (declare (ignore p))
-  (let ((name (mapcar #'clbuild-info-name (list-marked-clbuild-projects))))
+  (let ((name (mapcar #'clbuild-info-name (hemlock::list-marked-clbuild-projects))))
     (if *dependency-graph-buffer*
         (hemlock.qt::add-project-to-graph nil name)
         (hemlock.qt::show-project-graph-command nil names))))
@@ -228,10 +228,12 @@
 (defcommand "Clbuild Dependency Graph" (p)
   "" ""
   (declare (ignore p))
-  (let ((names (mapcar #'clbuild-info-name
-                       (list-marked-clbuild-projects))))
+  (let ((names (mapcar #'hemlock::clbuild-info-name
+                       (hemlock::list-marked-clbuild-projects))))
     (if hemlock.qt::*dependency-graph-buffer*
         (progn
           (change-to-buffer hemlock.qt::*dependency-graph-buffer*)
           (hemlock.qt::add-projects-to-current-graph names))
         (hemlock.qt::show-project-graph-command nil names))))
+
+(bind-key "Clbuild Dependency Graph" #k"$" :mode "Clbuild")

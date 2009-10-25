@@ -716,6 +716,7 @@
    #:*global-variable-names* #:*mode-names* #:*buffer-names*
    #:*character-attribute-names* #:*command-names* #:*buffer-list*
    #:*window-list* #:*last-key-event-typed* #:after-editor-initializations
+   #:*background-image*
 
    ;; screen.lisp
    #:make-window #:delete-window #:next-window #:previous-window
@@ -758,7 +759,9 @@
 ;;;  (:import-from :hemlock-ext #:delq #:memq #:assq)
 ;;;  (:import-from :hemlock-internals #:*fast*)
   (:import-from :hemlock-internals #:hemlock)
-  (:export #:hemlock)
+  (:export #:hemlock
+           #:start-slave
+           #:*background-image*)
   (:shadowing-import-from #:hemlock-ext
                           #:char-code-limit)
   ;;  #+cmu
@@ -806,8 +809,7 @@
 
    #:TRANSLATE-KEY-EVENT
    #:TRANSLATE-MOUSE-KEY-EVENT
-   #:WITH-CLX-EVENT-HANDLING)
-  )
+   #:WITH-CLX-EVENT-HANDLING))
 
 
 (defpackage :hemlock.x11

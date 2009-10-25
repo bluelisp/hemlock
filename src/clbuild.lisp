@@ -220,5 +220,4 @@
 (bind-key "Next Line" #k"n" :mode "Clbuild")
 (bind-key "Previous Line" #k"p" :mode "Clbuild")
 (bind-key "Clbuild Help" #k"?" :mode "Clbuild")
-(bind-key "Clbuild Dependency Graph" #k"$" :mode "Clbuild")
 (bind-key "Install Clbuild Project" #k"i" :mode "Clbuild")

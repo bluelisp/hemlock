@@ -84,7 +84,8 @@
          (when (listen-editor-input *real-editor-input*)
            (throw 'redisplay-catcher :editor-input))
          (let ((,win-var *current-window*))
-           (when ,special-form (setf ,n-res t)))
+           (when ,special-form
+             (setf ,n-res t)))
          (dolist (,win-var *window-list*)
            (unless (eq ,win-var *current-window*)
              (when (listen-editor-input *real-editor-input*)
@@ -177,7 +178,8 @@
   (when *things-to-do-once*
     (dolist (thing *things-to-do-once*) (apply (car thing) (cdr thing)))
     (setf *things-to-do-once* nil))
-  (cond (*in-redisplay* t)
+  (cond (*in-redisplay*
+         t)
         (*screen-image-trashed*
          (when (eq (redisplay-all) t)
            (setf *screen-image-trashed* nil)

@@ -12,6 +12,8 @@
 
 (in-package :hemlock-internals)
 
+(pushnew :tty hi::*available-backends*)
+
 
 ;;;; Terminal init and exit methods.
 

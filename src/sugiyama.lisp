@@ -932,6 +932,7 @@
   (#_setBrush instance brush))
 
 (defmethod item-change/3 ((item clickable-qgraphicspathitem) change value)
+  (setf hemlock.qt::*interesting-event-received* t)
   (when (enum= (#_QGraphicsItem::ItemSceneHasChanged) change)
     (if (typep (#_scene item) 'qt::null-qobject)
         (qt::note-child-removed item)
@@ -939,6 +940,7 @@
   (call-next-qmethod))
 
 (defmethod mouse-press-event/2 ((item clickable-qgraphicspathitem) event)
+  (setf hemlock.qt::*interesting-event-received* t)
   #+nil (#_removeItem (#_scene item) item)
   (with-slots (data press-callback) item
     (when press-callback

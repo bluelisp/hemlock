@@ -236,6 +236,20 @@ GB
     :value nil
     :hooks (list 'maximum-modeline-pathname-length-hook)))
 
+(defvar *background-image* :auto
+  "Path to a background image in SVG format, or one of :AUTO, NIL.
+
+   Possible values indicate:
+     - STRING or PATHNAME -- Open this file name.
+
+     - The symbol :AUTO --  Try to open ~/.hemlock/background.svg, then
+       background.svg in Hemlock's installation directory (in this order).
+
+     - The symbol NIL -- No background image.
+       (Not using a background image is faster, especially with remote X.)
+
+   Currently supported only in the Qt backend.")
+
 
 
 ;;;; ED.
@@ -257,9 +271,10 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
-(defun old-hemlock (&optional x
-                         &key (init t)
-                              (display #+nil(hemlock-ext:getenv "DISPLAY")))
+(defun hemlock (&optional x
+                &key (load-user-init t)
+                     backend-type
+                     (display (iolib.syscalls:%sys-getenv "DISPLAY")))
   "Invokes the editor, Hemlock.  If X is supplied and is a symbol, the
    definition of X is put into a buffer, and that buffer is selected.  If X is
    a pathname, the file specified by X is visited in a new buffer.  If X is not
@@ -277,29 +292,39 @@ GB
      (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
                                 (process-command-line-argument x)))
     (t
-     (with-event-loop ()
-       (let ((*in-the-editor* t)
-             (display (unless *editor-has-been-entered*
-                        (maybe-load-hemlock-init init)
-                        ;; Device dependent initializaiton.
-                        (init-raw-io display))))
-         (catch 'editor-top-level-catcher
-           (site-wrapper-macro
-            (unless *editor-has-been-entered*
-              ;; Make an initial window, and set up redisplay's internal
-              ;; data structures.
-              (%init-redisplay display)
-              (setq *editor-has-been-entered* t)
-              ;; Pick up user initializations to be done after initialization.
-              (invoke-hook (reverse *after-editor-initializations-funs*)))
-            (catch 'hemlock-exit
-              (catch 'editor-top-level-catcher
-                (process-command-line-argument x))
-              (invoke-hook hemlock::entry-hook)
-              (unwind-protect
-                   (progn
-                     (process-command-line-argument x)
-                     (loop
+     (when (and backend-type (not (validate-backend-type backend-type)))
+       (error "Specified backend ~A not loaded" backend-type))
+     ;; fixme: pass DISPLAY to WITH-EVENT-LOOP, so that Qt can pick it up
+     ;; in case the user wants a DISPLAY != $DISPLAY
+     (let* ((backend-type (or backend-type (choose-backend-type display)))
+            (*default-backend* backend-type))
+       (setf *connection-backend*
+             (ecase backend-type
+               (:qt :qt)
+               (:tty :iolib)))
+       (with-event-loop ()
+         (let* ((*in-the-editor* t)
+                (display (unless *editor-has-been-entered*
+                           (maybe-load-hemlock-init load-user-init)
+                           ;; Device dependent initializaiton.
+                           (init-raw-io backend-type display))))
+           (catch 'editor-top-level-catcher
+             (site-wrapper-macro
+              (unless *editor-has-been-entered*
+                ;; Make an initial window, and set up redisplay's internal
+                ;; data structures.
+                (%init-redisplay backend-type display)
+                (setq *editor-has-been-entered* t)
+                ;; Pick up user initializations to be done after initialization.
+                (invoke-hook (reverse *after-editor-initializations-funs*)))
+              (catch 'hemlock-exit
+                (catch 'editor-top-level-catcher
+                  (process-command-line-argument x))
+                (invoke-hook hemlock::entry-hook)
+                (unwind-protect
+                    (progn
+                      (process-command-line-argument x)
+                      (loop
                         (catch 'command-loop-catcher
                           (catch 'editor-top-level-catcher
                             (handler-bind ((error #'(lambda (condition)
@@ -307,7 +332,7 @@ GB
                                                                                 :internal))))
                               (invoke-hook hemlock::abort-hook)
                               (%command-loop))))))
-                (invoke-hook hemlock::exit-hook))))))))))
+                  (invoke-hook hemlock::exit-hook)))))))))))
 
 (defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher
@@ -348,23 +373,19 @@ GB
 
 (defun maybe-load-hemlock-init (init)
   (when init
-    (let* ((switch #+NILGB (find "hinit" *command-line-switches*
-                         :test #'string-equal
-                         :key #'cmd-switch-name))
-           (spec-name
-            (if (not (eq init t))
-                init
-                (and switch
-                     #+nilamb (or (cmd-switch-value switch)
-                         (car (cmd-switch-words switch))))))
-           (home (user-homedir-pathname)))
-      (when home
-        (if spec-name
-            (load (merge-pathnames spec-name home) :if-does-not-exist nil)
-            (or (load (merge-pathnames (make-pathname :name "hemlock-init") home)
-                      :if-does-not-exist nil)
-                (load (merge-pathnames (make-pathname :name ".hemlock-init") home)
-                      :if-does-not-exist nil)))))))
+    (let ((names
+           (if (typep init '(or string pathname))
+               (list init)
+               (let ((home (user-homedir-pathname)))
+                 (list (merge-pathnames ".hemlock.lisp" home)
+                       (merge-pathnames ".hemlock/hemlock.lisp" home)
+                       ;; Also support one of the traditional pathnames for
+                       ;; CMUCL compatibility:
+                       (merge-pathnames ".hemlock-init" home))))))
+      (dolist (name names)
+        (when (probe-file name)
+          (load name)
+          (return))))))
 
 
 ;;;; SAVE-ALL-BUFFERS.

@@ -194,26 +194,48 @@
 ;;;    This function should be called whenever the editor is entered in a new
 ;;; lisp.  It sets up process specific data structures.
 ;;;
-(defun init-raw-io (display)
-  #-clx (declare (ignore display))
+(defvar *default-backend* :tty)
+(defvar *available-backends* '())
+
+(defun validate-backend-type (want)
+  (find want *available-backends*))
+
+(defun choose-backend-type (&optional display)
+  (let ((want
+         (if display
+             ;; $DISPLAY is set, can use the preferred display
+             *default-backend*
+             ;; $DISPLAY unset, revert to TTY
+             :tty)))
+    (cond
+      ((validate-backend-type want))
+      ((car *available-backends*))
+      (t (error "no Hemlock backends loaded, giving up")))))
+
+(defgeneric backend-init-raw-io (backend-type display))
+
+(defmethod backend-init-raw-io ((backend (eql :tty)) display)
+  (declare (ignore display))
+  ;; The editor's file descriptor is Unix standard input (0).
+  ;; We don't need to affect system:*file-input-handlers* here
+  ;; because the init and exit methods for tty redisplay devices
+  ;; take care of this.
+  ;;
+  (setf *editor-file-descriptor* 0)
+  (setf *editor-input* (make-tty-editor-input :fd 0)))
+
+#+clx
+(defmethod backend-init-raw-io ((backend (eql :clx)) display)
+  (setf *editor-windowed-input*
+        #+(or CMU scl) (ext:open-clx-display display)
+        #+(or sbcl openmcl)  (xlib::open-default-display #+nil display)
+        #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
+  (setf *editor-input* (make-windowed-editor-input))
+  (setup-font-family *editor-windowed-input*))
+
+(defun init-raw-io (backend-type display)
   (setf *editor-windowed-input* nil)
-  (cond #+clx
-        (display
-         (setf *editor-windowed-input*
-               #+(or CMU scl) (ext:open-clx-display display)
-               #+(or sbcl openmcl)  (xlib::open-default-display #+nil display)
-               #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
-         (setf *editor-input* (make-windowed-editor-input))
-         (setup-font-family *editor-windowed-input*))
-        (t ;; The editor's file descriptor is Unix standard input (0).
-           ;; We don't need to affect system:*file-input-handlers* here
-           ;; because the init and exit methods for tty redisplay devices
-           ;; take care of this.
-           ;;
-         (setf *editor-file-descriptor* 0)
-         (setf *editor-input* (make-tty-editor-input :fd 0))))
-  (setf *real-editor-input* *editor-input*)
-  *editor-windowed-input*)
+  (setf *real-editor-input* (backend-init-raw-io backend-type display)))
 
 ;;; Stop flaming from compiler due to CLX macros expanding into illegal
 ;;; declarations.

@@ -4,15 +4,19 @@ clbuild lisp <<EOF
 (defun hemlock-toplevel ()
   (destructuring-bind (argv0 &optional arg1 arg2) sb-ext:*posix-argv*
     (setf hi::*installation-directory*
-	  (iolib.pathnames:file-path-directory argv0 :namestring t))
+	  (concatenate 
+	   'string
+	   (iolib.pathnames:file-path-directory argv0 :namestring t)
+	   "/"))
     (setf hemlock::*slave-command* (list argv0 "--slave"))
     (cond 
      ((equal arg1 "--slave")
-      (hemlock::start-slave arg2))
+      (hemlock:start-slave arg2))
      (t
-      (hi::old-hemlock arg1))))
+      (hemlock:hemlock arg1))))
   (quit))
 
+(setf hi::*default-backend* :tty)
 (sb-ext:save-lisp-and-die "hemlock.tty"
 			  :toplevel 'hemlock-toplevel
 			  :executable t)

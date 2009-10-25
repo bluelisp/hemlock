@@ -539,25 +539,37 @@
   (package-name (symbol-package x)))
 
 (defun resolve-slave-symbol
-    (slave-symbol &optional (if-does-not-exist :intern))
+    (slave-symbol &optional (if-does-not-exist :intern)
+                            (if-does-not-exist-value nil))
   (with-slots (name package-name) slave-symbol
     (let ((package (find-package package-name)))
-      (and package
-           (or (find-symbol name package)
-               (ecase if-does-not-exist
-                 (:intern (intern name package))
-                 (:error (error "symbol does not exist in this lisp: ~A:~A"
-                                package-name name))
-                 ((nil) nil)))))))
+      (cond
+       ((null package)
+        if-does-not-exist-value)
+       ((and (eq package (find-package :cl))
+             (equal name "NIL"))
+        nil)
+       ((find-symbol name package))
+       (t
+        (ecase if-does-not-exist
+          (:intern (intern name package))
+          (:error (error "symbol does not exist in this lisp: ~A:~A"
+                         package-name name))
+          ((nil) if-does-not-exist-value)))))))
 
 (defun make-slave-symbol (name &optional package)
-  (make-instance 'slave-symbol
-                 :package-name (etypecase package
-                                 (package (package-name package))
-                                 (string package)
-                                 (null (or (package-at-point)
-                                           "COMMON-LISP")))
-                 :name name))
+  (multiple-value-bind (name package)
+                       (if (symbolp name)
+                           (values (symbol-name name)
+                                   (symbol-package name))
+                           (values name package))
+    (make-instance 'slave-symbol
+                   :package-name (etypecase package
+                                   (package (package-name package))
+                                   (string package)
+                                   (null (or (package-at-point)
+                                             "COMMON-LISP")))
+                   :name name)))
 
 (defun casify-char (char)
   "Convert CHAR accoring to readtable-case."
@@ -612,15 +624,13 @@
                                (t package))))))
 
 (defun slave-symbol-at-point ()
-  (parse-slave-symbol
-   (let ((start (copy-mark (current-point) :temporary))
-         (end (copy-mark (current-point) :temporary)))
-     (character-offset start 1)
-     (form-offset start -1)
-     (character-offset end -1)
-     (form-offset end 1)
-     (when (< (mark-charpos start) (mark-charpos end))
-       (region-to-string (region start end))))))
+  (parse-slave-symbol (symbol-string-at-point)))
+
+(defun symbol-string-at-point ()
+  (with-mark ((mark1 (current-point))
+              (mark2 (current-point)))
+    (mark-symbol mark1 mark2)
+    (region-to-string (region mark1 mark2))))
 
 (defun canonicalize-slave-package-name (str)
   (cl-ppcre:regex-replace "^SB!" (string-upcase str) "SB-"))

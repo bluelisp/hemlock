@@ -40,6 +40,20 @@
    (or (hemlock::buffer-default-directory (current-buffer))
        (truename #p""))))
 
+(defun find-buffer (name)
+  (getstring name hi::*buffer-names*))
+
+(defun maybe-rename-buffer (buffer new-name)
+  (unless (find-buffer new-name)
+    (setf (buffer-name buffer) new-name)))
+
+(defun rename-buffer-uniquely (buffer new-name)
+  (or (maybe-rename-buffer buffer new-name)
+      (iter:iter
+       (iter:for i from 2)
+       (iter:until
+        (maybe-rename-buffer buffer (format nil "~A<~D>" new-name i))))))
+
 ;;;;;;;;;;;;
 
 (defstruct (object-set (:constructor make-object-set (name &optional default-handler)))

@@ -231,6 +231,10 @@
 ;;;
 (defun %editor-input-method (editor-input ignore-abort-attempts-p)
   (handler-bind
+      ;; FIXME: Now that the rest of this function works well with the
+      ;; current backends, this HANDLER-BIND business should be cleaned
+      ;; up, too.  We shouldn't have to know about CLX backend details
+      ;; here.
       ((error
         (lambda (condition)
           (when (typep condition 'stream-error)
@@ -254,24 +258,25 @@
             (format *error-output*
                     "Closed display on stream ~a~%"
                     (xlib::display-input-stream display)))
-          (exit-hemlock nil)))
-       )
-                                        ;     (when *in-hemlock-stream-input-method*
-                                        ;       (error "Entering Hemlock stream input method recursively!"))
-    (let ((*in-hemlock-stream-input-method* t)
-          (device (device-hunk-device (window-hunk (current-window))))
-          key-event)
+          (exit-hemlock nil))))
+     (let ((*in-hemlock-stream-input-method* t)
+           (device (device-hunk-device (window-hunk (current-window))))
+           key-event)
       (loop
          (when (setf key-event (dq-event editor-input))
            (dolist (f (variable-value 'hemlock::input-hook)) (funcall f))
            (return))
          (invoke-scheduled-events)
-         #+nil (dispatch-events-no-hang)
-         (unless (or #+nil (hemlock-ext:serve-event 0)
-                     (internal-redisplay))
+         (unless (internal-redisplay)
            (internal-redisplay)
            (device-note-read-wait device t)
-           (let ((wait (next-scheduled-event-wait)))
+           (let ((wait (and (not
+                             ;; Let's be extra careful here and prepare
+                             ;; for the case where key events have been
+                             ;; seen in the mean time, in which case we
+                             ;; must not wait here:
+                             (listen-editor-input editor-input))
+                            (next-scheduled-event-wait))))
              (when wait
                (dispatch-events)))))
       (device-note-read-wait device nil)

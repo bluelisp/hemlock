@@ -317,8 +317,7 @@
                                  (:no-error (socket)
                                    (setf port p)
                                    (return socket))
-                                 (error ()
-                                   (warn "trying next port"))))))))
+                                 (error ())))))))
       (setf fd (iolib.sockets:socket-os-fd socket)))
     (set-iolib-server-handlers instance)))
 
