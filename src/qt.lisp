@@ -63,7 +63,9 @@
                 :accessor device-cursor-hunk)
    (cursor-item :initform nil
                 :accessor device-cursor-item)
-   (windows :initform nil)))
+   (windows :initform nil)
+   (main-window :initform nil
+                :accessor device-main-window)))
 
 (defun current-device ()
   (device-hunk-device (window-hunk (current-window))))
@@ -188,7 +190,7 @@
   ;; like keyboard or socket interaction will make event dispatching
   ;; return.  So if redisplay exited with a pending event,
   ;; editor-input-method would degenerate into a busy loop.
-  (let ((ev (#_new QEventLoop)))
+  (let ((ev (#_QAbstractEventDispatcher::instance)))
     (iter (while (#_processEvents ev (#_QEventLoop::AllEvents))))))
 
 (defmethod device-force-output ((device qt-device))
@@ -691,8 +693,6 @@
 
 (defmethod hi::%init-screen-manager ((backend-type (eql :qt)) (display t))
   (declare (ignore display))
-  (print (list (lisp-implementation-type) (lisp-implementation-version)))
-  (force-output)
   (let (main echo widget)
     (setf (values main echo *font* widget *tabs*)
           (make-hemlock-widget))
@@ -700,6 +700,8 @@
            (window (#_new QMainWindow)))
       (setf (device-name device) "Qt"
             (device-bottom-window-base device) nil)
+      ;; keep the QMainWindow from being GCed:
+      (setf (device-main-window device) window)
       (#_setWindowTitle window "Hemlock")
       (#_setCentralWidget window widget)
       (let ((menu (#_addMenu (#_menuBar window) "File")))

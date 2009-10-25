@@ -91,7 +91,7 @@
     (when slave-pty-name
       (setf command
             (list* (merge-pathnames "setpty" (installation-directory))
-                   slave-name
+                   slave-pty-name
                    (listify command)))))
   (let ((process (#_new QProcess)))
     (setf (connection-io-device instance) process)
