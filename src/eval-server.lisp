@@ -373,7 +373,8 @@
         (editor-error "Buffer ~A is already in use." background)))
     (let ((server-info (make-buffers-for-typescript slave background)))
       (bt:make-thread
-       (let ((editor-name (get-editor-name)))
+       (let ((editor-name (get-editor-name))
+             (backend-type hi::*default-backend*))
          (lambda ()
            (macrolet ((rebinding ((&rest vars) &body body)
                         `(let ,(mapcar (lambda (var)
@@ -391,7 +392,7 @@
                            *background-io*
                            cl-user::*io*)
                (start-slave editor-name
-                            :backend-type hi::*default-backend*
+                            :backend-type backend-type
                             :slave-buffer slave
                             :background-buffer background))))))
        :name slave)
