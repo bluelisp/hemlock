@@ -90,13 +90,20 @@
       instance
     (when slave-pty-name
       (setf command
-            (list* (merge-pathnames "setpty" (installation-directory))
+            (list* (namestring
+                    (merge-pathnames "setpty" (installation-directory)))
                    slave-pty-name
                    (listify command)))))
-  (let ((process (#_new QProcess)))
+  (let ((process (#_new QProcess))
+        (args (listify (connection-command instance))))
     (setf (connection-io-device instance) process)
     (connection-note-event instance :initialized)
-    (#_start process (format nil "~{ ~A~}" (listify (connection-command instance))))))
+    (#_start process
+             (car args)
+             (let ((l (qt::sw_make_qstringlist)))
+               (dolist (arg (cdr args))
+                 (qt::sw_qstringlist_append l arg))
+               (qt::qstringlist l)))))
 
 (defmethod (setf connection-io-device)
     :after

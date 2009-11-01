@@ -384,7 +384,7 @@ GB
                        (merge-pathnames ".hemlock-init" home))))))
       (dolist (name names)
         (when (probe-file name)
-          (load name)
+          (load name :verbose t)
           (return))))))
 
 

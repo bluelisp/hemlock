@@ -309,33 +309,35 @@
     (dolist (char '(#\p #\q) (error "no pty found"))
       (dotimes (digit 16)
         (handler-case
-            (open (format nil "/dev/pty~C~X" char digit)
-                  :direction :io
-                  :if-exists :overwrite)
-          (file-error ())
-          (:no-error (master-stream)
+            (iolib.syscalls:%sys-open (format nil "/dev/pty~C~X" char digit)
+                                      iolib.syscalls:o-rdwr)
+          ((or iolib.syscalls:enoent
+               iolib.syscalls:enxio
+               iolib.syscalls:eio)
+           ())
+          (:no-error (master-fd)
             (let ((slave-name (format nil "/dev/tty~C~X" char digit)))
               (handler-case
-                  (open slave-name
-                        :direction :io
-                        :if-exists :overwrite)
-                (file-error ()
-                  (close master-stream))
-                (:no-error (slave-stream)
+                  (iolib.syscalls:%sys-open slave-name iolib.syscalls:o-rdwr)
+                ((or iolib.syscalls:enoent
+                     iolib.syscalls:enxio
+                     iolib.syscalls:eio)
+                 ()
+                 (iolib.syscalls:%sys-close master-fd))
+                (:no-error (slave-fd)
                   (return-from t
-                    (values master-stream
-                            slave-stream
+                    (values master-fd
+                            slave-fd
                             slave-name)))))))))))
 
 (defun make-process-with-pty-connection
     (command &key name (buffer nil bufferp) stream)
   (multiple-value-bind (master slave slave-name)
       (find-a-pty)
-    (let ((pc (make-process-connection command :slave-pty-name slave-name))
-          (fd (stream-fd master)))
-      (close slave)
-      (make-pipelike-connection fd
-                                fd
+    (let ((pc (make-process-connection command :slave-pty-name slave-name)))
+      (iolib.syscalls:%sys-close slave)
+      (make-pipelike-connection master
+                                master
                                 :name (or name (princ-to-string command))
                                 :process-connection pc
                                 :buffer (if bufferp

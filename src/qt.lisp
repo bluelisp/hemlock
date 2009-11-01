@@ -144,16 +144,17 @@
   ;;
   ;; Qt consumes Tab key events for its own purposes.  Using this event
   ;; interceptor, we can steal them in time.
-  (cond
-    ((and (enum= (#_type event) (#_QEvent::KeyPress))
-          (setf event (make-instance 'qobject
-                                     :class (qt:find-qclass "QKeyEvent")
-                                     :pointer (qt::qobject-pointer event)))
-          (eql (#_key event) (primitive-value (#_Qt::Key_Tab))))
-     (key-press-event instance event)
-     t)
-    (t
-     (call-next-qmethod))))
+  (let (casted)
+    (cond
+     ((and (enum= (#_type event) (#_QEvent::KeyPress))
+           (setf casted (make-instance 'qobject
+                                  :class (qt:find-qclass "QKeyEvent")
+                                  :pointer (qt::qobject-pointer event)))
+           (eql (#_key casted) (primitive-value (#_Qt::Key_Tab))))
+      (key-press-event instance casted)
+      t)
+     (t
+      (call-next-qmethod)))))
 
 (defmethod initialize-instance :after ((instance hunk-widget) &key)
   (new instance)
@@ -250,11 +251,6 @@
   )
 
 ;;;; Windows
-
-;; CLIM Hemlock comment:
-;;
-;; each window is a single pane, which should keep
-;; things simple. We do not yet have the notion of window groups.
 
 (defmethod device-next-window ((device qt-device) window)
   (with-slots (windows) device
@@ -756,14 +752,34 @@
       (setf *executor* (make-instance 'qt-repl::repl-executer
                                       :notifier *notifier*)))))
 
-#+nil (#_hide window)
-
 (defmethod hi::invoke-with-event-loop ((backend (eql :qt)) fun &aux keep)
-  ;; (setf *editor-name* nil)           ;reinit slave stuff
   (unless *qt-initialized-p*
+    ;; HACK!  Disable SBCL's SIGCHLD handler.  I don't know what exactly
+    ;; it is doing wrong, but if SBCL sets a signal handler for this, it
+    ;; leads to segfaults whenever a process started by Qt exits.
+    ;;
+    ;; It doesn't matter what the handler would do; a no-op lambda
+    ;; already has this effect.
+    ;;
+    ;; [Perhaps it's due to the way Qt tries to chain call our handler,
+    ;; or perhaps we are interrupting FFI code, or is it an altstack thing?
+    ;; I have no idea.]
+    #+sbcl (sb-kernel::default-interrupt sb-unix:sigchld)
+
+    (format t "Loading libraries [qt")
+    (force-output)
     (ensure-smoke :qt)
+
+    (format t ", qtwebkit")
+    (force-output)
     (ensure-smoke :qtwebkit)
+
+    (format t "], initializing")
+    (force-output)
     (push (make-qapplication) keep)
+
+    (format t "; done.~%")
+    (force-output)
     (setf *qt-initialized-p* t))
   ;; When in a slave, we need to create a QEventLoop here, otherwise
   ;; we will segfault later.  Let's just do it unconditionally:
