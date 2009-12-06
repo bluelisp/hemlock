@@ -73,6 +73,8 @@
 (defclass qt-hunk (device-hunk)
   ((widget :initarg :widget
            :reader qt-hunk-widget)
+   (item :initarg :item
+         :accessor qt-hunk-item)
    (want-background-p :initarg :want-background-p
                       :initform nil
                       :accessor qt-hunk-want-background-p)
@@ -200,35 +202,11 @@
 (defmethod device-finish-output ((device qt-device) window)
   )
 
-#+(or)
-(defun qt-put-cursor (hunk)
-  (with-slots (cx cy cw ch) hunk
-    (when (and cx cy)
-      (setf (previous-cursor-position hunk) (list cx cy))
-      (let* ((instance (qt-hunk-widget hunk)))
-        (invoke-with-hunk-painter
-         (lambda (painter)
-
-           (#_setPen painter  #+nil (#_new QColor 0 0 255 16))
-           (#_setBrush painter (#_new QBrush (#_new QColor 0 180 180 64)))
-           (#_drawRect painter
-                       (+ *gutter* (* cx cw))
-                       (+ *gutter* (* cy ch))
-                       cw ch)
-           #+(or)
-           (#_setPen painter (#_new QColor 0 0 255))
-           #+(or)
-           (#_drawLine painter
-                       (+ *gutter* (* cx cw))
-                       (+ *gutter* (* cy ch))
-                       (+ *gutter* (* cx cw) 0)
-                       (+ *gutter* (* cy ch) ch)))
-         instance)))))
-
 (defmethod device-put-cursor ((device qt-device) hunk x y)
   (with-slots (cursor-item cursor-hunk) device
     (when (and cursor-item (not (eq hunk cursor-hunk)))
-      (#_removeItem (#_scene cursor-item) cursor-item)
+      (let ((*steal-focus-out* nil))
+        (#_removeItem (#_scene cursor-item) cursor-item))
       (setf cursor-item nil))
     (setf cursor-hunk hunk)
     (with-slots (cw ch) hunk
@@ -254,42 +232,102 @@
 
 (defmethod device-next-window ((device qt-device) window)
   (with-slots (windows) device
-    (elt windows (mod (1+ (position window windows))
+    (elt windows (mod (1+ (or (position window windows) 0))
                       (length windows)))))
 
 (defmethod device-previous-window ((device qt-device) window)
   (with-slots (windows) device
-    (elt windows (mod (1- (position window windows))
+    (elt windows (mod (1- (or (position window windows) 0))
                       (length windows)))))
 
 (defmethod device-delete-window ((device qt-device) window)
   (let* ((hunk (window-hunk window))
-         (stream (qt-hunk-widget hunk)))
-    (#_close stream)
+         (stream (qt-hunk-widget hunk))
+         (item (qt-hunk-item hunk)))
+    (if item
+        (#_hide stream)
+        #+nil (#_removeItem (#_scene item) item)
+        (#_close stream))
     (setf (slot-value device 'windows)
           (remove window (slot-value device 'windows)))
     (let ((buffer (window-buffer window)))
       (setf (buffer-windows buffer) (delete window (buffer-windows buffer))))))
 
-(defmethod device-make-window ((device qt-device) start modelinep window font-family
-                               ask-user x y width-arg height-arg proportion
-                               &aux res)
+(defmethod device-make-window ((device qt-device)
+                               start modelinep window font-family
+                               ask-user x y width height proportion)
+  (declare (ignore window font-family ask-user x y width height))
+  (let* ((old-window (current-window))
+         (victim (window-hunk old-window)))
+    (let* ((old-widget (qt-hunk-widget (window-hunk *current-window*)))
+           (scene (#_scene old-widget))
+           (new-lines 10)
+           (old-lines 15)
+           (pos (device-hunk-position victim))
+           (new-height (if modelinep (1+ new-lines) new-lines))
+           (new-text-pos (if modelinep (1- pos) pos))
+           (new-widget (make-instance 'hunk-widget))
+           (new-hunk (make-instance 'qt-hunk
+                                    :position pos
+                                    :height new-height
+                                    ;; :text-position new-text-pos
+                                    ;; :text-height new-lines
+                                    :device device
+                                    :widget new-widget))
+           (new-window (internal-make-window :hunk new-hunk))
+           (metrics (#_new QFontMetrics *font*)))
+      (setf (widget-modeline new-widget)
+            (widget-modeline old-widget))
+      (setf (slot-value new-hunk 'cw) (+ 0 (#_width metrics "m"))
+            (slot-value new-hunk 'ch) (+ 2 (#_height metrics)))
+      (setf (device-hunk-window new-hunk) new-window)
+      (let* ((old-text-pos-diff (- pos (device-hunk-position victim)))
+             (old-win-new-pos (- pos new-height)))
+        (setf (device-hunk-height victim)
+              (- (device-hunk-height victim) new-height))
+        (setf (device-hunk-position victim) old-win-new-pos))
+      (hi::setup-window-image start new-window new-lines
+                              (window-width old-window))
+      (prepare-window-for-redisplay new-window)
+      (when modelinep
+        (setup-modeline-image (line-buffer (mark-line start)) new-window))
+      ;; (change-window-image-height old-window old-lines)
+      (shiftf (device-hunk-previous new-hunk)
+              (device-hunk-previous (device-hunk-next victim))
+              new-hunk)
+      (shiftf (device-hunk-next new-hunk) (device-hunk-next victim) new-hunk)
+      ;; (setf *currently-selected-hunk* nil)
+      (setf hi::*screen-image-trashed* t)
+      (setf (qt-hunk-item new-hunk) (#_addWidget scene new-widget))
+      (let ((p (position *current-window* (slot-value device 'windows))))
+        (setf (slot-value device 'windows)
+              (append (subseq (slot-value device 'windows) 0 p)
+                      (list new-window)
+                      (subseq (slot-value device 'windows) p))))
+      new-window)))
+
+#+nil
+(defmethod w
+           ((device qt-device) staprt modelinep window font-family
+            ask-user x y width-arg height-arg proportion)
   (let* ((hunk (window-hunk *current-window*))
-         (stream (qt-hunk-widget hunk)))
-    (let ((new (make-instance 'hunk-widget)))
-      (let* ((window (hi::internal-make-window))
-             (hunk (make-instance 'qt-hunk :widget new)))
-        (setf res window)
-        (redraw-widget device window hunk *current-buffer* t)
-        (let ((p (position *current-window* (slot-value device 'windows))))
-          (setf (slot-value device 'windows)
-                (append (subseq (slot-value device 'windows) 0 p)
-                        (list window)
-                        (subseq (slot-value device 'windows) p)))))
-      ;; since we still can't draw on ungrafted windows ...
-      (#_show new))
-    (finish-output *trace-output*))
-  res)
+         (old-hunk-widget (qt-hunk-widget hunk))
+         (new (make-instance 'hunk-widget))
+         (window (hi::internal-make-window))
+         (new-hunk (make-instance 'qt-hunk
+                                  :position 10
+                                  :widget new)))
+    (setf (widget-modeline new) (widget-modeline old-hunk-widget))
+    (redraw-widget device window new-hunk *current-buffer* t)
+    (let ((p (position *current-window* (slot-value device 'windows))))
+      (setf (slot-value device 'windows)
+            (append (subseq (slot-value device 'windows) 0 p)
+                    (list window)
+                    (subseq (slot-value device 'windows) p))))
+    (#_addWidget (#_scene old-hunk-widget) new)
+    (setf *currently-selected-hunk* nil)
+    (setf *screen-image-trashed* t)
+    window))
 
 (defmethod resize-event ((instance hunk-widget) resize-event)
   (call-next-qmethod)
@@ -311,68 +349,8 @@
         (max 0.0d0 (/ (- full-width white-width) 2.0d0)))
       0.0d0))
 
-#+nil
-(defun invoke-with-hunk-painter (fun widget)
-  (let ((painter (#_new QPainter widget)))
-    (#_translate painter (offset-on-each-side widget) 0.0d0)
-    (#_setOpacity painter 0.9)
-    (funcall fun painter)
-    (#_end painter)))
-
-#+nil
-(defmethod paint-event ((instance hunk-widget) paint-event)
-  (when (or (paint-widget-margin-p instance)
-            (centerize-widget-p instance))
-    (let ((painter (#_new QPainter instance))
-          (pixmap (hunk-widget-background-pixmap instance)))
-      (cond
-        (pixmap
-         (#_drawPixmap painter 0 0 pixmap))
-        (t
-         (#_setPen painter (#_Qt::NoPen))
-         (#_fillRect painter
-                     (#_new QRectF (#_rect instance))
-                     (#_new QBrush (#_new QColor 230 230 230)))))
-      (#_end painter)))
-  (let ((left (#_new QRectF (#_rect instance))))
-    (invoke-with-hunk-painter
-     (lambda (painter)
-       (when (paint-widget-margin-p instance)
-         (#_setWidth left (standard-width-in-pixels)))
-       (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255)))
-       (when (paint-widget-margin-p instance)
-         (#_translate left (standard-width-in-pixels) 0)
-         (#_setWidth left (offset-on-each-side instance))
-         (#_setOpacity painter 0.7)
-         (#_fillRect painter left (#_new QBrush (#_new QColor 255 255 255 180)))))
-     instance))
-  (let* ((hunk (slot-value instance 'hunk))
-         (device (device-hunk-device hunk)))
-    (redraw-lines device (device-hunk-window hunk) (#_region paint-event))
-    ;; draw contents here
-    (with-slots (cursor-hunk) device
-      (when cursor-hunk
-        (qt-put-cursor cursor-hunk)))))
-
-
-;;;;
-
-(defmethod device-random-typeout-full-more ((device qt-device) stream)
-  )
-
-(defmethod device-random-typeout-line-more ((device qt-device) stream n)
-  )
-
-(defmethod device-random-typeout-setup ((device qt-device) stream n)
-  )
-
-(defmethod device-random-typeout-cleanup ((device qt-device) stream degree)
-  )
-
 (defmethod device-beep ((device qt-device) stream)
   )
-
-;;; Input
 
 (defclass qt-editor-input (editor-input)
   ())
@@ -382,7 +360,7 @@
 (defvar *qt-initialized-p* nil)
 
 (defmethod key-press-event ((instance hunk-widget) event)
-  (call-next-qmethod)
+  ;; (call-next-qmethod)
   (hi::q-event *editor-input* (qevent-to-key-event event)))
 
 (defun parse-modifiers (event)
@@ -464,6 +442,7 @@
   ;; of not wanting to block, and briefly wanting to ignore those kinds
   ;; of events.
   (setf *interesting-event-received* nil)
+  (qt::run-pending)
   (iter (until *interesting-event-received*)
         (#_processEvents (#_QAbstractEventDispatcher::instance)
                          (#_QEventLoop::WaitForMoreEvents))))
@@ -481,8 +460,6 @@
 
 (defmethod listen-editor-input ((stream qt-editor-input))
   (hi::input-event-next (hi::editor-input-head stream)))
-
-;;;; There is awful lot to do to boot a device.
 
 (defun note-sheet-region-changed (hunk-pane)
   (when (slot-boundp hunk-pane 'hunk)
@@ -774,11 +751,11 @@
     (force-output)
     (ensure-smoke :qtwebkit)
 
-    (format t "], initializing")
+    (format t "].~%Connecting to window system...")
     (force-output)
     (push (make-qapplication) keep)
 
-    (format t "; done.~%")
+    (format t "done.~%")
     (force-output)
     (setf *qt-initialized-p* t))
   ;; When in a slave, we need to create a QEventLoop here, otherwise
@@ -963,7 +940,9 @@
       (redraw-widget device window hunk buffer t)
       (setf *current-window* window)
       (push window (slot-value device 'windows))
-      (setf (device-hunks device) (list hunk)) )
+      (setf (device-hunk-previous hunk) hunk)
+      (setf (device-hunk-next hunk) hunk)
+      (setf (device-hunks device) (list hunk)))
     (when another-widget
       (let* ((window (hi::internal-make-window))
              (hunk (make-instance 'qt-hunk
@@ -985,7 +964,7 @@
         ))))
 
 (defvar *font-family*
-  "Fixed [Sony]"
+  "Fixed [Misc]"
   #+nil "Courier New")
 
 (defvar *font-size*
@@ -1087,34 +1066,6 @@
          (h (slot-value hunk 'ch)))
     (#_new QRect x y w h)))
 
-#+(or)
-(defun redraw-lines (device window repaint-region)
-  (declare (ignore device))
-  (let* ((widget (qt-hunk-widget (window-hunk window)))
-         (hunk (window-hunk window))
-         (first (window-first-line window))
-         (offset (truncate (offset-on-each-side widget))))
-    (do ((i 0 (1+ i))
-         (dl (cdr first) (cdr dl)))
-        ((eq dl the-sentinel)
-         (setf (window-old-lines window) (1- i)))
-      (let* ((rect (dis-line-rect hunk (car dl)))
-             (region (#_new QRegion rect)))
-        (#_translate region offset 0)
-        (when (#_intersects region repaint-region)
-          (qt-dumb-line-redisplay hunk (car dl)))))
-    (setf (window-first-changed window) the-sentinel
-          (window-last-changed window) first)
-    (when (window-modeline-buffer window)
-      (update-modeline-fields (window-buffer window) window)
-      (#_showMessage (widget-modeline widget)
-                     (subseq (window-modeline-buffer window)
-                             0
-                             (window-modeline-buffer-len window)))
-      (setf (dis-line-flags (window-modeline-dis-line window))
-            unaltered-bits))
-    (qt-put-cursor (window-hunk window))))
-
 (defun cursor-rect (hunk x y)
   (with-slots (cw ch) hunk
     (when (and x y cw ch)
@@ -1165,53 +1116,6 @@
                     start (font-change-x changes)
                     changes (font-change-next changes)))))))
   (setf (dis-line-flags dl) unaltered-bits (dis-line-delta dl) 0))
-
-#+nil
-  ;; compute the region that has changed:
-  (let* ((hunk (window-hunk window))
-         (first (window-first-line window))
-         (region (#_new QRegion))
-         (widget (qt-hunk-widget (window-hunk window))))
-    (flet ((join-rect (rect)
-             (when rect
-               (setf region (#_unite region (#_new QRegion rect))))))
-
-      ;; add "changed" lines
-      ;;
-      (do ((dl (cdr first) (cdr dl)))
-          ((eq dl the-sentinel))
-        (when (plusp (dis-line-flags (car dl)))
-          (join-rect (dis-line-rect hunk (car dl)))))
-
-      ;; add the cusor
-      (with-slots (cursor-hunk) device
-        (multiple-value-bind (x y)
-                             (mark-to-cursorpos (window-point *current-window*)
-                                                *current-window*)
-          (join-rect (cursor-rect hunk x y)))
-        (multiple-value-bind (x y)
-                             (mark-to-cursorpos (buffer-point (window-buffer *current-window*))
-                                                *current-window*)
-          (join-rect (cursor-rect hunk x y)))
-        (join-rect
-         (apply #'cursor-rect
-                hunk
-                (previous-cursor-position hunk)))
-        (setf cursor-hunk hunk))
-
-      ;; add "emptied" lines
-      (let ((pos (dis-line-position (car (window-last-line window))))
-            (old (window-old-lines window)))
-        (when (and pos old)
-          (iter:iter (iter:for i from (1+ pos) to old)
-                     (join-rect (nth-line-rect hunk i))))
-        (setf (window-old-lines window) pos))
-
-      ;; oops, wrong coordinate system
-      (#_translate region (truncate (offset-on-each-side widget)) 0)
-
-      ;; do it
-      (#_update widget #-really-dumb-redisplay region)))
 
 (defun clear-all-line-items (scene hunk)
   (with-slots (itab) hunk
@@ -1280,11 +1184,6 @@
     #+nil (#_setZValue item 1)
     item))
 
-#+(or)
-(defun hi::invoke-with-pop-up-display (cont buffer-name height)
-  (funcall cont *trace-output*)
-  (finish-output *trace-output*))
-
 (defun make-virtual-buffer (name widget &rest args)
   (let ((buffer (apply #'make-buffer name args)))
     (when buffer
@@ -1327,3 +1226,46 @@
   (declare (ignore p))
   (setf *steal-focus-out* t)
   (#_setFocus *echo-hunk-widget*))
+
+(defcommand "Abc" (p)
+  "" ""
+  (let ((w (qt-hunk-item (window-hunk (current-window)))))
+    (#_setZValue w 500)
+    (#_setTransform (let* ((old (qt::qobject-class w))
+                           (old-ptr (qt::qobject-pointer w))
+                           (new (qt::find-qclass "QGraphicsItem"))
+                           (new-ptr (qt::%cast old-ptr
+                                               (qt::unbash old)
+                                               (qt::unbash new))))
+                      (make-instance 'qt::qobject
+                                     :class new
+                                     :pointer new-ptr))
+                    (#_translate (if p
+                                     (#_rotate (#_scale (#_new QTransform) 0.75 0.75) 45)
+                                     (#_new QTransform)) 200 0)
+                    nil)))
+
+(defcommand "Def" (p)
+  "" ""
+  (let* ((widget #+nil (#_new QWebView) (#_new QPushButton "test"))
+         (w (#_addWidget
+             (#_scene (qt-hunk-widget (window-hunk (current-window))))
+             widget)))
+    (push widget *do-not-gc-list*)
+    (push w *do-not-gc-list*)
+    #+nil (#_setUrl widget (#_new QUrl "file:///etc"))
+    (#_setZValue w 500)
+    #+nil
+    (#_setTransform (let* ((old (qt::qobject-class w))
+                           (old-ptr (qt::qobject-pointer w))
+                           (new (qt::find-qclass "QGraphicsItem"))
+                           (new-ptr (qt::%cast old-ptr
+                                               (qt::unbash old)
+                                               (qt::unbash new))))
+                      (make-instance 'qt::qobject
+                                     :class new
+                                     :pointer new-ptr))
+                    (#_translate (if p
+                                     (#_rotate (#_scale (#_new QTransform) 0.75 0.75) 45)
+                                     (#_new QTransform)) 200 0)
+                    nil)))
