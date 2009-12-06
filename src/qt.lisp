@@ -24,9 +24,10 @@
          *settings-application*))
 
 (defun save-window-geometry (window)
-  (#_setValue (qsettings)
-              "geometry"
-              (#_new QVariant (#_saveGeometry window))))
+  (with-object (sx (qsettings))
+    (#_setValue sx
+                "geometry"
+                (#_new QVariant (#_saveGeometry window)))))
 
 (defcommand "Save Window Geometry" (p)
   "Save current window's geometry in Qt settings." ""
@@ -35,8 +36,9 @@
    (#_window (qt-hunk-widget (window-hunk (current-window))))))
 
 (defun restore-window-geometry (window)
-  (#_restoreGeometry window
-                     (#_toByteArray (#_value (qsettings) "geometry"))))
+  (with-object (sx (qsettings))
+    (#_restoreGeometry window
+                       (#_toByteArray (#_value sx "geometry")))))
 
 (defcommand "Restore Window Geometry" (p)
   "Restore the current window's geometry from Qt settings." ""
@@ -212,12 +214,15 @@
     (with-slots (cw ch) hunk
       (unless cursor-item
         (setf cursor-item
-              (#_addPath (#_scene (qt-hunk-widget hunk))
-                         (let ((path (#_new QPainterPath)))
-                           (#_addRect path 0 0 cw ch)
-                           path)
-                         (#_new QPen (#_Qt::NoPen))
-                         (#_new QBrush (#_new QColor 0 180 180 64)))))
+              (with-objects ((path (#_new QPainterPath))
+                             (pen (#_new QPen (#_Qt::NoPen)))
+                             (color (#_new QColor 0 180 180 64))
+                             (brush (#_new QBrush color)))
+                (#_addRect path 0 0 cw ch)
+                (#_addPath (#_scene (qt-hunk-widget hunk))
+                           path
+                           pen
+                           brush))))
       (#_setPos cursor-item
                 (+ *gutter*
                    (truncate (offset-on-each-side (qt-hunk-widget hunk)))
@@ -274,36 +279,36 @@
                                     ;; :text-height new-lines
                                     :device device
                                     :widget new-widget))
-           (new-window (internal-make-window :hunk new-hunk))
-           (metrics (#_new QFontMetrics *font*)))
-      (setf (widget-modeline new-widget)
-            (widget-modeline old-widget))
-      (setf (slot-value new-hunk 'cw) (+ 0 (#_width metrics "m"))
-            (slot-value new-hunk 'ch) (+ 2 (#_height metrics)))
-      (setf (device-hunk-window new-hunk) new-window)
-      (let* ((old-text-pos-diff (- pos (device-hunk-position victim)))
-             (old-win-new-pos (- pos new-height)))
-        (setf (device-hunk-height victim)
-              (- (device-hunk-height victim) new-height))
-        (setf (device-hunk-position victim) old-win-new-pos))
-      (hi::setup-window-image start new-window new-lines
-                              (window-width old-window))
-      (prepare-window-for-redisplay new-window)
-      (when modelinep
-        (setup-modeline-image (line-buffer (mark-line start)) new-window))
-      ;; (change-window-image-height old-window old-lines)
-      (shiftf (device-hunk-previous new-hunk)
-              (device-hunk-previous (device-hunk-next victim))
-              new-hunk)
-      (shiftf (device-hunk-next new-hunk) (device-hunk-next victim) new-hunk)
-      ;; (setf *currently-selected-hunk* nil)
-      (setf hi::*screen-image-trashed* t)
-      (setf (qt-hunk-item new-hunk) (#_addWidget scene new-widget))
-      (let ((p (position *current-window* (slot-value device 'windows))))
-        (setf (slot-value device 'windows)
-              (append (subseq (slot-value device 'windows) 0 p)
-                      (list new-window)
-                      (subseq (slot-value device 'windows) p))))
+           (new-window (internal-make-window :hunk new-hunk)))
+      (with-object (metrics (#_new QFontMetrics *font*))
+        (setf (widget-modeline new-widget)
+              (widget-modeline old-widget))
+        (setf (slot-value new-hunk 'cw) (+ 0 (#_width metrics "m"))
+              (slot-value new-hunk 'ch) (+ 2 (#_height metrics)))
+        (setf (device-hunk-window new-hunk) new-window)
+        (let* ((old-text-pos-diff (- pos (device-hunk-position victim)))
+               (old-win-new-pos (- pos new-height)))
+          (setf (device-hunk-height victim)
+                (- (device-hunk-height victim) new-height))
+          (setf (device-hunk-position victim) old-win-new-pos))
+        (hi::setup-window-image start new-window new-lines
+                                (window-width old-window))
+        (prepare-window-for-redisplay new-window)
+        (when modelinep
+          (setup-modeline-image (line-buffer (mark-line start)) new-window))
+        ;; (change-window-image-height old-window old-lines)
+        (shiftf (device-hunk-previous new-hunk)
+                (device-hunk-previous (device-hunk-next victim))
+                new-hunk)
+        (shiftf (device-hunk-next new-hunk) (device-hunk-next victim) new-hunk)
+        ;; (setf *currently-selected-hunk* nil)
+        (setf hi::*screen-image-trashed* t)
+        (setf (qt-hunk-item new-hunk) (#_addWidget scene new-widget))
+        (let ((p (position *current-window* (slot-value device 'windows))))
+          (setf (slot-value device 'windows)
+                (append (subseq (slot-value device 'windows) 0 p)
+                        (list new-window)
+                        (subseq (slot-value device 'windows) p)))))
       new-window)))
 
 #+nil
@@ -337,10 +342,11 @@
 (defvar *standard-column-width* 80)
 
 (defun standard-width-in-pixels ()
-  (+ (* *standard-column-width* (#_width (#_new QFontMetrics *font*) "m"))
-     ;; leave space for the gutter on the left side
-     ;; (but not the right side, so that the column width is cut off cleanly)
-     *gutter*))
+  (with-object (metrics (#_new QFontMetrics *font*))
+    (+ (* *standard-column-width* (#_width metrics "m"))
+       ;; leave space for the gutter on the left side
+       ;; (but not the right side, so that the column width is cut off cleanly)
+       *gutter*)))
 
 (defun offset-on-each-side (widget)
   (if (centerize-widget-p widget)
@@ -442,7 +448,6 @@
   ;; of not wanting to block, and briefly wanting to ignore those kinds
   ;; of events.
   (setf *interesting-event-received* nil)
-  (qt::run-pending)
   (iter (until *interesting-event-received*)
         (#_processEvents (#_QAbstractEventDispatcher::instance)
                          (#_QEventLoop::WaitForMoreEvents))))
@@ -488,29 +493,29 @@
             (#_fromString font *font-family*)
             (#_setPointSize font *font-size*)
             font))
-         (*font* font)
-         (metrics (#_new QFontMetrics font)))
-    (#_addWidget vbox tabs)
-    (let ((main-stack (#_new QStackedWidget)))
-      (setf *main-stack* main-stack)
-      (setf *main-hunk-widget* main)
-      (#_addWidget vbox main-stack)
-      (#_addWidget main-stack main))
-    (let ((x (#_new QWidget)))
-      (#_setLayout x vbox)
-      (#_addWidget wrapper x))
-    (#_addWidget wrapper echo)
-    (setf *echo-hunk-widget* echo)
-    (#_setOrientation wrapper (#_Qt::Vertical))
-    (#_setFocusPolicy tabs (#_Qt::NoFocus))
-    (#_setSpacing vbox 0)
-    (#_setMargin vbox 0)
-    ;; fixme: should be a default, not a strict minimum:
-    (#_setMinimumSize wrapper
-                      (standard-width-in-pixels)
-                      (* 25 (#_height metrics)))
-    (#_setMaximumHeight echo 100)
-    (values main echo font wrapper tabs)))
+         (*font* font))
+    (with-object (metrics (#_new QFontMetrics font))
+      (#_addWidget vbox tabs)
+      (let ((main-stack (#_new QStackedWidget)))
+        (setf *main-stack* main-stack)
+        (setf *main-hunk-widget* main)
+        (#_addWidget vbox main-stack)
+        (#_addWidget main-stack main))
+      (let ((x (#_new QWidget)))
+        (#_setLayout x vbox)
+        (#_addWidget wrapper x))
+      (#_addWidget wrapper echo)
+      (setf *echo-hunk-widget* echo)
+      (#_setOrientation wrapper (#_Qt::Vertical))
+      (#_setFocusPolicy tabs (#_Qt::NoFocus))
+      (#_setSpacing vbox 0)
+      (#_setMargin vbox 0)
+      ;; fixme: should be a default, not a strict minimum:
+      (#_setMinimumSize wrapper
+                        (standard-width-in-pixels)
+                        (* 25 (#_height metrics)))
+      (#_setMaximumHeight echo 100)
+      (values main echo font wrapper tabs))))
 
 (defun add-buffer-tab-hook (buffer)
   (when (in-main-qthread-p)
@@ -715,11 +720,10 @@
                    (qsignal "currentChanged(int)")
                    (lambda (index)
                      (change-to-buffer (hemlock-ext::find-buffer (#_tabText *tabs* index)))))
-      (connect (#_new QShortcut
-                      (#_new QKeySequence "Ctrl+G")
-                      (#_window *main-hunk-widget*))
-               (QSIGNAL "activated()")
-               'control-g-handler)
+      (with-object (key (#_new QKeySequence "Ctrl+G"))
+        (connect (#_new QShortcut key (#_window *main-hunk-widget*))
+                 (QSIGNAL "activated()")
+                 'control-g-handler))
       (restore-window-geometry window)
       (#_show window)
       ;; undo the minimum set before, so that it's only a default
@@ -825,13 +829,15 @@
         (setf background-pixmap
               (let ((file (find-background-svg)))
                 (if file
-                    (let* ((renderer (#_new QSvgRenderer file))
-                           (w widget)
-                           (pixmap (#_new QPixmap (#_width w) (#_height w))))
-                      (let ((painter (#_new QPainter pixmap)))
+                    (let ((pixmap (#_new QPixmap
+                                         (#_width widget)
+                                         (#_height widget))))
+                      (with-objects
+                          ((renderer (#_new QSvgRenderer file))
+                           (painter (#_new QPainter pixmap)))
                         (#_render renderer painter)
-                        (#_end painter))
-                      pixmap)
+                        (#_end painter)
+                        pixmap))
                     nil)))
         (when background-pixmap-item
           (#_removeItem (#_scene background-pixmap-item) background-pixmap-item)
@@ -853,26 +859,28 @@
         (#_removeItem (#_scene white-item-2) white-item-2)
         (setf white-item-2 nil))
       (let ((offset (truncate (offset-on-each-side widget))))
-        (setf white-item-1
-              (#_addRect (#_scene widget)
-                         (#_new QRectF
-                                offset
-                                0
-                                (- (#_width widget) (* 2 offset))
-                                (#_height widget))
-                         (#_new QPen (#_Qt::NoPen))
-                         (#_new QBrush
-                                (#_new QBrush (#_new QColor 255 255 255 210)))))
-        (setf white-item-2
-              (#_addRect (#_scene widget)
-                         (#_new QRectF
-                                (- (#_width widget) offset)
-                                0
-                                offset
-                                (#_height widget))
-                         (#_new QPen (#_Qt::NoPen))
-                         (#_new QBrush
-                                (#_new QBrush (#_new QColor 255 255 255 180))))))
+        (with-object (~)
+          (setf white-item-1
+                (#_addRect (#_scene widget)
+                           (#_new QRectF
+                                  offset
+                                  0
+                                  (- (#_width widget) (* 2 offset))
+                                  (#_height widget))
+                           (~ (#_new QPen (#_Qt::NoPen)))
+                           (~ (#_new QBrush
+                                     (~ (#_new QBrush (~ (#_new QColor 255 255 255 210)))))))))
+        (with-object (~)
+          (setf white-item-2
+                (#_addRect (#_scene widget)
+                           (~ (#_new QRectF
+                                     (- (#_width widget) offset)
+                                     0
+                                     offset
+                                     (#_height widget)))
+                           (~ (#_new QPen (#_Qt::NoPen)))
+                           (~ (#_new QBrush
+                                     (~ (#_new QBrush (~ (#_new QColor 255 255 255 180))))))))))
       (#_setZValue white-item-1 -1)
       (#_setZValue white-item-2 -1)))
   (let ((window (device-hunk-window hunk)))
@@ -976,58 +984,58 @@
   (let* ((start (buffer-start-mark buffer))
          (first (cons dummy-line the-sentinel))
          (font *font*)
-         (metrics (#_new QFontMetrics font))
          width height)
-    (setf
-     (slot-value hunk 'cw) (+ 0 (#_width metrics "m"))
-     (slot-value hunk 'ch) (+ 2 (#_height metrics))
-     width (max 5 (floor (- (#_width (qt-hunk-widget hunk))
-                                     (* 2 *gutter*))
-                                  (slot-value hunk 'cw)))
-     height (max 2 (floor (- (#_height (qt-hunk-widget hunk))
-                             (* 2 *gutter*))
-                          (slot-value hunk 'ch)))
-     (device-hunk-window hunk) window
-     (device-hunk-position hunk) 0
-     (device-hunk-height hunk) height
-     (device-hunk-next hunk) nil
-     (device-hunk-previous hunk) nil
-     (device-hunk-device hunk) device
+    (with-object (metrics (#_new QFontMetrics font))
+      (setf
+       (slot-value hunk 'cw) (+ 0 (#_width metrics "m"))
+       (slot-value hunk 'ch) (+ 2 (#_height metrics))
+       width (max 5 (floor (- (#_width (qt-hunk-widget hunk))
+                              (* 2 *gutter*))
+                           (slot-value hunk 'cw)))
+       height (max 2 (floor (- (#_height (qt-hunk-widget hunk))
+                               (* 2 *gutter*))
+                            (slot-value hunk 'ch)))
+       (device-hunk-window hunk) window
+       (device-hunk-position hunk) 0
+       (device-hunk-height hunk) height
+       (device-hunk-next hunk) nil
+       (device-hunk-previous hunk) nil
+       (device-hunk-device hunk) device
 
-     (window-tick window) -1  ; The last time this window was updated.
-     (window-%buffer window) buffer ; buffer displayed in this window.
-     (window-height window) height      ; Height of window in lines.
-     (window-width window) width  ; Width of the window in characters.
+       (window-tick window) -1  ; The last time this window was updated.
+       (window-%buffer window) buffer ; buffer displayed in this window.
+       (window-height window) height  ; Height of window in lines.
+       (window-width window) width  ; Width of the window in characters.
 
-     (window-old-start window) (copy-mark start :temporary) ; The charpos of the first char displayed.
-     (window-first-line window) first ; The head of the list of dis-lines.
-     (window-last-line window) the-sentinel ; The last dis-line displayed.
-     (window-first-changed window) the-sentinel ; The first changed dis-line on last update.
-     (window-last-changed window) first ; The last changed dis-line.
-     (window-spare-lines window) nil ; The head of the list of unused dis-lines
+       (window-old-start window) (copy-mark start :temporary) ; The charpos of the first char displayed.
+       (window-first-line window) first ; The head of the list of dis-lines.
+       (window-last-line window) the-sentinel ; The last dis-line displayed.
+       (window-first-changed window) the-sentinel ; The first changed dis-line on last update.
+       (window-last-changed window) first ; The last changed dis-line.
+       (window-spare-lines window) nil ; The head of the list of unused dis-lines
 
-     (window-hunk window) hunk ; The device hunk that displays this window.
+       (window-hunk window) hunk ; The device hunk that displays this window.
 
-     (window-display-start window) (copy-mark start :right-inserting) ; first character position displayed
-     (window-display-end window) (copy-mark start :right-inserting) ; last character displayed
+       (window-display-start window) (copy-mark start :right-inserting) ; first character position displayed
+       (window-display-end window) (copy-mark start :right-inserting) ; last character displayed
 
-     (window-point window) (copy-mark (buffer-point buffer)) ; Where the cursor is in this window.
+       (window-point window) (copy-mark (buffer-point buffer)) ; Where the cursor is in this window.
 
-     (window-modeline-dis-line window) nil ; Dis-line for modeline display.
-     (window-modeline-buffer window) nil ; Complete string of all modeline data.
-     (window-modeline-buffer-len window) nil ; Valid chars in modeline-buffer.
+       (window-modeline-dis-line window) nil ; Dis-line for modeline display.
+       (window-modeline-buffer window) nil ; Complete string of all modeline data.
+       (window-modeline-buffer-len window) nil ; Valid chars in modeline-buffer.
 
-     (window-display-recentering window) nil ;
-     )
+       (window-display-recentering window) nil ;
+       )
 
-    (setup-dis-lines window width height)
+      (setup-dis-lines window width height)
 
-    (when modelinep
-      (setup-modeline-image buffer window))
+      (when modelinep
+        (setup-modeline-image buffer window))
 
-    (push window (buffer-windows buffer))
-    (push window *window-list*)
-    (hi::update-window-image window)))
+      (push window (buffer-windows buffer))
+      (push window *window-list*)
+      (hi::update-window-image window))))
 
 (defun setup-dis-lines (window width height)
   (do ((i (- height) (1+ i))
@@ -1055,9 +1063,11 @@
 ;;;      (hh (#_ascent m)))
 ;;;     (#_new QRect x1 y1 ww (* 2 hh))))
 
+#+(or)
 (defun dis-line-rect (hunk dl)
   (nth-line-rect hunk (dis-line-position dl)))
 
+#+(or)
 (defun nth-line-rect (hunk i)
   (let* ((x *gutter*)
          (y (+ *gutter* (* i (slot-value hunk 'ch))))
@@ -1066,6 +1076,7 @@
          (h (slot-value hunk 'ch)))
     (#_new QRect x y w h)))
 
+#+(or)
 (defun cursor-rect (hunk x y)
   (with-slots (cw ch) hunk
     (when (and x y cw ch)
