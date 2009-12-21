@@ -62,4 +62,4 @@
 (deftermcap "mp" :string :start-protected-attribute enter-protected-mode)
 (deftermcap "mr" :string :start-reverse-video-attribute enter-reverse-mode)
 (deftermcap "ue" :string :end-underscore-mode exit-underline-mode)
-(deftermcap "us" :string :start-underscore-mode enter-unterline-mode)
+(deftermcap "us" :string :start-underscore-mode enter-underline-mode)

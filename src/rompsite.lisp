@@ -654,9 +654,6 @@
                             (hemlock-ext:char-key-event char))))))
 
 #||
-(defun get-terminal-name ()
-  (cdr (assoc :term *environment-list* :test #'eq)))
-
 ;;; GET-EDITOR-TTY-INPUT reads from stream's Unix file descriptor queuing events
 ;;; in the stream's queue.
 ;;;

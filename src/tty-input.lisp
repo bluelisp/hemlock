@@ -37,14 +37,48 @@
   (process-editor-tty-input)
   nil)
 
+(defvar *tty-translations* (make-hash-table :test #'equal))
+
 (defun register-tty-translations ()
   (assert hemlock.terminfo:*terminfo*)
-  (register-tty-translation hemlock.terminfo:key-left #k"Leftarrow" :kludge t)
-  (register-tty-translation hemlock.terminfo:key-up #k"Uparrow" :kludge t)
-  (register-tty-translation hemlock.terminfo:key-down #k"Downarrow" :kludge t)
-  (register-tty-translation hemlock.terminfo:key-right #k"Rightarrow" :kludge t)
-  (register-tty-translation #\newline #k"Return")
-  (register-tty-translation #\tab #k"Tab")
-  (register-tty-translation #\backspace #k"Backspace")
-  (register-tty-translation #\rubout #k"Delete")
-  (register-tty-translation #\escape #k"Escape"))
+  (flet ((reg (string keysym &key kludge)
+           (when kludge
+             ;; FIXME: This is pretty terrible, but for some reason my *terminfo* has
+             ;; Esc,O,<foo> for arraw keys, whereas terminal actually sends Esc,[,<foo>
+             ;; -- either I don't understand how terminfo stuff is supposed to work,
+             ;; Apple ships with a broken terminfo db, or if something is wrong with
+             ;; the terminfo code. I'm inclined to blame me...
+             (assert (eq #\O (char string 1)))
+             (setf string (format nil "~A[~A" (char string 0) (subseq string 2))))
+           (setf (gethash (string string) *tty-translations*) keysym)))
+    (reg hemlock.terminfo:key-left #k"Leftarrow" :kludge t)
+    (reg hemlock.terminfo:key-up #k"Uparrow" :kludge t)
+    (reg hemlock.terminfo:key-down #k"Downarrow" :kludge t)
+    (reg hemlock.terminfo:key-right #k"Rightarrow" :kludge t)
+    (reg hemlock.terminfo:key-ppage #k"Pageup")
+    (reg hemlock.terminfo:key-npage #k"Pagedown")
+    (reg #\newline #k"Return")
+    (reg #\tab #k"Tab")
+    (reg #\backspace #k"Backspace")
+    (reg #\rubout #k"Delete")
+    (reg #\escape #k"Escape")))
+
+(defun translate-tty-event (data)
+  (let* ((string (coerce data 'string))
+         (sym (gethash string *tty-translations*)))
+    (if sym
+        (hemlock-ext:make-key-event sym 0)
+        (when (= 1 (length string))
+          (hemlock-ext:char-key-event (char string 0))))))
+
+(defun tty-key-event (data)
+  (loop with start = 0
+        with length = (length data)
+        while (< start length)
+        do (loop for end from length downto (1+ start)
+                 do (let ((event (translate-tty-event (subseq data start end))))
+                      (when event
+                        (q-event *real-editor-input* event)
+                        (setf start end)
+                        (return))))))
+
