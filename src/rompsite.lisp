@@ -601,8 +601,38 @@
   ;; no-op
   )
 
+(defvar *tty-translations* (make-hash-table :test #'equal))
+
+(defun register-tty-translation (string keysym &key kludge)
+  (when kludge
+    ;; FIXME: This is pretty terrible, but for some reason my *terminfo* has
+    ;; Esc,O,<foo> for arraw keys, whereas terminal actually sends Esc,[,<foo>
+    ;; -- either I don't understand how terminfo stuff is supposed to work,
+    ;; Apple ships with a broken terminfo db, or if something is wrong with
+    ;; the terminfo code. I'm inclined to blame me...
+    (assert (eq #\O (char string 1)))
+    (setf string (format nil "~A[~A" (char string 0) (subseq string 2))))
+  (setf (gethash (string string) *tty-translations*) keysym))
+
+(defun translate-tty-event (data)
+  (let* ((string (coerce data 'string))
+         (sym (gethash string *tty-translations*)))
+    (if sym
+        (hemlock-ext:make-key-event sym 0)
+        (when (= 1 (length string))
+          (hemlock-ext:char-key-event (char string 0))))))
+
 (defun tty-key-event (data)
-  (declare (ignore fd))
+  (loop with start = 0
+        with length = (length data)
+        while (< start length)
+        do (loop for end from length downto (1+ start)
+                 do (let ((event (translate-tty-event (subseq data start end))))
+                      (when event
+                        (q-event *real-editor-input* event)
+                        (setf start end)
+                        (return)))))
+  #+nil
   (iter:iter (iter:for char in-vector data)
              (let ((sym
                     (cond

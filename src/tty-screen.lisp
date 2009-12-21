@@ -97,6 +97,7 @@
 ;;;
 (defun make-tty-device (name)
   (hemlock.terminfo:set-terminal)
+  (register-tty-translations)
   (let ((device (%make-tty-device :name name)))
     (when (termcap :overstrikes)
       (error "Terminal sufficiently irritating -- not currently supported."))
