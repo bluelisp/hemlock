@@ -266,8 +266,7 @@
    key-events.  If key is a prefix of a key-binding, then return :prefix.
    Kind is one of :global, :mode or :buffer, and where is the mode name or
    buffer concerned.  Kind defaults to :Global."
-  (multiple-value-bind (key prefix-p)
-                       (translate-key (crunch-key key))
+  (multiple-value-bind (key prefix-p) (translate-key (crunch-key key))
     (let ((entry (if (eq kind :current)
                      (get-current-binding key)
                      (get-table-entry (get-right-table kind where) key))))
@@ -276,21 +275,21 @@
         (command entry)
         (hash-table :prefix)))))
 
-(defvar *map-bindings-key* (make-array 5 :adjustable t :fill-pointer 0))
+(defvar *map-bindings-key*)
 
 ;;; MAP-BINDINGS -- Public.
 ;;;
 (defun map-bindings (function kind &optional where)
   "Map function over the bindings in some place.  The function is passed the
    key and the command to which it is bound."
-  (labels ((mapping-fun (hash-key hash-value)
-             (vector-push-extend hash-key *map-bindings-key*)
-             (etypecase hash-value
-               (command (funcall function *map-bindings-key* hash-value))
-               (hash-table (maphash #'mapping-fun hash-value)))
-             (decf (fill-pointer *map-bindings-key*))))
-    (setf (fill-pointer *map-bindings-key*) 0)
-    (maphash #'mapping-fun (get-right-table kind where))))
+  (let ((*map-bindings-key* (make-array 5 :adjustable t :fill-pointer 0)))
+    (labels ((mapping-fun (hash-key hash-value)
+               (vector-push-extend hash-key *map-bindings-key*)
+               (etypecase hash-value
+                 (command (funcall function *map-bindings-key* hash-value))
+                 (hash-table (maphash #'mapping-fun hash-value)))
+               (decf (fill-pointer *map-bindings-key*))))
+      (maphash #'mapping-fun (get-right-table kind where)))))
 
 ;;; MAKE-COMMAND -- Public.
 ;;;
