@@ -179,7 +179,9 @@
     (error "Command function documentation is not a string: ~S."
                   function-doc))
   (when (atom lambda-list)
-    (error "Command argument list is not a list: ~S." lambda-list))
+    (if lambda-list
+        (error "Command argument list is not a list ~S." lambda-list)
+        (error "Command argument list is empty: prefix argument is required.")))
   (let (command-name function-name)
     (cond ((listp name)
            (setq command-name (car name)  function-name (cadr name))
@@ -191,8 +193,10 @@
     (unless (stringp command-name)
       (error "Command name is not a string: ~S." name))
     `(eval-when (:load-toplevel :execute)
-       (defun ,function-name ,lambda-list ,function-doc
-              ,@forms)
+       (defun ,function-name ,lambda-list
+         ,function-doc
+         (declare (ignorable ,(car lambda-list)))
+         ,@forms)
        (make-command ',name ,command-doc ',function-name)
        ',function-name)))
 
