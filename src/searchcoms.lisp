@@ -39,44 +39,38 @@
 
 ;;;; Vanilla searching.
 
+(defun vanilla-search (string direction)
+  (unless string
+    (setq string (prompt-for-string :prompt (ecase direction
+                                              (:forward "Search: ")
+                                              (:backward "Reverse Search: "))
+                                    :default *last-search-string*
+                                    :help "String to search for")))
+  (let* ((pattern (get-search-pattern string direction))
+         (point (current-point))
+         (mark (copy-mark point))
+         (won (find-pattern point pattern)))
+    (cond (won
+           (character-offset point won)
+           (if (region-active-p)
+               (delete-mark mark)
+               (push-buffer-mark mark)))
+          (t (delete-mark mark)
+             (editor-error)))))
+
 (defcommand "Forward Search" (p &optional string)
   "Do a forward search for a string.
   Prompt for the string and leave the point after where it is found."
   "Searches for the specified String in the current buffer."
   (declare (ignore p))
-  (if (not string)
-      (setq string (prompt-for-string :prompt "Search: "
-                                      :default *last-search-string*
-                                      :help "String to search for")))
-  (let* ((pattern (get-search-pattern string :forward))
-         (point (current-point))
-         (mark (copy-mark point))
-         (won (find-pattern point pattern)))
-    (cond (won (character-offset point won)
-               (if (region-active-p)
-                   (delete-mark mark)
-                   (push-buffer-mark mark)))
-          (t (delete-mark mark)
-             (editor-error)))))
+  (vanilla-search string :forward))
 
 (defcommand "Reverse Search" (p &optional string)
   "Do a backward search for a string.
   Prompt for the string and leave the point before where it is found."
   "Searches backwards for the specified String in the current buffer."
   (declare (ignore p))
-  (if (not string)
-      (setq string (prompt-for-string :prompt "Reverse Search: "
-                                      :default *last-search-string*
-                                      :help "String to search for")))
-  (let* ((pattern (get-search-pattern string :backward))
-         (point (current-point))
-         (mark (copy-mark point))
-         (won (find-pattern point pattern)))
-    (cond (won (if (region-active-p)
-                   (delete-mark mark)
-                   (push-buffer-mark mark)))
-          (t (delete-mark mark)
-             (editor-error)))))
+  (vanilla-search string :backward))
 
 
 
