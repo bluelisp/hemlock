@@ -250,18 +250,12 @@
 (defcommand "Beginning of Buffer" (p)
   "Moves the point to the beginning of the current buffer."
   "Moves the point to the beginning of the current buffer."
-  (declare (ignore p))
-  (let ((point (current-point)))
-    (push-buffer-mark (copy-mark point))
-    (buffer-start point)))
+  (goto-buffer-start))
 
 (defcommand "End of Buffer" (p)
   "Moves the point to the end of the current buffer."
   "Moves the point to the end of the current buffer."
-  (declare (ignore p))
-  (let ((point (current-point)))
-    (push-buffer-mark (copy-mark point))
-    (buffer-end point)))
+  (goto-buffer-end))
 
 (defcommand "Beginning of Line" (p)
   "Moves the point to the beginning of the current line.

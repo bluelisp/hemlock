@@ -314,6 +314,10 @@
    #:do-alpha-chars
    #:do-strings
 
+   ;; Later, possibly ill-adviced additions
+   #:goto-buffer-start
+   #:goto-buffer-end
+
    ;;;; !!!!
    ;;;; !!!! Everything below here is because putting bit-screen.lisp,
    ;;;; !!!! bit-display.lisp and hunk-draw.lisp into its own package.

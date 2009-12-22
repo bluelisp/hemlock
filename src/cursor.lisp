@@ -415,3 +415,15 @@
   (let ((res (find-position line column 0 (line-length line) 10000)))
     (if res
         (move-to-position mark res line))))
+
+(defun goto-buffer-start ()
+  "Moves the point to the start of the current buffer."
+  (let ((point (current-point)))
+    (push-buffer-mark (copy-mark point))
+    (buffer-start point)))
+
+(defun goto-buffer-end ()
+  "Moves the point to the end of the current buffer."
+  (let ((point (current-point)))
+    (push-buffer-mark (copy-mark point))
+    (buffer-end point)))

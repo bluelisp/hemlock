@@ -27,6 +27,7 @@
     (change-to-buffer buf)
     (with-output-to-mark (stream (buffer-point buf))
       (funcall cont stream))
+    (goto-buffer-start)
     (setf (buffer-modified buf) nil)))
 
 (declaim (special *random-typeout-ml-fields* *buffer-names*))
