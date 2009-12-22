@@ -250,6 +250,7 @@
             (setf (ccref osicat-posix::cflag-vstart) #xff)
             (setf (ccref osicat-posix::cflag-vstop) #xff)
             (setf (ccref osicat-posix::cflag-vsusp) #xff)
+            (setf (ccref osicat-posix::cflag-vdsusp) #xff)
             (setf (ccref osicat-posix::cflag-vmin) 1)
             (setf (ccref osicat-posix::cflag-vtime) 0))
           (osicat-posix::tcsetattr fd osicat-posix::tcsaflush tios))))))
