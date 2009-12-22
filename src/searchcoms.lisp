@@ -90,7 +90,7 @@
   (when (interactive)
     (clear-echo-area)
     (format *echo-area-stream*
-            "~:[~;Failing ~]~:[Reverse I-Search~;I-Search~]: ~A"
+            "~@[~A ~]~:[Reverse I-Search~;I-Search~]: ~A"
             failure (eq direction :forward) string)))
 
 (defun i-search (direction)
@@ -225,10 +225,18 @@
            (%i-search-empty-string point trailer direction forward-direction-p
                                    forward-character-p))
           ((eq forward-direction-p forward-character-p)
-           (if failure
-               (%i-search string point trailer direction failure)
-               (%i-search-find-pattern string point (move-mark trailer point)
-                                       direction)))
+           (cond (failure
+                  ;; Wrap around
+                  (let ((backup (copy-mark point)))
+                    (ecase direction
+                      (:forward (buffer-start point))
+                      (:backward (buffer-end point)))
+                    (move-mark trailer point)
+                    (%i-search-echo-refresh string direction "Wrapped")
+                    (%i-search-find-pattern string point trailer direction backup)))
+                 (t
+                  (%i-search-find-pattern string point (move-mark trailer point)
+                                          direction))))
           (t
            (let ((new-direction (if forward-character-p :forward :backward)))
              (%i-search-echo-refresh string new-direction nil)
@@ -281,7 +289,7 @@
 ;;; and finds it, updating necessary pointers for the next call to %I-SEARCH.
 ;;; If the search failed, tell the user and do not move any pointers.
 ;;;
-(defun %i-search-find-pattern (string point trailer direction)
+(defun %i-search-find-pattern (string point trailer direction &optional backup)
   (let ((found-offset (find-pattern trailer *last-search-pattern*)))
     (cond (found-offset
             (cond ((eq direction :forward)
@@ -291,11 +299,14 @@
                    (character-offset trailer found-offset)))
             (%i-search string point trailer direction nil))
           (t
-           (%i-search-echo-refresh string direction t)
+           (when backup
+             (move-mark point backup)
+             (move-mark trailer backup))
+           (%i-search-echo-refresh string direction "Failing")
            (if (interactive)
                (beep)
                (editor-error "I-Search failed."))
-           (%i-search string point trailer direction t)))))
+           (%i-search string point trailer direction "Failing")))))
 
 
 
