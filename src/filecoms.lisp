@@ -1024,8 +1024,9 @@
                    (1- month))
             day (= current-year year) year hour min)))
 
-(defun print-directory-formatted (pathname all return-list)
-  (let ((width (or (line-length *standard-output*) 80))
+(defun print-directory-formatted (pathname all pattern return-list)
+  (declare (ignore pattern))
+  (let ((width (or (hi::stream-line-length *standard-output*) 80))
         (names ())
         (cnt 0)
         (max-len 0)
@@ -1091,7 +1092,7 @@
               :must-exist nil)))
     (setf (value pathname-defaults) (merge-pathnames pn dpn))
     (with-pop-up-display (s)
-      (print-directory pn s :all p))))
+      (print-directory pn :stream s :all p))))
 
 (defcommand "Verbose Directory" (p)
   "Do a directory into a pop-up window.  If an argument is supplied, then
@@ -1107,7 +1108,7 @@
               :must-exist nil)))
     (setf (value pathname-defaults) (merge-pathnames pn dpn))
     (with-pop-up-display (s)
-      (print-directory pn s :verbose t :all p))))
+      (print-directory pn :stream s :verbose t :all p))))
 
 
 
