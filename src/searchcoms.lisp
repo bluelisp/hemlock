@@ -93,6 +93,22 @@
             "~:[~;Failing ~]~:[Reverse I-Search~;I-Search~]: ~A"
             failure (eq direction :forward) string)))
 
+(defun i-search (direction)
+  (setf (last-command-type) nil)
+  (%i-search-echo-refresh "" direction nil)
+  (let* ((point (current-point))
+         (save-start (copy-mark point :temporary)))
+    (with-mark ((here point))
+      (when (eq (catch 'exit-i-search
+                  (%i-search "" point here direction nil))
+                :control-g)
+        (move-mark point save-start)
+        (invoke-hook abort-hook)
+        (editor-error))
+      (if (region-active-p)
+          (delete-mark save-start)
+          (push-buffer-mark save-start)))))
+
 (defcommand "Incremental Search" (p)
   "Searches for input string as characters are provided.
   These are the default I-Search command characters:  ^Q quotes the
@@ -109,20 +125,7 @@
   "Search for input string as characters are typed in.
   It sets up for the recursive searching and checks return values."
   (declare (ignore p))
-  (setf (last-command-type) nil)
-  (%i-search-echo-refresh "" :forward nil)
-  (let* ((point (current-point))
-         (save-start (copy-mark point :temporary)))
-    (with-mark ((here point))
-      (when (eq (catch 'exit-i-search
-                  (%i-search "" point here :forward nil))
-                :control-g)
-        (move-mark point save-start)
-        (invoke-hook abort-hook)
-        (editor-error))
-      (if (region-active-p)
-          (delete-mark save-start)
-          (push-buffer-mark save-start)))))
+  (i-search :forward))
 
 
 (defcommand "Reverse Incremental Search" (p)
@@ -141,20 +144,7 @@
   "Search for input string as characters are typed in.
   It sets up for the recursive searching and checks return values."
   (declare (ignore p))
-  (setf (last-command-type) nil)
-  (%i-search-echo-refresh "" :backward nil)
-  (let* ((point (current-point))
-         (save-start (copy-mark point :temporary)))
-    (with-mark ((here point))
-      (when (eq (catch 'exit-i-search
-                  (%i-search "" point here :backward nil))
-                :control-g)
-        (move-mark point save-start)
-        (invoke-hook abort-hook)
-        (editor-error))
-      (if (region-active-p)
-          (delete-mark save-start)
-          (push-buffer-mark save-start)))))
+  (i-search :backward))
 
 ;;;      %I-SEARCH recursively (with support functions) searches to provide
 ;;; incremental searching.  There is a loop in case the recursion is ever
