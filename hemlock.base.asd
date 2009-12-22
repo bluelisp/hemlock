@@ -158,7 +158,7 @@
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :depends-on (bitmap-1 core-1)
+              :depends-on (bitmap-1 core-1 core-2)
               :components
               ((:file "typeout")))
      (:module wire
