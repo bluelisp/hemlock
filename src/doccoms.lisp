@@ -78,51 +78,57 @@
   (let* ((str (prompt-for-string
                 :prompt "Apropos keyword: "
                 :help
- "String to look for in command, variable and attribute names."))
+                "String to look for in command, variable and attribute names."))
          (coms (find-containing str *command-names*))
-         (vars (mapcar #'(lambda (table)
+         (vars (mapcan #'(lambda (table)
                            (let ((res (find-containing str table)))
-                             (if res (cons table res))))
+                             (when res (list (cons table res)))))
                        (current-variable-tables)))
          (attr (find-containing str *character-attribute-names*)))
     (if (or coms vars attr)
         (apropos-command-output str coms vars attr)
-        (with-pop-up-display (s :height 1)
-          (format s "No command, attribute or variable name contains ~S."
-                  str)))))
+        (message "No command, attribute or variable name contains ~S." str))))
 
 (defun apropos-command-output (str coms vars attr)
   (declare (list coms vars attr))
   (with-pop-up-display (s)
-    (when coms
-      (format s "Commands with ~S in their names:~%" str)
-      (dolist (com coms)
-        (let ((obj (getstring com *command-names*)))
-          (write-string com s)
-          (write-string "   " s)
-          (print-command-bindings (command-bindings obj) s)
-          (terpri s)
-          (print-short-doc (command-documentation obj) s))))
-    (when vars
-      (when coms (terpri s))
-      (format s "Variables with ~S in their names:~%" str)
-      (dolist (stuff vars)
-        (let ((table (car stuff)))
-          (dolist (var (cdr stuff))
-            (let ((obj (getstring var table)))
-              (write-string var s)
-              (write-string "   " s)
-              (let ((*print-level* 2) (*print-length* 3))
-                (prin1 (variable-value obj) s))
+    (let* ((w (hi::stream-line-length s))
+           (div (make-string w :initial-element #\-))
+           (col (truncate (* 2/3 w))))
+      (flet ((write-padded (string)
+               (write-string string s)
+               (write-string (make-string (max 3 (- col (length string)))
+                                          :initial-element #\space)
+                             s)))
+        (when coms
+          (format s "COMMANDS with ~S in their names~%" str)
+          (dolist (com coms)
+            (let ((obj (getstring com *command-names*)))
+              (write-padded com)
+              (print-command-bindings (command-bindings obj) s)
               (terpri s)
-              (print-short-doc (variable-documentation obj) s))))))
-    (when attr
-      (when (or coms vars) (terpri s))
-      (format s "Attributes with ~S in their names:~%" str)
-      (dolist (att attr)
-        (let ((obj (getstring att *character-attribute-names*)))
-          (write-line att s)
-          (print-short-doc (character-attribute-documentation obj) s))))))
+              (print-short-doc (command-documentation obj) s))))
+        (when vars
+          (when coms
+            (write-line div s))
+          (format s "VARIABLES with ~S in their names~%" str)
+          (dolist (stuff vars)
+            (let ((table (car stuff)))
+              (dolist (var (cdr stuff))
+                (let ((obj (getstring var table)))
+                  (write-padded var)
+                  (let ((*print-level* 2) (*print-length* 3))
+                    (prin1 (variable-value obj) s))
+                  (terpri s)
+                  (print-short-doc (variable-documentation obj) s))))))
+        (when attr
+          (when (or vars coms)
+            (write-line div s))
+          (format s "ATTRIBUTES with ~S in their names~%" str)
+          (dolist (att attr)
+            (let ((obj (getstring att *character-attribute-names*)))
+              (write-line att s)
+              (print-short-doc (character-attribute-documentation obj) s))))))))
 
 ;;; PRINT-SHORT-DOC takes doc, a function or string, and gets it out on stream.
 ;;; If doc is a string, this only outputs up to the first newline.  All output
@@ -130,10 +136,14 @@
 ;;;
 (defun print-short-doc (doc stream)
   (let ((str (typecase doc
-               (function (funcall doc :short))
-               (simple-string
-                (let ((nl (position #\newline (the simple-string doc))))
-                  (subseq doc 0 (or nl (length doc)))))
+               (function
+                (funcall doc :short))
+               (string
+                (let ((end (or (position #\newline (the simple-string doc))
+                               (length doc))))
+                  (if (zerop end)
+                      "(no documentation)"
+                      (subseq doc 0 end))))
                (t
                 (error "Bad documentation: ~S" doc)))))
     (write-string "  " stream)
