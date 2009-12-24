@@ -352,31 +352,37 @@
   "Describe a mode showing special bindings for that mode."
   "Describe a mode showing special bindings for that mode."
   (declare (ignore p))
-  (let ((name (or name
-                  (prompt-for-keyword (list *mode-names*)
-                                      :prompt "Mode: "
-                                      :help "Enter mode to describe."
-                                      :default
-                                      (car (buffer-modes (current-buffer)))))))
-    (with-pop-up-display (s)
-      (format s "~A mode description:~%" name)
-      (let ((doc (mode-documentation name)))
-        (when doc
-          (write-line doc s)
-          (terpri s)))
-      (map-bindings
-       #'(lambda (key cmd)
-           (unless (member (command-name cmd)
-                           *describe-mode-ignore*
-                           :test #'string-equal)
-             (let ((str (key-to-string key)))
-               (cond ((= (length str) 1)
-                      (write-string str s)
-                      (write-string "  - " s))
-                     (t (write-line str s)
-                        (write-string "   - " s)))
-               (print-short-doc (command-documentation cmd) s))))
-       :mode name))))
+  (let* ((name (or name
+                   (prompt-for-keyword (list *mode-names*)
+                                       :prompt "Mode: "
+                                       :help "Enter mode to describe."
+                                       :default
+                                       (car (buffer-modes (current-buffer))))))
+         (doc (mode-documentation name))
+         (bindings nil)
+         (type (if (mode-major-p name) "major" "minor"))
+         (max 0))
+    (map-bindings (lambda (key cmd)
+                    (unless (member (command-name cmd)
+                                    *describe-mode-ignore*
+                                    :test #'string-equal)
+                      (let ((str (key-to-string key)))
+                        (setf max (max max (length str)))
+                        (push (cons str cmd) bindings))))
+                  :mode name)
+    (if (or doc bindings)
+        (with-pop-up-display (s)
+          (format s "~A is a ~A mode.~%" name type)
+          (when doc
+            (write-line doc s)
+            (terpri s))
+          (dolist (cell bindings)
+            (destructuring-bind (str . cmd) cell
+              (write-string str s)
+              (write-string (make-string (- max (length str)) :initial-element #\Space) s)
+              (write-string "  - " s)
+              (print-short-doc (command-documentation cmd) s))))
+        (message "~A is a ~A mode." name type))))
 
 (defun key-to-string (key)
   (with-output-to-string (s)
