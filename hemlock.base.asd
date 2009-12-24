@@ -217,7 +217,7 @@
                (:file "defsyn")
                (:file "scribe")
                (:file "pascal")
-               (:file "dylan")
+               (:file "dylan" :depends-on ("filecoms"))
 
                (:file "edit-defs")
                (:file "auto-save")
