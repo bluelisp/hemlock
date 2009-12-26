@@ -309,7 +309,8 @@
 ;;; CREATE-SLAVE -- Public.
 ;;;
 
-(defvar *slave-command* '("clbuild" "run" "hemlock-slave" "--editor"))
+(defvar *clbuild-slave-command* '("clbuild" "run" "hemlock-slave" "--editor"))
+(defvar *slave-command* *clbuild-slave-command*)
 
 (defun create-slave (&optional name)
   "This creates a slave that tries to connect to the editor.  A preliminary
@@ -494,6 +495,14 @@
               *slave-command*))
          (info (create-slave (pick-slave-buffer-names "Process"))))
     (change-to-buffer (server-info-slave-buffer info))))
+
+(defcommand "Start Slave Using Clbuild" (p)
+  "Create a new slave.  When given an argument, ask for a command first.
+   Always defaults to clbuild as the slave startup method, even when
+   the host lisp has a different default method."
+  ""
+  (let ((*slave-command* *clbuild-slave-command*))
+    (start-slave-process-command p)))
 
 (defcommand "Start Slave Thread" (p)
   "Create a new thread acting as a slave."
