@@ -43,6 +43,8 @@
   (register-tty-translation hemlock.terminfo:key-up #k"Uparrow" :kludge t)
   (register-tty-translation hemlock.terminfo:key-down #k"Downarrow" :kludge t)
   (register-tty-translation hemlock.terminfo:key-right #k"Rightarrow" :kludge t)
+  (register-tty-translation hemlock.terminfo:key-npage #k"control-v")
+  (register-tty-translation hemlock.terminfo:key-ppage #k"meta-v")
   (register-tty-translation #\newline #k"Return")
   (register-tty-translation #\tab #k"Tab")
   (register-tty-translation #\backspace #k"Backspace")
