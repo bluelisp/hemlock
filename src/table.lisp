@@ -84,6 +84,15 @@
       (setf (getstring (car x) table) (cdr x)))
     table))
 
+(defun map-string-table (result-type fun table)
+  (let ((remove '#:remove))
+    (remove remove
+            (map result-type
+                 (lambda (node)
+                   (if (typep node 'value-node)
+                       (funcall fun (value-node-value node))
+                       remove))
+                 (string-table-value-nodes table)))))
 
 (defstruct (word-table
             (:print-function print-word-table))

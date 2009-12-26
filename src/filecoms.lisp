@@ -1300,10 +1300,11 @@
     (terpri s)
     (format s "  h  this help~%")
     (terpri s)
+    (format s "  S  List Slaves (also c for slime compatibility)~%")
     (format s "  r  Slave REPL~%")
     (terpri s)
     (format s "  b  Bufed~%")
-    (format s "  c  Coned~%"))
+    (format s "  C  Coned~%"))
   (message "Press q to dismiss this help."))
 
 (defcommand "Quickselect" (p)
@@ -1313,11 +1314,12 @@
              (unwind-protect
                   (progn
                     (setf (current-window) *echo-area-window*)
-                    (hi::display-prompt-nicely "Quickselect? [?rcb]")
+                    (hi::display-prompt-nicely "Quickselect? [?hrCcSb]")
                     (hi::key-event-case
                      ((#k"r") 'quickselect-slave-repl)
                      ((#k"?" #k"h") 'quickselect-help)
-                     ((#k"c") 'coned-command)
+                     ((#k"C") 'coned-command)
+                     ((#k"c" #k"S") 'list-slaves-command)
                      ((#k"b") 'bufed-command)
                      (t (lambda ()))))
                (setf (current-window) old-window)))
