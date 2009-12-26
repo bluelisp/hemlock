@@ -194,6 +194,7 @@
                (:file "indent")
                (:file "searchcoms")
                (:file "filecoms")
+               (:file "grep")
                (:file "morecoms")
                (:file "doccoms")
                (:file "srccom")

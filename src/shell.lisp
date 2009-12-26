@@ -604,11 +604,3 @@
                              :directory directory))))
 
 (bind-key "Shell Command" #k"meta-!")
-
-(defcommand "Grep"
-    (p &optional (command (hi::prompt-for-string
-                           :prompt "Run grep (like this): "
-                           :default "grep -nH -e "))
-                 (directory (default-directory)))
-  "" ""
-  (shell-command-command p command directory))
