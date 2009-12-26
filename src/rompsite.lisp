@@ -618,7 +618,9 @@
   (let* ((string (coerce data 'string))
          (sym (gethash string *tty-translations*)))
     (if sym
-        (hemlock-ext:make-key-event sym 0)
+        (etypecase sym
+          (hemlock-ext:key-event sym)
+          (t (hemlock-ext:make-key-event sym 0)))
         (when (= 1 (length string))
           (hemlock-ext:char-key-event (char string 0))))))
 
