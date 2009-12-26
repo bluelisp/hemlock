@@ -34,7 +34,9 @@
   background-buffer           ; Buffer "background" typescript is in.
   (errors                     ; Array of errors while compiling
    (make-array 16 :adjustable t :fill-pointer 0))
-  error-index)                ; Index of current error.
+  error-index                 ; Index of current error.
+  implementation-type
+  implementation-version)
 ;;;
 (defun print-server-info (obj stream n)
   (declare (ignore n))
@@ -836,22 +838,24 @@
      (let ((hemlock.wire::*current-wire* wire))
        (hemlock.wire:remote-value-bind wire
          (slave background)
-         (set-up-buffers-for-slave (lisp-implementation-type))
+         (set-up-buffers-for-slave (lisp-implementation-type)
+                                   (lisp-implementation-version))
          (made-buffers-for-typescript slave background))))
    'editor-died))
 
 (defun set-up-buffers-for-slave
-    (&optional extra-string (wire hemlock.wire:*current-wire*))
+    (type version &optional (wire hemlock.wire:*current-wire*))
   (let* ((server-info (variable-value 'current-eval-server :global))
          (slave-info (server-info-slave-info server-info))
          (background-info (server-info-background-info server-info)))
     (setf (server-info-wire server-info) wire)
     (ts-buffer-wire-connected slave-info wire)
     (ts-buffer-wire-connected background-info wire)
-    (when extra-string
-      (let* ((buf (ts-data-buffer slave-info))
-             (name (format nil "~A ~A" (buffer-name buf) extra-string)))
-        (hemlock-ext::maybe-rename-buffer buf name)))
+    (setf (server-info-implementation-type server-info) type)
+    (setf (server-info-implementation-version server-info) version)
+    (let* ((buf (ts-data-buffer slave-info))
+           (name (format nil "~A ~A" (buffer-name buf) type)))
+      (hemlock-ext::maybe-rename-buffer buf name))
     (values (hemlock.wire:make-remote-object slave-info)
             (hemlock.wire:make-remote-object background-info))))
 

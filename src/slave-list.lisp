@@ -141,10 +141,12 @@
     (refresh-slave-list *slave-list-buffer*)))
 
 (defun slave-list-write-line (item s)
-  (format s " ~:[         ~;(current)~] ~A~30T~A~%"
-          (eq (slave-list-item-info item) (value current-eval-server))
-          (slave-list-item-name item)
-          (slave-list-item-info item)))
+  (let ((info (slave-list-item-info item)))
+    (format s " ~:[         ~;(current)~] ~A~30T~A ~A~%"
+            (eq info (value current-eval-server))
+            (slave-list-item-name item)
+            (server-info-implementation-type info)
+            (server-info-implementation-version info))))
 
 (defcommand "Slave-List Help" (p)
   "Show this help."
