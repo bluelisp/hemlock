@@ -507,9 +507,6 @@
     (message "This editor is named ~S." *editor-name*)
     (message "This editor is not currently named.")))
 
-(defparameter *in-package-regex*
-  "^(in-package")
-
 (defun invoke-with-save-excursion (fn)
   (let* ((point (current-point))
          (point-pos (mark-charpos point)))
@@ -655,7 +652,7 @@
    (iter:while line)
    (cl-ppcre:register-groups-bind
        (package)
-       ("^\\(in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
+       ("^\\((?:[a-zA-Z]+:)?in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
      (return (canonicalize-slave-package-name package)))
    (cl-ppcre:register-groups-bind
        (package)
