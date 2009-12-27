@@ -193,31 +193,3 @@
   (% "Who Sets"         who-sets         conium:who-sets)
   (% "Who Macroexpands" who-macroexpands conium:who-macroexpands)
   (% "Who Specializes"  who-specializes  conium:who-specializes))
-
-(defcommand "Slave Apropos" (p)
-  "" ""
-  (let ((default (hemlock::symbol-string-at-point)))
-    ;; Fixme: MARK-SYMBOL isn't very good, meaning that often we
-    ;; will get random forms rather than a symbol.  Let's at least
-    ;; catch the case where the result is more than a line long,
-    ;; and give up.
-    (when (find #\newline default)
-      (setf default nil))
-    (slave-apropos
-     (hemlock-interface::prompt-for-string
-      :prompt "Apropos string: "
-      :default default))))
-
-(defun slave-apropos (str)
-  (hemlock::eval-in-slave `(%apropos ',str)))
-
-(defun %apropos (str)
-  (let ((data
-         (mapcar (lambda (sym)
-                   (cons (make-slave-symbol sym)
-                         (conium:describe-symbol-for-emacs sym)))
-                 (apropos-list str))))
-    (hemlock::eval-in-master `(%apropos-results ',data))))
-
-(defun %apropos-results (data)
-  (print data))

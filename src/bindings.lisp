@@ -386,6 +386,8 @@
 (bind-key "Describe Symbol" #k"control-meta-S")
 (bind-key "Goto Definition" #k"control-meta-F")
 
+(bind-key "Slave Apropos" #k"control-c ?")
+
 #+port-user-debug
 (progn
 (bind-key "Debug Up" #k"control-meta-hyper-u")
@@ -813,6 +815,7 @@
 ;;;; Xref.
 
 (bind-key "Find Definitions" #k"meta-." :mode "Lisp")
+(bind-key "Find Definitions" #k"meta-." :mode "Apropos")
 (bind-key "Who Specializes"  #k"control-c control-w control-a" :mode "Lisp")
 (bind-key "Who Binds"        #k"control-c control-w control-b" :mode "Lisp")
 (bind-key "Who Calls"        #k"control-c control-w control-c" :mode "Lisp")
