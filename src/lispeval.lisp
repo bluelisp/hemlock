@@ -248,15 +248,25 @@
 
 ;;;; Stuff to send noise to the server.
 
+:; fixme: these two should be the same
 (defun eval-safely-in-slave (form)
   (handler-case
       (eval form)
     (error (c)
       (warn "ignoring error in slave request: ~A" c))))
+(defun eval-safely-in-master (form)
+  (let (ok)
+    (block nil
+      (unwind-protect
+          (multiple-value-prog1
+              (eval form)
+            (setf ok t))
+        (unless ok
+          (return "fell through)"))))))
 
 (defun eval-in-master (form)
   (hemlock.wire:remote hemlock.wire::*current-wire*
-                       (eval form)))
+                       (eval-safely-in-master form)))
 
 (defun eval-in-slave (form)
   (hemlock.wire:remote (server-info-wire (get-current-eval-server))
