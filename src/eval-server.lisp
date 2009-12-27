@@ -844,7 +844,8 @@
    machine
    port
    (lambda (wire)
-     (let ((hemlock.wire::*current-wire* wire))
+     (let ()
+       (setf hemlock.wire::*current-wire* wire)
        (hemlock.wire:remote-value-bind wire
          (slave background)
          (set-up-buffers-for-slave (lisp-implementation-type)
