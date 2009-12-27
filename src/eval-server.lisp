@@ -1073,13 +1073,16 @@
                   ,x)))
     (let ((error-stream (frob background)))
       (do-compiler-operation (note package terminal error-stream)
-        (load (compile-file (frob input)
-                            :output-file (frob output)
-;;;                   :error-file (frob error)
-                            :trace-file (frob trace)
-;;;                   :load load
-;;;                   :error-output error-stream
-                            ))))))
+        (multiple-value-bind (fasl warning-free-p)
+            (compile-file (frob input)
+                          #+nil #+nil :output-file (frob output)
+                          #+nil #+nil :error-file (frob error)
+                          #+nil #+nil :trace-file (frob trace)
+                          #+nil #+nil :load load
+                          #+nil #+nil :error-output error-stream)
+          (when fasl
+            (load fasl))
+          (format nil "~A ~A" fasl warning-free-p))))))
 
 
 ;;;; Other random eval server stuff.

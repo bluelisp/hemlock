@@ -869,7 +869,7 @@
 
 (defhvar "Compile Buffer File Confirm"
   "When set, \"Compile Buffer File\" prompts before doing anything."
-  :value t)
+  :value nil)
 
 (defcommand "Compile Buffer File" (p)
   "Compile the file in the current buffer if its associated binary file

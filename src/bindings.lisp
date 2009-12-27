@@ -379,7 +379,7 @@
 (bind-key "Evaluate Expression" #k"meta-escape")
 (bind-key "Evaluate Defun" #k"control-x control-e")
 (bind-key "Compile Defun" #k"control-c control-c")
-(bind-key "Compile Buffer File" #k"control-x c")
+(bind-key "Compile Buffer File" #k"control-c control-k")
 (bind-key "Macroexpand Expression" #k"control-M")
 
 (bind-key "Describe Function Call" #k"control-meta-A")
