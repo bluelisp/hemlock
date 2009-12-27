@@ -4,12 +4,12 @@
 
 (defpackage #:hemlock-system
   (:use #:cl)
-  (:export #:*hemlock-base-directory* #:iso-8859-1-file))
+  (:export #:*hemlock-base-directory* #:hemlock-file))
 
 (in-package #:hemlock-system)
 
-(defclass iso-8859-1-file (asdf:cl-source-file) ())
-(defmethod asdf:perform ((o asdf:compile-op) (c iso-8859-1-file))
+(defclass hemlock-file (asdf:cl-source-file) ())
+(defmethod asdf:perform ((o asdf:compile-op) (c hemlock-file))
   ;; Darn.  Can't just CALL-NEXT-METHOD; have to reimplement the
   ;; world.
   (let ((source-file (asdf:component-pathname c))
@@ -19,22 +19,17 @@
                       #+sbcl #+sbcl :external-format :iso-8859-1
                       #+clisp #+clisp :external-format (ext:make-encoding :charset 'charset:iso-8859-1 :line-terminator :unix))
       (when warnings-p
-        (case (asdf:operation-on-warnings o)
-          (:warn (warn
-                  "~@<COMPILE-FILE warned while performing ~A on ~A.~@:>"
-                  o c))
-          (:error (error 'compile-warned :component c :operation o))
-          (:ignore nil)))
+        (warn
+         "~@<COMPILE-FILE warned while performing ~A on ~A.~@:>"
+         o c))
       (when failure-p
-        (case (asdf:operation-on-failure o)
-          (:warn (warn
-                  "~@<COMPILE-FILE failed while performing ~A on ~A.~@:>"
-                  o c))
-          (:error (error 'compile-failed :component c :operation o))
-          (:ignore nil)))
+        (warn
+         "~@<COMPILE-FILE failed while performing ~A on ~A.~@:>"
+         o c))
       (unless output
         (error 'asdf:compile-error :component c :operation o)))))
-(defmethod perform ((o asdf:load-source-op) (c iso-8859-1-file))
+
+(defmethod perform ((o asdf:load-source-op) (c hemlock-file))
   ;; likewise, have to reimplement rather than closily extend
   (let ((source (asdf:component-pathname c)))
     (setf (asdf:component-property c 'asdf::last-loaded-as-source)
@@ -92,7 +87,7 @@
                (:file "decls" :depends-on ("package")) ; early declarations of functions and stuff
                (:file "struct" :depends-on ("package"))
                #+port-core-struct-ed (:file "struct-ed" :depends-on ("package"))
-               (hemlock-system:iso-8859-1-file "charmacs" :depends-on ("package"))
+               (hemlock-system:hemlock-file "charmacs" :depends-on ("package"))
                (:file "key-event" :depends-on ("package" "charmacs"))))
      (:module bitmap-1
               :pathname #.(merge-pathnames
