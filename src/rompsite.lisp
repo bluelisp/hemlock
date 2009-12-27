@@ -668,3 +668,48 @@
                           (alien:alien-sap (alien:addr nc)))
          (> nc 0))))
 ||#
+
+
+;;;;
+;;;; PREPL-integration
+;;;;
+
+(defun prepl-hemlock-command-integration-hook (cmd override)
+  (multiple-value-bind (fun parsing)
+                       (find-override-for-prepl cmd (or override t))
+    (cond
+     (fun (values fun parsing))
+     ((not override) (find-command-for-prepl-normally cmd))
+     (nil))))
+
+(defparameter *prepl-command-overrides*
+  '(("Apropos" "Slave Apropos Ignoring Point")))
+
+(defun find-override-for-prepl (cmd override)
+  (let ((cons (assoc cmd *prepl-command-overrides* :test 'string-equal)))
+    (when cons
+      (let ((cmd (getstring (cadr cons) hi::*command-names*)))
+        (when cmd
+          (let ((sym (command-function cmd)))
+            (check-type sym symbol)
+            (values (lambda (&rest args)
+                      (hemlock::eval-in-master `(funcall ',sym nil ,@args)))
+                    override)))))))
+
+(defun find-command-for-prepl-normally (cmd)
+  ;; Note: Using lisp syntax for command names here (with dashes) rather
+  ;; than real commands to make tokenization in the REPL easier.  This
+  ;; way, the point where arguments start is never dependent on which
+  ;; commmands are defined.
+  ;;
+  (let* ((sym (find-symbol (concatenate 'string
+                                        (string-upcase cmd)
+                                        "-COMMAND")
+                           :hemlock))
+         (fun (and sym (fdefinition sym))))
+    (when fun
+      (values (lambda (&rest args)
+                (hemlock::eval-in-master `(funcall ',sym nil ,@args)))
+              t))))
+
+(push 'prepl-hemlock-command-integration-hook prepl:*command-parser-hooks*)
