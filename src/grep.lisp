@@ -17,6 +17,7 @@
 
 (defcommand "Grep Goto" (p)
   "" ""
+  (declare (ignore p))
   (cl-ppcre:register-groups-bind
       (file line)
       ("^\([^:]+\):\([0-9]+\):" (line-string (mark-line (current-point))))

@@ -189,6 +189,7 @@
                (:file "indent")
                (:file "searchcoms")
                (:file "filecoms")
+               (:file "grep" :depends-on ("filecoms"))
                (:file "apropos" :depends-on ("filecoms"))
                (:file "morecoms")
                (:file "doccoms")
