@@ -527,10 +527,13 @@
     (make-slave-symbol symbol-name package-name)))
 
 (defmethod print-object ((object slave-symbol) stream)
-  (print-unreadable-object (object stream :type t :identity nil)
-    (format stream "~A:~A"
-            (slave-symbol-package-name object)
-            (slave-symbol-name object))))
+  (flet ((% ()
+           (format stream "~A:~A"
+                   (slave-symbol-package-name object)
+                   (slave-symbol-name object))))
+    (if *print-escape*
+        (print-unreadable-object (object stream :type t :identity nil) (%))
+        (%))))
 
 (defmethod slave-symbol-name ((x symbol))
   (symbol-name x))
