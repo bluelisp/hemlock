@@ -109,6 +109,15 @@
   (declare (ignore p))
   (describe-mode-command nil "Apropos"))
 
+(defcommand "Slave Apropos Ignoring Point"
+            (p &optional (str
+                          (hemlock-interface::prompt-for-string
+                           :prompt "Apropos string: "
+                           :default default)))
+  "" ""
+  (declare (ignore p))
+  (slave-apropos str))
+
 (defcommand "Slave Apropos" (p)
   "" ""
   (declare (ignore p))
