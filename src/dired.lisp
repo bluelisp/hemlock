@@ -110,7 +110,7 @@
   (cond
    ((not directoryp)
     (let* ((ses-name1 (iolib.pathnames:file-path-namestring spec1))
-           (exists1p (iolib.os::get-file-kind spec1))
+           (exists1p (iolib.os:file-kind spec1))
            (ses-name2 (iolib.pathnames:file-path-namestring spec2))
            (pname1 (pathname ses-name1))
            (pname2 (pathname ses-name2))
@@ -312,7 +312,7 @@
   (cond
    ((not directoryp)
     (let* ((ses-name1 (iolib.pathnames:file-path-namestring spec1))
-           (exists1p (iolib.os::get-file-kind ses-name1))
+           (exists1p (iolib.os:file-kind ses-name1))
            (ses-name2 (iolib.pathnames:file-path-namestring spec2))
            (pname1 (pathname ses-name1))
            (pname2 (pathname ses-name2))
@@ -566,7 +566,7 @@
 (defun make-directory (name)
   "Creates directory name.  If name exists, then an error is signaled."
   (let ((ses-name (iolib.pathnames:file-path-namestring name)))
-    (when (iolib.os::get-file-kind ses-name)
+    (when (iolib.os:file-kind ses-name)
       (funcall *error-function* "Name already exists -- ~S" ses-name))
     (enter-directory ses-name))
   t)
@@ -590,7 +590,7 @@
   (isys:%sys-rename ses-name1 ses-name2))
 
 (defun directory-existsp (ses-name)
-  (eq (iolib.os::get-file-kind ses-name) :directory))
+  (iolib.os:directory-exists-p ses-name))
 
 (defun enter-directory (ses-name)
   (declare (simple-string ses-name))
