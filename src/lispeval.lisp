@@ -248,7 +248,7 @@
 
 ;;;; Stuff to send noise to the server.
 
-:; fixme: these two should be the same
+;; fixme: these two should be the same
 (defun eval-safely-in-slave (form)
   (handler-case
       (eval form)
