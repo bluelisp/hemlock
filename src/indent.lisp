@@ -38,9 +38,20 @@
    to indent that number of spaces using \"Spaces per Tab\"."
   :value #'indent-using-tabs)
 
+(define-file-option "indent-tabs-mode" (buffer value)
+  (setf value (find-symbol (string-upcase value) :cl))
+  (defhvar "Indent with Tabs" "override by file-option"
+    :buffer buffer
+    :value (if value #'indent-using-tabs #'indent-using-spaces))
+  (defhvar "Indent Function" "override by file-option"
+    :buffer buffer
+    :value (if value #'tab-to-tab-stop #'spaces-to-tab-stop)))
 
 (defun tab-to-tab-stop (mark)
   (insert-character mark #\tab))
+
+(defun spaces-to-tab-stop (mark)
+  (indent-using-spaces mark (* (ceiling (1+ (mark-column mark)) 8) 8)))
 
 (defhvar "Indent Function"
   "Indentation function which is invoked by \"Indent\" command.
