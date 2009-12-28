@@ -11,5 +11,5 @@
   (conium:getpid))
 
 ;; !!!
-(push (cons '*print-readably* (constantly nil))
+(push (cons '*print-readably* nil)
       bt:*default-special-bindings*)
