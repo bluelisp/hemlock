@@ -386,27 +386,10 @@
 (bind-key "Describe Symbol" #k"control-meta-S")
 (bind-key "Goto Definition" #k"control-meta-F")
 
-#+port-user-debug
-(progn
-(bind-key "Debug Up" #k"control-meta-hyper-u")
-(bind-key "Debug Down" #k"control-meta-hyper-d")
-(bind-key "Debug Top" #k"control-meta-hyper-t")
-(bind-key "Debug Bottom" #k"control-meta-hyper-b")
-(bind-key "Debug Frame" #k"control-meta-hyper-f")
-(bind-key "Debug Quit" #k"control-meta-hyper-q")
-(bind-key "Debug Go" #k"control-meta-hyper-g")
-(bind-key "Debug Abort" #k"control-meta-hyper-a")
-(bind-key "Debug Restart" #k"control-meta-hyper-r")
-(bind-key "Debug Help" #k"control-meta-hyper-h")
-(bind-key "Debug Error" #k"control-meta-hyper-e")
-(bind-key "Debug Backtrace" #k"control-meta-hyper-B")
-(bind-key "Debug Print" #k"control-meta-hyper-p")
-(bind-key "Debug Verbose Print" #k"control-meta-hyper-P")
-(bind-key "Debug List Locals" #k"control-meta-hyper-l")
-(bind-key "Debug Source" #k"control-meta-hyper-s")
-(bind-key "Debug Edit Source" #k"control-meta-hyper-S")
-(bind-key "Debug Flush Errors" #k"control-meta-hyper-F")
-)
+
+;;;; Debug mode
+
+(bind-key "Debug Quit" #k"q" :mode "Debug")
 
 
 ;;;; More Miscellaneous bindings.

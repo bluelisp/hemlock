@@ -683,18 +683,31 @@
      (nil))))
 
 (defparameter *prepl-command-overrides*
-  '(("Apropos" "Slave Apropos Ignoring Point")))
+  ;; List of (prepl-command-name hemlock-command-name)
+  ;;      or (prepl-command-name hemlock-function-name)
+  ;;
+  ;; Hemlock commands (first form) are run in the master.
+  ;; Hemlock functions (second form) are called directly in the slave (!).
+  ;;
+  '(("apropos" "Slave Apropos Ignoring Point")
+    ("bt" hemlock::debug-using-master)
+    ("zoom" hemlock::debug-using-master)))
 
 (defun find-override-for-prepl (cmd override)
-  (let ((cons (assoc cmd *prepl-command-overrides* :test 'string-equal)))
+  (let* ((cons (assoc cmd *prepl-command-overrides* :test 'string-equal))
+         (mapping (cadr cons)))
     (when cons
-      (let ((cmd (getstring (cadr cons) hi::*command-names*)))
-        (when cmd
-          (let ((sym (command-function cmd)))
-            (check-type sym symbol)
-            (values (lambda (&rest args)
-                      (hemlock::eval-in-master `(funcall ',sym nil ,@args)))
-                    override)))))))
+      (typecase mapping
+        (symbol
+         (values (lambda (&rest args) (apply mapping args)) override))
+        (t
+         (let ((cmd (getstring mapping hi::*command-names*)))
+           (when cmd
+             (let ((sym (command-function cmd)))
+               (check-type sym symbol)
+               (values (lambda (&rest args)
+                         (hemlock::eval-in-master `(,sym nil ,@args)))
+                       override)))))))))
 
 (defun find-command-for-prepl-normally (cmd)
   ;; Note: Using lisp syntax for command names here (with dashes) rather
