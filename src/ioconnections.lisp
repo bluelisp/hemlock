@@ -3,12 +3,11 @@
 (in-package :hi)
 
 (defmethod invoke-with-event-loop ((backend (eql :iolib)) fun)
-  (let ((iolib.multiplex::*default-multiplexer*
-         ;; the epoll muxer gives me segfaults and memory corruption.
-         ;; Don't know why, but select works, so let's use it:
-         'iolib.multiplex::select-multiplexer))
-    (iolib:with-event-base (*event-base*)
-      (funcall fun))))
+  ;; the epoll muxer gives me segfaults and memory corruption.
+  ;; Don't know why, but select works, so let's use it:
+  (iolib:with-event-base
+      (*event-base* :mux 'iolib.multiplex:select-multiplexer)
+    (funcall fun)))
 
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
