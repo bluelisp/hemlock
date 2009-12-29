@@ -153,17 +153,22 @@
 ;;; people from being screwed by interrupting when the buffer structure
 ;;; is in an inconsistent state.
 ;;;
+(defun invoke-modifying-buffer (fun buffer)
+  "Does groovy stuff for modifying buffers."
+  (progn
+    (when (bufferp buffer)
+      (unless (buffer-writable buffer)
+        (editor-error "Buffer ~S is read only." (buffer-name buffer)))
+      (when (< (buffer-modified-tick buffer)
+               (buffer-unmodified-tick buffer))
+        (invoke-hook hemlock::buffer-modified-hook buffer t))
+      (setf (buffer-modified-tick buffer) (tick)))
+    ;; FIXME: what is hemlock-ext:without-interrupts for?
+    (hemlock-ext:without-interrupts (funcall fun))))
+
 (defmacro modifying-buffer (buffer &body forms)
   "Does groovy stuff for modifying buffers."
-  `(progn
-     (when (bufferp ,buffer)
-       (unless (buffer-writable ,buffer)
-         (error "Buffer ~S is read only." (buffer-name ,buffer)))
-       (when (< (buffer-modified-tick ,buffer)
-                (buffer-unmodified-tick ,buffer))
-         (invoke-hook hemlock::buffer-modified-hook ,buffer t))
-       (setf (buffer-modified-tick ,buffer) (tick)))
-     (hemlock-ext:without-interrupts ,@forms)))
+  `(invoke-modifying-buffer (lambda () ,@forms) ,buffer))
 
 (defmacro always-change-line (mark new-line)
   (let ((scan (gensym))

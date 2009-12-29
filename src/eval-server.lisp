@@ -776,10 +776,13 @@
 (defun simple-backtrace (&optional (stream *standard-output*))
   (conium:call-with-debugging-environment
    (lambda ()
-     (mapcar (lambda (frame)
-               (conium:print-frame frame stream)
-               (terpri stream))
-             (conium:compute-backtrace 0 most-positive-fixnum)))))
+     (let ((i 0))
+       (mapcar (lambda (frame)
+                 (format stream "~D: " i)
+                 (conium:print-frame frame stream)
+                 (terpri stream)
+                 (incf i))
+               (conium:compute-backtrace 0 most-positive-fixnum))))))
 
 (defun start-slave (editor &rest args
                            &key slave-buffer background-buffer backend-type

@@ -625,18 +625,49 @@
           (unget-key-event key-event *editor-input*))
       (throw 'editor-top-level-catcher nil))))
 
-(defvar *debug-on-error* nil)
+(defvar *debug-on-error* nil
+  "If true, do not attempt to handle errors and go directly to the
+   Lisp's low-level debugger.  Note that this variable does not enable
+   Hemlock-specific debugging features.  To debug Hemlock interactively,
+   use slime or slave debugging.")
+
+(defvar *stack-trace-on-error* t
+  "If true (the default), handle errors by showing a stack trace in a buffer.
+
+   Otherwise Hemlock will also attempt to show a stack trace, but will do
+   so on standard output.")
+
+(defun simple-print-restarts (&optional (s *standard-output*))
+  (format s "~&Restart actions (select using :continue)~%")
+  (let ((restarts (compute-restarts)))
+    (dotimes (i (length restarts))
+      (format s "~&~2D: ~A~%" i (nth i restarts)))))
 
 (defun lisp-error-error-handler (condition &optional internalp)
   (declare (ignore internalp))
-  (cond
-    ((not *debug-on-error*)
-     (warn "ignoring error: ~A" condition)
-     (message "Error: ~A" condition)
-     #+sbcl (print (sb-debug:backtrace-as-list))
-     (throw 'command-loop-catcher nil))
-    (t
-     (invoke-debugger condition))))
+  (let ((message-only-p (typep condition 'editor-error)))
+    (cond
+     (*debug-on-error*
+      (invoke-debugger condition))
+     ((and *stack-trace-on-error* (not message-only-p))
+      (with-pop-up-display (s :height 100)
+        (format s "An error of type ~A has been caught and ignored:~%  ~A~%~%"
+                (type-of condition)
+                condition)
+        (format s "The stack trace at the time of the error was:~%~%")
+        (hemlock::simple-backtrace s)
+        (format s "~%Restarts would have been:~%~%")
+        (simple-print-restarts s)
+        (hemlock::beginning-of-buffer-command nil))
+      (throw 'command-loop-catcher nil))
+     (message-only-p
+      (message "Error: ~A" condition)
+      (throw 'command-loop-catcher nil))
+     (t
+      (warn "ignoring error: ~A" condition)
+      (message "Error: ~A" condition)
+      (hemlock::simple-backtrace *standard-output*)
+      (throw 'command-loop-catcher nil)))))
 
 (defmacro handle-lisp-errors (&body body)
   "Handle-Lisp-Errors {Form}*
