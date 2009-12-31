@@ -1171,6 +1171,9 @@
 (defswitch "edit" 'edit-switch-demon)
 )
 
+
+;;;;
+
 (defcommand "Start Swank Server"
     (p &optional (port (hemlock-interface::prompt-for-integer
                         :prompt "Port: "
@@ -1179,3 +1182,22 @@
   (declare (ignore p))
   (asdf:operate 'asdf:load-op :swank)
   (eval (read-from-string (format nil "(swank:create-server :port ~D)" port))))
+
+
+;;;;
+
+(defun make-extra-typescript-buffer
+    (name &optional (server-info (get-current-eval-server t)))
+  (let ((buffer
+         (hi::make-buffer-with-unique-name name :modes '("Lisp"))))
+    (typescriptify-buffer buffer server-info (server-info-wire server-info))
+    buffer))
+
+(defun wire-to-server-info (&optional (wire hemlock.wire:*current-wire*))
+  (find wire (list-server-infos) :key #'server-info-wire))
+
+(defun %make-extra-typescript-buffer (name)
+  (let* ((buffer (make-extra-typescript-buffer name (wire-to-server-info)))
+         (ts-data (variable-value 'typescript-data :buffer buffer)))
+    (change-to-buffer buffer)
+    (hemlock.wire:make-remote-object ts-data)))
