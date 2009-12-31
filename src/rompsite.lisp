@@ -688,7 +688,27 @@
   ;;
   '(("apropos" "Slave Apropos Ignoring Point")
     ("bt" hemlock::debug-using-master)
-    ("zoom" hemlock::debug-using-master)))
+    ("zoom" hemlock::debug-using-master)
+    ("help" call-command-with-redirection)))
+
+(defun call-with-typeout-pop-up-in-master (fun buffer-name)
+  (let* ((buffer-name (or buffer-name "Unnamed typescript"))
+         (ts-data
+          (hemlock.wire:remote-value
+           hemlock.wire::*current-wire*
+           (hemlock::%make-extra-typescript-buffer buffer-name)))
+         (stream
+          (hemlock::make-ts-stream hemlock.wire::*current-wire* ts-data)))
+    (funcall fun stream)))
+
+(defmacro with-typeout-pop-up-in-master
+    ((var &optional buffer-name) &body body)
+  `(call-with-typeout-pop-up-in-master (lambda (,var) ,@body)
+                                       ,buffer-name))
+
+(defun call-command-with-redirection ()
+  (with-typeout-pop-up-in-master (*terminal-io* "Command output")
+    (prepl:call-next-command)))
 
 (defun find-override-for-prepl (cmd override)
   (let* ((cons (assoc cmd *prepl-command-overrides* :test 'string-equal))
