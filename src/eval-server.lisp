@@ -58,6 +58,9 @@
   "A string-table of the name of all Eval servers and their corresponding
    server-info structures.")
 
+(defun list-server-infos ()
+  (hi::map-string-table 'list #'identity *server-names*))
+
 (defvar *abort-operations* nil
   "T iff we should ignore any operations sent to us.")
 
