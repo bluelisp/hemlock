@@ -131,7 +131,8 @@
                (:file "linimage")
                (:file "cursor")
                (:file "display")
-               (:file "exp-syntax")))
+               (:file "exp-syntax")
+               (:file "repl" :depends-on ("macros" "rompsite"))))
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname

@@ -734,6 +734,31 @@
   #+NILGB
   (ext:quit))
 
+;;; *MASTER-MACHINE-AND-PORT* -- internal
+;;;
+(defvar *master-machine-and-port*)
+
+(defun install-thread-variable-default (var fun)
+  (push (cons var `(funcall ',fun)) bt:*default-special-bindings*))
+
+(defun make-variable-thread-local (var)
+  (install-thread-variable-default var (lambda () (symbol-value var))))
+
+(defun install-special-variables-for-background-threads ()
+  (install-thread-variable-default
+   'prepl:*entering-prepl-debugger-hook*
+   (lambda ()
+     'hi::call-with-typeout-for-thread-debugger))
+  (install-thread-variable-default
+   'hi::*connection-backend*
+   (constantly hi::*connection-backend*))
+  (install-thread-variable-default
+   'hi::*default-backend*
+   (constantly hi::*default-backend*))
+  (install-thread-variable-default
+   '*original-terminal-io*
+   (constantly *original-terminal-io*)))
+
 ;;; START-SLAVE -- internal
 ;;;
 ;;; Initiate the process by which a lisp becomes a slave.
@@ -751,6 +776,8 @@
       (error "Editor name ~S invalid. ~
               Must be of the form \"MachineName:PortNumber\"."
              editor))
+    (prepl:install-global-prepl-debugger-hook)
+    (install-special-variables-for-background-threads)
     (let ((machine (subseq editor 0 seperator))
           (port (parse-integer editor :start (1+ seperator)))
           (hi::*in-hemlock-slave-p* t)
@@ -764,17 +791,19 @@
            (lambda (c orig)
              (declare (ignore orig))
              (invoke-debugger c))))
+      (setf *master-machine-and-port* (list machine port))
       (format t "Connecting to ~A:~D~%" machine port)
       (hi::with-event-loop ()
-        (connect-to-editor machine port slave-buffer background-buffer)
-        (dispatch-events-no-hang)
-        (iter:iter
-         (iter:until cl-user::*io*)
-         (dispatch-events)
-         (write-line "Waiting for typestream buffer..."
-                     *original-terminal-io*)
-         (force-output *original-terminal-io*))
-        (prepl:repl)))))
+        (let ((hemlock.wire::*current-wire* :wire-not-yet-known))
+          (connect-to-editor machine port slave-buffer background-buffer)
+          (dispatch-events-no-hang)
+          (iter:iter
+           (iter:until cl-user::*io*)
+           (dispatch-events)
+           (write-line "Waiting for typestream buffer..."
+                       *original-terminal-io*)
+           (force-output *original-terminal-io*))
+          (prepl:repl))))))
 
 (defun simple-backtrace (&optional (stream *standard-output*))
   (conium:call-with-debugging-environment
@@ -790,7 +819,8 @@
 (defun start-slave (editor &rest args
                            &key slave-buffer background-buffer backend-type
                            &allow-other-keys)
-  (let ((*original-terminal-io* *terminal-io*))
+  (let ((prepl:*entering-prepl-debugger-hook* nil)
+        (*original-terminal-io* *terminal-io*))
     (block nil
       (handler-bind
           ((serious-condition
@@ -874,6 +904,19 @@
       (hemlock-ext::maybe-rename-buffer buf name))
     (values (hemlock.wire:make-remote-object slave-info)
             (hemlock.wire:make-remote-object background-info))))
+
+;;; CONNECT-TO-EDITOR-FOR-BACKGROUND-THREAD -- internal
+;;;
+;;; Do the actual connect to the editor.
+;;;
+(defun connect-to-editor-for-background-thread (machine port)
+  (connect-to-remote-server
+   machine
+   port
+   (lambda (wire)
+     (setf hemlock.wire::*current-wire* wire))
+   'editor-died))
+
 
 
 ;;;; Eval server evaluation functions.
@@ -1187,17 +1230,29 @@
 ;;;;
 
 (defun make-extra-typescript-buffer
-    (name &optional (server-info (get-current-eval-server t)))
+    (name &optional (server-info (get-current-eval-server t))
+                    (wire (server-info-wire server-info)))
   (let ((buffer
          (hi::make-buffer-with-unique-name name :modes '("Lisp"))))
-    (typescriptify-buffer buffer server-info (server-info-wire server-info))
+    (typescriptify-buffer buffer server-info wire)
     buffer))
 
-(defun wire-to-server-info (&optional (wire hemlock.wire:*current-wire*))
-  (find wire (list-server-infos) :key #'server-info-wire))
+(defun wire-to-server-info (&optional (wire hemlock.wire:*current-wire*)
+                                      (errorp t)
+                                      (error-value nil))
+  (or (find wire (list-server-infos) :key #'server-info-wire)
+      (if errorp
+          (error "no server info for wire: ~A" wire)
+          error-value)))
 
 (defun %make-extra-typescript-buffer (name)
-  (let* ((buffer (make-extra-typescript-buffer name (wire-to-server-info)))
+  (let* ((wire hemlock.wire:*current-wire*)
+         (info ;; hmm, do we need the server info?
+          :server-info-for-extra-buffer-not-set)
+         (buffer (make-extra-typescript-buffer
+                  name
+                  (wire-to-server-info wire nil info)
+                  wire))
          (ts-data (variable-value 'typescript-data :buffer buffer)))
     (change-to-buffer buffer)
     (hemlock.wire:make-remote-object ts-data)))

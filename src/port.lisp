@@ -10,6 +10,6 @@
 (defun unix-getpid ()
   (conium:getpid))
 
-;; !!!
+;; fixme: remove this?
 (push (cons '*print-readably* nil)
       bt:*default-special-bindings*)

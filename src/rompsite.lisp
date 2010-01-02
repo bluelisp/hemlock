@@ -698,7 +698,8 @@
            hemlock.wire::*current-wire*
            (hemlock::%make-extra-typescript-buffer buffer-name)))
          (stream
-          (hemlock::make-ts-stream hemlock.wire::*current-wire* ts-data)))
+          ;; (hemlock::make-ts-stream hemlock.wire::*current-wire* ts-data)
+          (hemlock::connect-stream ts-data)))
     (funcall fun stream)))
 
 (defmacro with-typeout-pop-up-in-master
@@ -706,9 +707,17 @@
   `(call-with-typeout-pop-up-in-master (lambda (,var) ,@body)
                                        ,buffer-name))
 
+(defun call-with-standard-synonym-streams (fun)
+  (let ((*standard-input* (make-synonym-stream '*terminal-io*))
+        (*standard-output* (make-synonym-stream '*terminal-io*))
+        (*error-output* (make-synonym-stream '*terminal-io*))
+        (*debug-io* (make-synonym-stream '*terminal-io*))
+        (*query-io* (make-synonym-stream '*terminal-io*)))
+    (funcall fun)))
+
 (defun call-command-with-redirection ()
   (with-typeout-pop-up-in-master (*terminal-io* "Command output")
-    (prepl:call-next-command)))
+    (call-with-standard-synonym-streams #'prepl:call-next-command)))
 
 (defun find-override-for-prepl (cmd override)
   (let* ((cons (assoc cmd *prepl-command-overrides* :test 'string-equal))
