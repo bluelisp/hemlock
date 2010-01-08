@@ -36,9 +36,14 @@
   "vt100")
 
 (defun default-directory ()
-  (namestring
-   (or (hemlock::buffer-default-directory (current-buffer))
-       (truename #p""))))
+  (let* ((p (hemlock::buffer-default-directory (current-buffer)))
+         (p (and p (namestring p))))
+    (if (and p
+             (handler-case
+                 (eq (iolib.os:file-kind p) :directory)
+               (iolib.pathnames:invalid-file-path () nil)))
+        p
+        (iolib.syscalls:%sys-getcwd))))
 
 (defun find-buffer (name)
   (getstring name hi::*buffer-names*))

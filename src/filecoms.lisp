@@ -361,7 +361,7 @@
                   :prompt "Find File: "
                   :must-exist nil
                   :help "Name of file to read into its own buffer."
-                  :default (buffer-default-directory (current-buffer)))))
+                  :default (default-directory))))
          (buffer (find-file-buffer pn)))
     (change-to-buffer buffer)
     buffer))
