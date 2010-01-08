@@ -11,12 +11,15 @@
 
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
-      (iolib:event-dispatch *event-base* :one-shot t)
+      (iolib:event-dispatch *event-base* :one-shot t :min-step 0)
     ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
 
 (defmethod dispatch-events-no-hang-with-backend ((backend (eql :iolib)))
   (handler-case
-      (iolib:event-dispatch *event-base* :one-shot t :max-step 0)
+      (iolib:event-dispatch *event-base*
+                            :one-shot t
+                            :timeout 0
+                            :min-step 0)
     ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
 
 (defmethod invoke-later ((backend (eql :iolib)) fun)
