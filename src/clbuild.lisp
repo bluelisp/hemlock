@@ -103,17 +103,20 @@
 
 (defun process-output-to-string (cmd)
   (message "Running ~A..." cmd)
-  (with-output-to-string (s)
-    (let ((proc
-           (make-process-connection
-            cmd
-            :filter (lambda (connection bytes)
-                      (write-string (hi::default-filter connection bytes)
-                                    s)
-                      nil))))
-      (iter:iter (iter:until (connection-exit-code proc))
-                 (dispatch-events)))
-    (message "Done" )))
+  (let* ((output '())
+         (proc
+          (make-process-connection
+           cmd
+           :filter (lambda (connection bytes)
+                     (push (hi::default-filter connection bytes) output)
+                     nil))))
+    (iter:iter (iter:until (some (lambda (str)
+                                   (position #\newline str))
+                                 output))
+               (dispatch-events))
+    (message "Done")
+    (let ((str (apply #'concatenate 'string output)))
+      (subseq str 0 (position #\newline str)))))
 
 (defvar *clbuild-directory* nil)
 
