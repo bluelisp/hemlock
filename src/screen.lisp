@@ -33,10 +33,6 @@
   (setf (buffer-modeline-fields *echo-area-buffer*)
         (value hemlock::default-status-line-fields)))
 
-#+clx
-(defmethod %init-screen-manager ((backend-type (eql :clx)) (display t))
-  (init-bitmap-screen-manager display))
-
 (defmethod %init-screen-manager ((backend-type (eql :tty)) (display t))
   (init-tty-screen-manager (get-terminal-name)))
 

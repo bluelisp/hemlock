@@ -2,38 +2,32 @@
 
 (in-package :hi)
 
-#+clx
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar group-interesting-xevents
     '(:structure-notify)))
-#+clx
+
 (defvar group-interesting-xevents-mask
   (apply #'xlib:make-event-mask group-interesting-xevents))
 
-#+clx
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar child-interesting-xevents
     '(:key-press :button-press :button-release :structure-notify :exposure
                  :enter-window :leave-window)))
-#+clx
+
 (defvar child-interesting-xevents-mask
   (apply #'xlib:make-event-mask child-interesting-xevents))
 
-#+clx
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar random-typeout-xevents
     '(:key-press :button-press :button-release :enter-window :leave-window
                  :exposure)))
-#+clx
+
 (defvar random-typeout-xevents-mask
   (apply #'xlib:make-event-mask random-typeout-xevents))
 
-
-#+clx
 (declaim (special hemlock::*open-paren-highlight-font*
                   hemlock::*active-region-highlight-font*))
 
-#+clx
 (defparameter lisp-fonts-pathnames '("fonts/"))
 
 ;;; SETUP-FONT-FAMILY sets *default-font-family*, opening the three font names
@@ -42,7 +36,6 @@
 ;;; in lieu of "Active Region Highlighting Font" and "Open Paren Highlighting
 ;;; Font" when these are defined.
 ;;;
-#+clx
 (defun setup-font-family (display)
   (let* ((font-family (make-font-family :map (make-array font-map-size
                                                          :initial-element 0)
@@ -84,7 +77,6 @@
 ;;; level, we want to deal with this error here returning nil if the font
 ;;; couldn't be opened.
 ;;;
-#+clx
 (defun setup-one-font (display font-name font-family-map index)
   (handler-case (let ((font (xlib:open-font display (namestring font-name))))
                   (xlib:display-finish-output display)
@@ -120,3 +112,23 @@
   (setf *real-editor-input* *editor-input*)
   *editor-windowed-input*)
 
+
+(defhvar "Raise Echo Area When Modified"
+  "When set, Hemlock raises the echo area window when output appears there."
+  :value nil)
+
+;;; RAISE-ECHO-AREA-WHEN-MODIFIED -- Internal.
+;;;
+;;; INIT-BITMAP-SCREEN-MANAGER in bit-screen.lisp adds this hook when
+;;; initializing the bitmap screen manager.
+;;;
+(defun raise-echo-area-when-modified (buffer modified)
+  (when (and (value hemlock::raise-echo-area-when-modified)
+             (eq buffer *echo-area-buffer*)
+             modified)
+    (let* ((hunk (window-hunk *echo-area-window*))
+           (win (window-group-xparent (bitmap-hunk-window-group hunk))))
+      (xlib:map-window win)
+      (setf (xlib:window-priority win) :above)
+      (xlib:display-force-output
+       (bitmap-device-display (device-hunk-device hunk))))))

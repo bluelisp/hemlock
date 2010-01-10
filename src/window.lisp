@@ -19,6 +19,9 @@
 (declaim (special *echo-area-buffer* ; defined in echo.lisp --amb
                   *things-to-do-once*)) ; defined in display.lisp --amb
 
+(defparameter hunk-width-limit 200 "Maximum possible width for any hunk.")
+
+
 ;;;; CURRENT-WINDOW.
 
 (defvar *current-window* nil "The current window object.")

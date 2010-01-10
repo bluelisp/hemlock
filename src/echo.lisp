@@ -141,28 +141,6 @@
   (apply #'message args))
 
 
-(defhvar "Raise Echo Area When Modified"
-  "When set, Hemlock raises the echo area window when output appears there."
-  :value nil)
-
-;;; RAISE-ECHO-AREA-WHEN-MODIFIED -- Internal.
-;;;
-;;; INIT-BITMAP-SCREEN-MANAGER in bit-screen.lisp adds this hook when
-;;; initializing the bitmap screen manager.
-;;;
-#+clx
-(defun raise-echo-area-when-modified (buffer modified)
-  (when (and (value hemlock::raise-echo-area-when-modified)
-             (eq buffer *echo-area-buffer*)
-             modified)
-    (let* ((hunk (window-hunk *echo-area-window*))
-           (win (window-group-xparent (bitmap-hunk-window-group hunk))))
-      (xlib:map-window win)
-      (setf (xlib:window-priority win) :above)
-      (xlib:display-force-output
-       (bitmap-device-display (device-hunk-device hunk))))))
-
-
 
 ;;;; DISPLAY-PROMPT-NICELY and PARSE-FOR-SOMETHING.
 

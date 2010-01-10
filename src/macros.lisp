@@ -635,7 +635,7 @@
    Hemlock-specific debugging features.  To debug Hemlock interactively,
    use slime or slave debugging.")
 
-(defvar *stack-trace-on-error* t
+(defvar *stack-trace-on-error* nil
   "If true (the default), handle errors by showing a stack trace in a buffer.
 
    Otherwise Hemlock will also attempt to show a stack trace, but will do

@@ -71,7 +71,6 @@
     (declare (fixnum i j))
     (setf (aref dst j) (char-code (schar src i)))))
 
-#+hemlock-clx
 (defvar *glyph-translate-function* #'xlib:translate-default)
 
 
@@ -80,7 +79,6 @@
 
 ;;;; We hack along --GB
 
-#+hemlock-clx
 (defun find-color (window color)
   (let ((ht (or (getf (xlib:window-plist window) :color-hash)
                 (setf (getf (xlib:window-plist window) :color-hash)
@@ -112,7 +110,6 @@
 ;;; HUNK-PUT-STRING takes a character (x,y) pair and computes at which pixel
 ;;; coordinate to draw string with font from start to end.
 
-#+hemlock-clx
 (defmethod hunk-put-string* ((hunk x11-hunk) x y font-family font string start end)
   (let ((gcontext (bitmap-hunk-gcontext hunk))
         (font (svref (font-family-map font-family) font))
@@ -135,7 +132,6 @@
 ;;; server on the RT is not very clever; it clears the entire line before
 ;;; drawing text.
 
-#+hemlock-clx
 (defun hunk-replace-line-string* (hunk gcontext x y font-family font string start end)
   (declare (ignore y))
   (let ((font (svref (font-family-map font-family) font))
@@ -191,7 +187,6 @@
       (hunk-replace-line-on-a-pixmap hunk dl position)
       (old-hunk-replace-line hunk dl position)))
 
-#+hemlock-clx
 (defmethod old-hunk-replace-line ((hunk x11-hunk) dl &optional (position (dis-line-position dl)))
   (let* ((font-family (bitmap-hunk-font-family hunk))
          (chars (dis-line-chars dl))
@@ -215,7 +210,6 @@
 
 (defvar *hunk-replace-line-pixmap* nil)
 
-#+hemlock-clx
 (defun hunk-replace-line-pixmap ()
   (if *hunk-replace-line-pixmap*
       *hunk-replace-line-pixmap*
@@ -234,7 +228,6 @@
           (xlib:draw-rectangle pixmap gcontext 0 0 hunk-left-border height t))
         (setf *hunk-replace-line-pixmap* pixmap))))
 
-#+hemlock-clx
 (defun hunk-replace-line-on-a-pixmap (hunk dl position)
   (let* ((font-family (bitmap-hunk-font-family hunk))
          (chars (dis-line-chars dl))
@@ -270,7 +263,6 @@
 ;;; background values before entering XLIB:WITH-GCONTEXT due to a non-obvious
 ;;; or incorrect implementation.
 ;;;
-#+hemlock-clx
 (defmethod hunk-replace-modeline ((hunk x11-hunk))
   (let* ((dl (bitmap-hunk-modeline-dis-line hunk))
          (font-family (bitmap-hunk-font-family hunk))
@@ -350,7 +342,6 @@
 ;;; this means Hemlock is listening in the *cursor-hunk*, make sure the
 ;;; border of the window is highlighted as well.
 ;;;
-#+hemlock-clx
 (defun drop-cursor ()
   (unless *cursor-dropped*
     (unless *hemlock-listener* (cursor-invert-center))
@@ -386,7 +377,6 @@
     (cursor-invert)
     (setq *cursor-dropped* nil)))
 
-#+hemlock-clx
 (defun cursor-invert-center ()
   (let ((family (bitmap-hunk-font-family *cursor-hunk*))
         (gcontext (bitmap-hunk-gcontext *cursor-hunk*)))
@@ -408,7 +398,6 @@
   (xlib:display-force-output
    (bitmap-device-display (device-hunk-device *cursor-hunk*))))
 
-#+hemlock-clx
 (defun cursor-invert ()
   (let ((family (bitmap-hunk-font-family *cursor-hunk*))
         (gcontext (bitmap-hunk-gcontext *cursor-hunk*)))
@@ -432,7 +421,6 @@
 
 ;;;; Clearing and Copying Lines.
 
-#+hemlock-clx
 (defmethod hunk-clear-lines ((hunk x11-hunk) start count)
   (let ((height (font-family-height (bitmap-hunk-font-family hunk))))
     (xlib:clear-area (bitmap-hunk-xwindow hunk)
@@ -440,7 +428,6 @@
                      :width (bitmap-hunk-width hunk)
                      :height (* count height))))
 
-#+hemlock-clx
 (defmethod hunk-copy-lines ((hunk x11-hunk) src dst count)
   (let ((height (font-family-height (bitmap-hunk-font-family hunk)))
         (xwindow (bitmap-hunk-xwindow hunk)))
@@ -460,7 +447,6 @@
 ;;; BITMAP-HUNK-MODELINE-POS will not return nil; that is, that there is a
 ;;; modeline.
 ;;;
-#+hemlock-clx
 (defun hunk-draw-bottom-border (hunk)
   (when (bitmap-hunk-thumb-bar-p hunk)
     (let* ((xwindow (bitmap-hunk-xwindow hunk))

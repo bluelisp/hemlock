@@ -106,7 +106,9 @@
     "File to read to setup cursors for Hemlock windows.  The mask is found by
      merging this name with \".mask\"."
     :value (make-pathname :name "hemlock11" :type "cursor"
-                          :defaults hemlock-system:*hemlock-base-directory*))
+                          :defaults (merge-pathnames
+                                     "resources/"
+                                     hemlock-system:*hemlock-base-directory*)))
   (defhvar "Enter Window Hook"
     "When the mouse enters an editor window, this hook is invoked.  These
      functions take the Hemlock Window as an argument."
@@ -222,20 +224,12 @@
   ;; take care of this.
   ;;
   (setf *editor-file-descriptor* 0)
-  (setf *editor-input* (make-tty-editor-input :fd 0)))
-
-#+clx
-(defmethod backend-init-raw-io ((backend (eql :clx)) display)
-  (setf *editor-windowed-input*
-        #+(or CMU scl) (ext:open-clx-display display)
-        #+(or sbcl openmcl)  (xlib::open-default-display #+nil display)
-        #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
-  (setf *editor-input* (make-windowed-editor-input))
-  (setup-font-family *editor-windowed-input*))
+  (setf *editor-input* (make-tty-editor-input :fd 0))
+  (setf *real-editor-input* *editor-input*))
 
 (defun init-raw-io (backend-type display)
   (setf *editor-windowed-input* nil)
-  (setf *real-editor-input* (backend-init-raw-io backend-type display)))
+  (backend-init-raw-io backend-type display))
 
 ;;; Stop flaming from compiler due to CLX macros expanding into illegal
 ;;; declarations.
@@ -350,7 +344,6 @@
          (cond ((not *editor-windowed-input*)
                 ,@body)
                (t
-                #+clx
                 (hemlock-ext:with-clx-event-handling
                     (*editor-windowed-input* #'hemlock-ext:object-set-event-handler)
                   ,@body)))))
@@ -358,18 +351,6 @@
        (device-exit device))))
 
 (declaim (special *echo-area-window*))
-
-(defvar *hemlock-window-mngt* nil;#'default-hemlock-window-mngt
-  "This function is called by HEMLOCK-WINDOW, passing its arguments.  This may
-   be nil.")
-
-(defun hemlock-window (display on)
-  "Calls *hemlock-window-mngt* on the argument ON when *current-window* is
-  bound.  This is called in the device init and exit methods for X bitmap
-  devices."
-  (when (and *hemlock-window-mngt* *current-window*)
-    (funcall *hemlock-window-mngt* display on)))
-
 
 
 ;;;; Line Wrap Char.

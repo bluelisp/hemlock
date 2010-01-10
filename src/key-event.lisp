@@ -99,62 +99,6 @@
 ;;;
 (defvar *modifiers-to-internal-masks*)
 
-;;; TRANSLATE-KEY-EVENT -- Public.
-;;;
-#+clx
-(defun translate-key-event (display scan-code bits)
-  "Translates the X scan-code and X bits to a key-event.  First this maps
-   scan-code to an X keysym using XLIB:KEYCODE->KEYSYM looking at bits and
-   supplying index as 1 if the X shift bit is on, 0 otherwise.
-
-   If the resulting keysym is undefined, and it is not a modifier keysym, then
-   this signals an error.  If the keysym is a modifier key, then this returns
-   nil.
-
-   If the following conditions are satisfied
-      the keysym is defined
-      the X shift bit is off
-      the X lock bit is on
-      the X keysym represents a lowercase letter
-   then this maps the scan-code again supplying index as 1 this time, treating
-   the X lock bit as a caps-lock bit.  If this results in an undefined keysym,
-   this signals an error.  Otherwise, this makes a key-event with the keysym
-   and bits formed by mapping the X bits to key-event bits.
-
-   If any state bit is set that has no suitable modifier translation, it is
-   passed to XLIB:DEFAULT-KEYSYM-INDEX in order to handle Mode_Switch keys
-   appropriately.
-
-   Otherwise, this makes a key-event with the keysym and bits formed by mapping
-   the X bits to key-event bits."
-  (let ((new-bits 0)
-        shiftp lockp)
-    (dolist (map *modifier-translations*)
-      (unless (zerop (logand (car map) bits))
-        ;; ignore the bits of the mapping for the determination of a key index
-        (setq bits (logxor bits (car map)))
-        (cond
-         ((string-equal (cdr map) "Shift")
-          (setf shiftp t))
-         ((string-equal (cdr map) "Lock")
-          (setf lockp t))
-         (t (setf new-bits
-                  (logior new-bits (key-event-modifier-mask (cdr map))))))))
-    ;; here pass any remaining modifier bits to clx
-    (let* ((index  (and (not (zerop bits))
-                        (xlib:default-keysym-index display scan-code bits)))
-           (keysym (xlib:keycode->keysym display scan-code (or index (if shiftp 1 0)))))
-      (cond ((null (keysym-names keysym))
-             nil)
-            ((and (not shiftp) lockp (<= 97 keysym 122)) ; small-alpha-char-p
-             (let ((keysym (xlib:keycode->keysym display scan-code 1)))
-               (if (keysym-names keysym)
-                   (make-key-event keysym new-bits)
-                   nil)))
-            (t
-             (make-key-event keysym new-bits))))))
-
-
 
 ;;;; Mouse key-event stuff.
 
@@ -728,12 +672,7 @@
   (define-key-event-modifier "Meta" "M")
   (define-key-event-modifier "Control" "C")
   (define-key-event-modifier "Shift" "Shift")
-  (define-key-event-modifier "Lock" "Lock")
-
-  #+clx (define-clx-modifier (xlib:make-state-mask :shift) "Shift")
-  #+clx (define-clx-modifier (xlib:make-state-mask :mod-1) "Meta")
-  #+clx (define-clx-modifier (xlib:make-state-mask :control) "Control")
-  #+clx (define-clx-modifier (xlib:make-state-mask :lock) "Lock"))
+  (define-key-event-modifier "Lock" "Lock"))
 
 ;;; Initialize stuff if not already initialized.
 ;;;

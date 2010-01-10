@@ -97,8 +97,7 @@
               :depends-on (core-1)
               :components
               ((:file "keysym-defs") ; hmm.
-               (:file "bit-stuff") ; input depends on it --amb
-               (:file "hunk-draw"))) ; window depends on it --amb
+               ))
      (:module core-2
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -241,24 +240,12 @@
                (:file "dabbrev")
                (:file "bindings")
                (:file "slave-list")))
-     (:module bitmap-2
+     (:module misc-1
               :pathname #.(merge-pathnames
                            (make-pathname
                             :directory '(:relative "src"))
                            *hemlock-base-directory*)
-              :depends-on (user-1 core-1)
-              :components
-              ((:file "bitmap-rompsite")
-               (:file "bitmap-input")
-               #+hemlock-clx (:file "bit-screen")
-               #+hemlock-clx (:file "bit-display")
-               (:file "bitmap-pop-up-stream")))
-     (:module qthemlock
-              :pathname #.(merge-pathnames
-                           (make-pathname
-                            :directory '(:relative "src"))
-                           *hemlock-base-directory*)
-              :depends-on (bitmap-2 core-1)
+              :depends-on (core-1)
               :components
               ((:file "connections")
                (:file "clbuild")))))

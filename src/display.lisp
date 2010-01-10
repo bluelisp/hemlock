@@ -201,7 +201,7 @@
     (dolist (thing *things-to-do-once*) (apply (car thing) (cdr thing)))
     (setf *things-to-do-once* nil))
   (cond ((or *in-redisplay* (not *in-the-editor*)) t)
-        ((listen-editor-input *real-editor-input*) :editor-input)
+        ((listen-editor-input *editor-input*) :editor-input)
         (*screen-image-trashed*
          (when (eq (redisplay-all) t)
            (setf *screen-image-trashed* nil)

@@ -301,7 +301,7 @@ GB
        (setf *connection-backend*
              (ecase backend-type
                (:qt :qt)
-               (:tty :iolib)))
+               ((:tty :clx) :iolib)))
        (with-event-loop ()
          (let* ((*in-the-editor* t)
                 (display (unless *editor-has-been-entered*
