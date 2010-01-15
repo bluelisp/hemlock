@@ -60,6 +60,9 @@
 (defvar *default-foreground-pixel* nil
   "Default foreground color.  It defaults to black.")
 
+(defvar *default-margin-pixel* nil
+  "Default margin color.  It defaults to grey.")
+
 (defvar *foreground-background-xor* nil
   "The LOGXOR of *default-background-pixel* and *default-foreground-pixel*.")
 
@@ -862,6 +865,7 @@
       (let* ((cw (xlib:drawable-width cwin))
              (ch (xlib:drawable-height cwin))
              (cy (xlib:drawable-y cwin))
+             (x (truncate (- (xlib:drawable-width parent) cw) 2))
              (font-height (font-family-height font-family))
              (new-ch (if (eq proportion :fixed-height)
                          (- ch (* height font-height))
@@ -882,7 +886,7 @@
         (if (and (> new-ch cwin-min)
                  (> (- ch new-ch) new-min))
             (let ((win (create-window-with-properties
-                        parent 0 (+ cy new-ch)
+                        parent x (+ cy new-ch)
                         cw (- ch new-ch) font-width font-height
                         icon-name)))
               ;; No need to reshape current Hemlock window structure here
@@ -1389,6 +1393,20 @@
    Hemlock device as a required argument.  It sets *current-window* and
    *echo-area-window*.")
 
+(defun rgb-pixel (visual-info rgb)
+  (let* ((red-mask (xlib:visual-info-red-mask visual-info))
+         (red-mask-gap (- (integer-length red-mask) 8))
+         (green-mask (xlib:visual-info-green-mask visual-info))
+         (green-mask-gap (- (integer-length green-mask) 8))
+         (blue-mask (xlib:visual-info-blue-mask visual-info))
+         (blue-mask-gap (- (integer-length blue-mask) 8)))
+    (+ (logand red-mask
+               (ash (ldb (byte 8 16) rgb) red-mask-gap))
+       (logand green-mask
+               (ash (ldb (byte 8 8) rgb) green-mask-gap))
+       (logand blue-mask
+               (ash (ldb (byte 8 0) rgb) blue-mask-gap)))))
+
 (defun init-bitmap-screen-manager (display)
   ;;
   ;; Setup stuff for X interaction.
@@ -1404,7 +1422,15 @@
         (t (setf *default-background-pixel*
                  (xlib:screen-white-pixel (xlib:display-default-screen display)))
            (setf *default-foreground-pixel*
-                 (xlib:screen-black-pixel (xlib:display-default-screen display)))
+                 (rgb-pixel (xlib:screen-root-visual-info
+                             (xlib:display-default-screen display))
+                            #x0000aa)
+                 #+nil (xlib:screen-black-pixel (xlib:display-default-screen display)))
+           (setf *default-margin-pixel*
+                 (rgb-pixel (xlib:screen-root-visual-info
+                             (xlib:display-default-screen display))
+                            ;; #xd1d1ff
+                            #xb3b3df))
            (setf *cursor-background-color* (make-white-color))
            (setf *cursor-foreground-color* (make-black-color))))
   (setf *foreground-background-xor*
@@ -1501,6 +1527,10 @@
   (funcall (bitmap-hunk-changed-handler hunk) hunk)
   (when redisplay (dumb-window-redisplay (bitmap-hunk-window hunk))))
 
+;;; *STANDARD-COLUMN-WIDTH* -- (not yet) External, but should be
+;;;
+(defvar *standard-column-width* 80)
+
 ;;; WINDOW-GROUP-CHANGED -- Internal.
 ;;;
 ;;; HUNK-RECONFIGURED calls this when the hunk was a window-group.  This finds
@@ -1550,29 +1580,36 @@
                                   (* new-height
                                      (/ (xlib:drawable-height xwindow)
                                         old-xparent-height))))
-               (hunk (window-hunk (car windows))))
+               (hunk (window-hunk (car windows)))
+               (ff (bitmap-hunk-font-family hunk))
+               (cw (font-family-width ff))
+               (new-hunk-width (* cw *standard-column-width*))
+               (new-hunk-x (truncate (- new-width new-hunk-width) 2)))
           ;; If there is not enough room for one of the windows, space them out
           ;; evenly so there will be room.
           ;;
           (when (< new-child-height (minimum-window-height
-                                     (font-family-height
-                                      (bitmap-hunk-font-family hunk))
+                                     (font-family-height ff)
                                      (bitmap-hunk-modeline-pos hunk)
                                      (bitmap-hunk-thumb-bar-p hunk)))
-            (reconfigure-windows-evenly affected-windows new-width new-height)
+            (reconfigure-windows-evenly affected-windows
+                                        new-hunk-x
+                                        new-hunk-width
+                                        new-height)
             (return))
           (xlib:with-state (xwindow)
-            (setf (xlib:drawable-y xwindow) start
-                  ;; Make the last window absorb or lose the number of pixels
+            (setf (xlib:drawable-y xwindow) start)
+            (setf ;; Make the last window absorb or lose the number of pixels
                   ;; lost in rounding.
                   ;;
                   (xlib:drawable-height xwindow) (if (cdr windows)
                                                      new-child-height
-                                                     (- new-height start))
-                  (xlib:drawable-width xwindow) new-width
-                  start (+ start new-child-height 1))))))))
+                                                     (- new-height start)))
+            (setf (xlib:drawable-x xwindow) new-hunk-x)
+            (setf (xlib:drawable-width xwindow) new-hunk-width)
+            (setf start (+ start new-child-height 1))))))))
 
-(defun reconfigure-windows-evenly (affected-windows new-width new-height)
+(defun reconfigure-windows-evenly (affected-windows new-x new-width new-height)
   (let ((count (length affected-windows)))
     (multiple-value-bind
         (pixels-per-window remainder)
@@ -1678,7 +1715,9 @@
   (let* ((win (xlib:create-window
                :parent parent :x (or x 0) :y (or y 0)
                :width (or w 0) :height (or h 0)
-               :background (if window-group-p :none *default-background-pixel*)
+               :background (if window-group-p
+                               *default-margin-pixel* ; :none
+                               *default-background-pixel*)
                :border-width (if window-group-p xwindow-border-width 0)
                :border (if window-group-p *default-border-pixmap* nil)
                :class :input-output)))
