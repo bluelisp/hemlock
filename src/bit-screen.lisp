@@ -780,9 +780,13 @@
     ;; If window is non-nil, then it is a new group/parent window, so don't
     ;; link it into the current window's group.  When ask-user is non-nil,
     ;; we make a new group too.
-    (cond ((or window ask-user)
-           ;; This occurs when we make the world's first Hemlock window.
-           (unless *current-window*
+    (cond ((eq start (buffer-start-mark *echo-area-buffer*))
+           (setf (bitmap-hunk-previous hunk) hunk)
+           (setf (bitmap-hunk-next hunk) hunk))
+          ((or window ask-user)
+           (unless
+               ;; This occurs when we make the world's first Hemlock window.
+               *current-window*
              (setq *current-window* (bitmap-hunk-window hunk)))
            (setf (bitmap-hunk-previous hunk) hunk)
            (setf (bitmap-hunk-next hunk) hunk))
@@ -827,7 +831,7 @@
              (values xparent
                      (create-window-from-current
                       proportion font-family modelinep thumb-p xparent
-                      icon-name)))))))
+                      icon-name height)))))))
 
 ;;; XWINDOW-FOR-XPARENT -- Internal.
 ;;;
@@ -850,7 +854,7 @@
 ;;; pixel smaller.
 ;;;
 (defun create-window-from-current (proportion font-family modelinep thumb-p
-                                   parent icon-name)
+                                   parent icon-name &optional height)
   (let* ((cur-hunk (window-hunk *current-window*))
          (cwin (bitmap-hunk-xwindow cur-hunk)))
     ;; Compute current window's height and take a proportion of it.
@@ -858,8 +862,10 @@
       (let* ((cw (xlib:drawable-width cwin))
              (ch (xlib:drawable-height cwin))
              (cy (xlib:drawable-y cwin))
-             (new-ch (truncate (* ch (- 1 proportion))))
              (font-height (font-family-height font-family))
+             (new-ch (if (eq proportion :fixed-height)
+                         (- ch (* height font-height))
+                         (truncate (* ch (- 1 proportion)))))
              (font-width (font-family-width font-family))
              (cwin-min (minimum-window-height
                         (font-family-height
@@ -1366,73 +1372,22 @@
       (let ((main-win (make-window (buffer-start-mark *current-buffer*)
                                    :device device
                                    :window xwindow)))
-        (multiple-value-bind
-            (echo-x echo-y echo-width echo-height)
-            (default-create-initial-windows-echo
-                (xlib:drawable-height root)
-                (window-hunk main-win))
-          (let ((echo-xwin (make-echo-xwindow root echo-x echo-y echo-width
-                                              echo-height)))
-            (setf *echo-area-window*
-                  (hlet ((hemlock::thumb-bar-meter nil))
-                    (make-window
-                     (buffer-start-mark *echo-area-buffer*)
-                     :device device :modelinep t
-                     :window echo-xwin)))))
+        (print (xlib:drawable-height xwindow) *trace-output*)
+        (force-output *trace-output*)
+        (setf *echo-area-window*
+              (let ((hemlock::thumb-bar-meter nil))
+                (make-window
+                 (buffer-start-mark *echo-area-buffer*)
+                 :device device :modelinep t
+                 :height 5
+                 :proportion :fixed-height)))
         (setf *current-window* main-win)))))
-
-;;; DEFAULT-CREATE-INITIAL-WINDOWS-ECHO makes the echo area window as wide as
-;;; the main window and places it directly under it.  If the echo area does not
-;;; fit on the screen, we change the main window to make it fit.  There is
-;;; a problem in computing main-xwin's x and y relative to the root window
-;;; which is where we line up the echo and main windows.  Some losing window
-;;; managers (awm and twm) reparent the window, so we have to make sure
-;;; main-xwin's x and y are relative to the root and not some false parent.
-;;;
-(defun default-create-initial-windows-echo (full-height hunk)
-  (declare (fixnum full-height))
-  (let ((font-family (bitmap-hunk-font-family hunk))
-        (xwindow (bitmap-hunk-xwindow hunk))
-        (xparent (window-group-xparent (bitmap-hunk-window-group hunk))))
-    (xlib:with-state (xwindow)
-      (let ((w (xlib:drawable-width xwindow))
-            (h (xlib:drawable-height xwindow)))
-        (declare (fixnum w h))
-        (multiple-value-bind (x y)
-                             (window-root-xy xwindow
-                                             (xlib:drawable-x xwindow)
-                                             (xlib:drawable-y xwindow))
-          (declare (fixnum x y))
-          (let* ((ff-height (font-family-height font-family))
-                 (ff-width (font-family-width font-family))
-                 (echo-height (+ (* ff-height 4)
-                                 hunk-top-border hunk-bottom-border
-                                 hunk-modeline-top hunk-modeline-bottom)))
-            (declare (fixnum echo-height))
-            (if (<= (+ y h echo-height xwindow-border-width*2) full-height)
-                (values x (+ y h xwindow-border-width*2)
-                        w echo-height ff-width ff-height)
-                (let* ((newh (- full-height y echo-height xwindow-border-width*2
-                                ;; Since y is really the outside y, subtract
-                                ;; two more borders, so the echo area's borders
-                                ;; both appear on the screen.
-                                xwindow-border-width*2)))
-                  (setf (xlib:drawable-height xparent) newh)
-                  (values x (+ y newh xwindow-border-width*2)
-                          w echo-height ff-width ff-height)))))))))
 
 (defvar *create-initial-windows-hook* #'default-create-initial-windows-hook
   "Hemlock uses this function when it initializes the screen manager to make
    the first windows, typically the main and echo area windows.  It takes a
    Hemlock device as a required argument.  It sets *current-window* and
    *echo-area-window*.")
-
-(defun make-echo-xwindow (root x y width height)
-  (let* ((font-width (font-family-width *default-font-family*))
-         (font-height (font-family-height *default-font-family*)))
-    (create-window-with-properties root x y width height
-                                   font-width font-height
-                                   "Echo Area" nil nil t)))
 
 (defun init-bitmap-screen-manager (display)
   ;;
@@ -1565,8 +1520,20 @@
       (let ((test (window-group-xparent (bitmap-hunk-window-group
                                          (window-hunk window)))))
         (when (eq test xparent)
-          (push window affected-windows)
-          (incf count))))
+          (cond
+            ((eq window *echo-area-window*)
+             (xlib:with-state (xparent)
+               (let ((xwindow
+                      (bitmap-hunk-xwindow (window-hunk *echo-area-window*))))
+                 (incf (xlib:drawable-y xwindow)
+                       (- new-height old-xparent-height))
+                 (setf (xlib:drawable-width xwindow) new-width)
+                 (let ((h (xlib:drawable-height xwindow)))
+                   (decf new-height h)
+                   (decf old-xparent-height h)))))
+            (t
+             (push window affected-windows)
+             (incf count))))))
     ;; Probably shoulds insertion sort them, but I'm lame.
     ;;
     (xlib:with-state (xparent)
