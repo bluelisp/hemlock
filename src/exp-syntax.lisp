@@ -272,6 +272,10 @@
   (consume)                             ;consume `
   (call sexp))
 
+(defstate rq ()
+  (consume)                             ;consume '
+  (call sexp))
+
 (defstate uq ()
   (consume)                             ;consume `
   (call sexp))
@@ -281,7 +285,7 @@
   (call skip-white*)                    ;skip possible white space and comments
   (cond ((char= ch #\() (call list))
         ((char= ch #\`) (call bq))
-        ((char= ch #\') (call bq))
+        ((char= ch #\') (call rq))
         ((char= ch #\,) (call uq))
         ((char= ch #\;) (call comment))
         ((char= ch #\") (call string))
@@ -297,6 +301,7 @@
   (consume)
   (cond ((char= ch #\\) (call char-const))
         ((char= ch #\+) (call hash-plus))
+        ((char= ch #\-) (call hash-minus))
         ((char= ch #\')
          (consume)
          (call sexp))
@@ -352,6 +357,12 @@
   (call sexp)                                ;form
   )
 
+(defstate hash-minus ()
+  (consume)                             ;#\-
+  (call sexp)                                ;cond
+  (call sexp)                                ;form
+  )
+
 ;; --------------------
 
 (defun step** (state char)
@@ -396,10 +407,10 @@
   (let ((state (list 'initial 0)))
     (loop for c across string do
           (setf state (step** state c))
-          (let ((q (member-if (lambda (x) (member x '(string bq uq comment))) state)))
+          (let ((q (member-if (lambda (x) (member x '(string rq bq uq comment))) state)))
             (case (car q)
               (comment (format t "/~A" c))
-              (bq (princ (char-upcase c)))
+              ((rq bq) (princ (char-upcase c)))
               (uq (princ c))
               ((nil) (princ c)))))
     state))
@@ -465,13 +476,15 @@
   (cond ((member 'hash-plus state)
          6)
         (t
-         (let ((q (member-if (lambda (x) (member x '(string bq uq comment hash-plus))) state)))
+         (let ((q (member-if (lambda (x) (member x '(string rq bq uq comment hash-plus hash-minus))) state)))
            (case (car q)
              (comment 1)
+             (rq 5)
              (bq 2)
              (uq 3)
              (string 4)
              (hash-plus 6)
+             (hash-minus 7)
              ((nil) 0))))))
 
 ;; $Log: exp-syntax.lisp,v $
