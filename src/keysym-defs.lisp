@@ -118,7 +118,11 @@
 (hemlock-ext:define-keysym 65307 "Escape" "Altmode" "Alt")              ;escape
 (hemlock-ext:define-keysym 65288 "Backspace")                           ;backspace
 (hemlock-ext:define-keysym 65293 "Return" "Enter")                      ;enter
+#+nil
+;; 65512 = #xffe8 is Meta_R for me.  As per the comment on IBM RT at the
+;; to of this file, it needs to be unmapped.
 (hemlock-ext:define-keysym 65512 "Linefeed" "Action" "Newline")         ;action
+(hemlock-ext:define-keysym 10 "Linefeed" "Action" "Newline")            ;action
 (hemlock-ext:define-keysym 32 "Space" " ")
 
 ;;; Letters.
