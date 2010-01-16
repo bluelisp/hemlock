@@ -86,6 +86,11 @@
     (or (gethash color ht)
         (setf (gethash color ht) (xlib:alloc-color (xlib:window-colormap window) color)))))
 
+#|
+;; old definition disabled -- these colors don't match up with what
+;; GB's exp-syntax does.  (But if exp-syntax is the new approach, and
+;; there was a different syntax highlighting before that, where is the
+;; old one?)
 (defparameter *color-map*
   #("black" "white"
     "black" "white"
@@ -106,6 +111,27 @@
     "black" "white"
     "black" "white"
     "black" "white"))
+|#
+(defparameter *color-map*
+  #("black" "white"
+    "grey60" "white"                    ;1 = comments
+    "gold" "white"                      ;2 = backquote
+    "black" "white"                     ;3 = unquote
+
+    "cyan4" "white"                     ;4 = strings
+    "blue" "white"                      ;5 = quote
+    "green" "white"                     ;6 = #+
+    "red" "white"                       ;7 = #-
+
+    "black" "grey"
+    "red" "grey"
+    "green" "grey"
+    "yellow" "grey"
+
+    "blue" "grey"
+    "magenta" "grey"
+    "cyan" "grey"
+    "grey" "black"))
 
 ;;; HUNK-PUT-STRING takes a character (x,y) pair and computes at which pixel
 ;;; coordinate to draw string with font from start to end.
