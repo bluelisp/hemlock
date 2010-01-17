@@ -578,7 +578,7 @@
    ))
 
 (defpackage :hemlock-internals
-  (:use :common-lisp :hemlock-interface)
+  (:use :common-lisp :hemlock-interface :command-line-arguments)
   (:nicknames :hi)
   (:shadow #:char-code-limit)
   (:use trivial-gray-streams)
@@ -755,7 +755,8 @@
    #:editor-finish-output #:*window-list*
 
    ;; start hemlock
-   #:hemlock))
+   #:hemlock
+   #:main))
 
 
 (defpackage :hemlock
@@ -764,6 +765,7 @@
 ;;;  (:import-from :hemlock-internals #:*fast*)
   (:import-from :hemlock-internals #:hemlock)
   (:export #:hemlock
+           #:main
            #:start-slave
            #:*background-image*)
   (:shadowing-import-from #:hemlock-ext

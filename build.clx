@@ -2,18 +2,14 @@
 clbuild lisp <<EOF
 (asdf:operate 'asdf:load-op :hemlock.clx)
 (defun hemlock-toplevel ()
-  (destructuring-bind (argv0 &optional arg1 arg2) sb-ext:*posix-argv*
+  (let ((argv0 (car sb-ext:*posix-argv*))) 
     (setf hi::*installation-directory*
 	  (concatenate 
 	   'string
 	   (iolib.pathnames:file-path-directory argv0 :namestring t)
 	   "/"))
     (setf hemlock::*slave-command* (list argv0 "--slave"))
-    (cond 
-     ((equal arg1 "--slave")
-      (hemlock:start-slave arg2))
-     (t
-      (hemlock:hemlock arg1))))
+    (hemlock:main))
   (quit))
 
 (setf hi::*default-backend* :clx)

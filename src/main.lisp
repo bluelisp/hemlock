@@ -271,6 +271,28 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
+(defun parse-hemlock-command-line (arg-list)
+  (flet ((keywordize (sym value)
+           (push (intern (string-upcase value) :keyword)
+                 *command-line-options*)
+           (push sym *command-line-options*)))
+    (process-command-line-options
+     `(("slave"
+        :type string)
+       ("backend-type"
+        :type string
+        :action ,(alexandria:curry #'keywordize :backend-type)))
+     arg-list)))
+
+(defun main (&optional (arg-list (get-command-line-arguments)))
+  (multiple-value-bind (keys rest)
+                       (parse-hemlock-command-line arg-list)
+    (destructuring-bind (&key slave &allow-other-keys)
+                        keys
+      (if slave
+          (start-slave slave)
+          (apply #'hemlock rest keys)))))
+
 (defun hemlock (&optional x
                 &key (load-user-init t)
                      backend-type
@@ -336,25 +358,31 @@ GB
 
 (defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher
-    (cond ((and x (symbolp x))
-           (let* ((name (nstring-capitalize
-                         (concatenate 'simple-string "Edit " (string x))))
-                  (buffer (or (getstring name *buffer-names*)
-                              (make-buffer name)))
-                  (*print-case* :downcase))
-             (delete-region (buffer-region buffer))
-             (with-output-to-mark
-                 (*standard-output* (buffer-point buffer))
-               (eval `(grindef ,x))     ; hackish, I know...
-               (terpri)
-               (hemlock::change-to-buffer buffer)
-               (buffer-start (buffer-point buffer)))))
-          ((or (stringp x) (pathnamep x))
-           (hemlock::find-file-command () x))
-          (x
-           (error
-            "~S is not a symbol or pathname.  I can't edit it!" x))))
+    (process-command-line-argument/2 x))
   (invoke-hook hemlock::entry-hook))
+
+(defun process-command-line-argument/2 (x)
+  (typecase x
+    (list
+     (mapc #'process-command-line-argument/2 x))
+    (symbol
+     (let* ((name (nstring-capitalize
+                   (concatenate 'simple-string "Edit " (string x))))
+            (buffer (or (getstring name *buffer-names*)
+                        (make-buffer name)))
+            (*print-case* :downcase))
+       (delete-region (buffer-region buffer))
+       (with-output-to-mark
+           (*standard-output* (buffer-point buffer))
+         (eval `(grindef ,x))   ; hackish, I know...
+         (terpri)
+         (hemlock::change-to-buffer buffer)
+         (buffer-start (buffer-point buffer)))))
+    ((or string pathname)
+     (hemlock::find-file-command () x))
+    (t
+     (error
+      "~S is not a symbol or pathname.  I can't edit it!" x))))
 
 (defvar *in-hemlock-slave-p* nil)
 

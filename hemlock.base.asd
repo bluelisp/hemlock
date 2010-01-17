@@ -69,7 +69,8 @@
                   :osicat
                   :iolib
                   :iolib.os
-                  :cl-ppcre)
+                  :cl-ppcre
+                  :command-line-arguments)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames
