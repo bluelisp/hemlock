@@ -196,7 +196,7 @@
 ;;;    This function should be called whenever the editor is entered in a new
 ;;; lisp.  It sets up process specific data structures.
 ;;;
-(defvar *default-backend* :tty)
+(defvar *default-backend* nil) ;if not set, use the CAR of available ones
 (defvar *available-backends* '())
 
 (defun validate-backend-type (want)

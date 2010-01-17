@@ -277,9 +277,11 @@ GB
                  *command-line-options*)
            (push sym *command-line-options*)))
     (process-command-line-options
-     `(("slave"
+     `(("slave"  ;start a slave?
+        :type boolean)
+       ("editor" ;if slave: connect to this editor
         :type string)
-       ("backend-type"
+       ("backend"
         :type string
         :action ,(alexandria:curry #'keywordize :backend-type)))
      arg-list)))
@@ -289,9 +291,12 @@ GB
                        (parse-hemlock-command-line arg-list)
     (destructuring-bind (&key slave &allow-other-keys)
                         keys
-      (if slave
-          (start-slave slave)
-          (apply #'hemlock rest keys)))))
+      (cond
+       (slave
+        (assert (null rest))
+        (apply #'hemlock:start-slave keys))
+       (t
+        (apply #'hemlock rest keys))))))
 
 (defun hemlock (&optional x
                 &key (load-user-init t)

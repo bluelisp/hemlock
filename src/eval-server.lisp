@@ -312,10 +312,10 @@
 ;;; CREATE-SLAVE -- Public.
 ;;;
 
-(defvar *clbuild-slave-command* '("clbuild" "run" "hemlock-slave" "--editor"))
+(defvar *clbuild-slave-command* '("clbuild" "run" "hemlock-slave"))
 (defvar *slave-command* *clbuild-slave-command*)
 
-(defun create-slave (&optional name)
+(defun create-slave (command &optional name)
   "This creates a slave that tries to connect to the editor.  A preliminary
    slave-information structure is returned immediately, whose details will
    be filled in later by the slave once the wire has been established.
@@ -342,7 +342,7 @@
     (message "Spawning slave ... ")
     (let ((server-info (make-buffers-for-typescript slave background)))
       (make-process-connection
-       (append *slave-command* (list (get-editor-name)))
+       command
        :filter (let ((ts (server-info-slave-info server-info)))
                  (lambda (connection bytes)
                    (ts-buffer-output-string
@@ -397,7 +397,8 @@
                            *trace-output*
                            *background-io*
                            cl-user::*io*)
-               (start-slave editor-name
+               (start-slave :slave t
+                            :editor editor-name
                             :backend-type backend-type
                             :slave-buffer slave
                             :background-buffer background))))))
@@ -482,21 +483,26 @@
 
 ;;;; Server Manipulation commands.
 
+(defun slave-command-with-arguments (&optional (prefix *slave-command*))
+  (append prefix
+          (list "--editor" (get-editor-name)
+                "--backend" (symbol-name hi::*default-backend*))))
+
 (defun prompt-for-slave-command ()
   (cl-ppcre:split
    " "
    (hemlock-interface::prompt-for-string
     :prompt "Command: "
-    :default (format nil "~{~A~^ ~}" *slave-command*))))
+    :default (format nil "~{~A~^ ~}"
+                     (slave-command-with-arguments)))))
 
 (defcommand "Start Slave Process" (p)
   "Create a new slave.  When given an argument, ask for a command first."
   ""
-  (let* ((*slave-command*
-          (if p
-              (prompt-for-slave-command)
-              *slave-command*))
-         (info (create-slave (pick-slave-buffer-names "Process"))))
+  (let ((info (create-slave (if p
+                                (prompt-for-slave-command)
+                                (slave-command-with-arguments))
+                            (pick-slave-buffer-names "Process"))))
     (change-to-buffer (server-info-slave-buffer info))))
 
 (defcommand "Start Slave Using Clbuild" (p)
@@ -764,9 +770,12 @@
 ;;; Initiate the process by which a lisp becomes a slave.
 ;;;
 (defun %start-slave
-    (editor &key slave-buffer
-                 background-buffer
-                 (backend-type hi::*default-backend*))
+       (&key editor
+             slave
+             slave-buffer
+             background-buffer
+             (backend-type hi::*default-backend*))
+  (assert slave)
   (let ((hi::*connection-backend*
          (ecase backend-type
            (:qt :qt)
@@ -816,9 +825,7 @@
                  (incf i))
                (conium:compute-backtrace 0 most-positive-fixnum))))))
 
-(defun start-slave (editor &rest args
-                           &key slave-buffer background-buffer backend-type
-                           &allow-other-keys)
+(defun start-slave (&rest args)
   (let ((prepl:*entering-prepl-debugger-hook* nil)
         (*original-terminal-io* *terminal-io*))
     (block nil
@@ -833,7 +840,7 @@
                 (simple-backtrace *original-terminal-io*)
                 (force-output *original-terminal-io*)
                 (return)))))
-        (apply #'%start-slave editor args)))))
+        (apply #'%start-slave args)))))
 
 
 ;;; PRINT-SLAVE-STATUS  --  Internal
