@@ -271,27 +271,44 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
-(defun parse-hemlock-command-line (arg-list)
+(defparameter *command-line-spec*
   (flet ((keywordize (sym value)
            (push (intern (string-upcase value) :keyword)
                  *command-line-options*)
            (push sym *command-line-options*)))
-    (process-command-line-options
-     `(("slave"  ;start a slave?
-        :type boolean)
-       ("editor" ;if slave: connect to this editor
-        :type string)
-       ("backend"
-        :type string
-        :action ,(alexandria:curry #'keywordize :backend-type)))
-     arg-list)))
+    `(("help"
+       :type boolean
+       :documentation "show this help")
+      ("slave"
+       ;(undocumented) start a slave?
+       :type boolean)
+      ("editor"
+       ;(undocumented) if slave: connect to this editor
+       :type string)
+      (("backend" "backend-type")
+       :type string
+       :documentation "backend to use, one of tty, clx, or qt"
+       :action ,(alexandria:curry #'keywordize :backend-type)))))
+
+(defun show-cmd-line-help ()
+  (format t "This is hemlock ~A.~%Usage:~%~%" *hemlock-version*)
+  (format t "   ~A [OPTIONS] file...~%~%"
+          (or #+sbcl (car sb-ext:*posix-argv*)
+              "hemlock"))
+  (format t "Options are:~%~%")
+  (show-option-help *command-line-spec*)  )
 
 (defun main (&optional (arg-list (get-command-line-arguments)))
   (multiple-value-bind (keys rest)
-                       (parse-hemlock-command-line arg-list)
-    (destructuring-bind (&key slave &allow-other-keys)
+                       (process-command-line-options
+                        *command-line-spec*
+                        arg-list)
+    (destructuring-bind (&key slave help &allow-other-keys)
                         keys
       (cond
+       (help
+        (show-cmd-line-help)
+        (force-output))
        (slave
         (assert (null rest))
         (apply #'hemlock:start-slave keys))

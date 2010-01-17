@@ -46,6 +46,7 @@ clbuild lisp <<EOF
   (quit))
 
 (sb-ext:save-lisp-and-die "hemlock"
+                          :save-runtime-options t
 			  :toplevel 'hemlock-toplevel
 			  :executable t)
 EOF
