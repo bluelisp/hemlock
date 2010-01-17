@@ -275,7 +275,10 @@ GB
   (flet ((keywordize (sym value)
            (push (intern (string-upcase value) :keyword)
                  *command-line-options*)
-           (push sym *command-line-options*)))
+           (push sym *command-line-options*))
+         (quick-backend (sym *)
+           (push sym *command-line-options*)
+           (push :backend-type *command-line-options*)))
     `(("help"
        :type boolean
        :documentation "show this help")
@@ -287,8 +290,15 @@ GB
        :type string)
       (("backend" "backend-type")
        :type string
-       :documentation "backend to use, one of tty, clx, or qt"
-       :action ,(alexandria:curry #'keywordize :backend-type)))))
+       :documentation "backend to use, one of tty, clx, or qt. If not specified, checks if $DISPLAY is set, and use the first available backend; without a $DISPLAY, falls back to TTY.  See also --tty et al."
+       :action ,(alexandria:curry #'keywordize :backend-type))
+      ,@(iter:iter (iter:for b in '(:tty :clx :qt))
+                   (iter:collect
+                    `(,(string-downcase b)
+                      :type boolean
+                      :documentation ,(format nil "short for --backend ~A" b)
+                      :action ,(let ((b b))
+                                 (alexandria:curry #'quick-backend b))))))))
 
 (defun show-cmd-line-help ()
   (format t "This is hemlock ~A.~%Usage:~%~%" *hemlock-version*)
