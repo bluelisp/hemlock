@@ -580,7 +580,7 @@
 (defpackage :hemlock-internals
   (:use :common-lisp :hemlock-interface :command-line-arguments)
   (:nicknames :hi)
-  (:shadow #:char-code-limit)
+  (:shadow #:char-code-limit #:show-option-help)
   (:use trivial-gray-streams)
   (:import-from :hemlock-ext
                 #:delq #:memq #:assq)

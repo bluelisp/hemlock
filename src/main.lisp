@@ -298,6 +298,42 @@ GB
   (format t "Options are:~%~%")
   (show-option-help *command-line-spec*)  )
 
+;; The following function is copy&paste from the system
+;; command-line-arguments.
+;;
+;; CHANGES:
+;;   - do not override *print-right-margin* .
+;;
+;; Free Software available under an MIT-style license. See LICENSE
+;; Copyright (c) 2003-2009 ITA Software, Inc.  All rights reserved.
+;; Original author: Francois-Rene Rideau
+(defun show-option-help
+       (specification &key (stream *standard-output*) sort-names)
+  ;; TODO: be clever when trying to align stuff horizontally
+  (loop :for spec :in specification :do
+        (destructuring-bind (names &key negation documentation negation-documentation
+                                   type optional list (initial-value nil initial-value-p) &allow-other-keys) spec
+          (declare (ignorable negation documentation negation-documentation type optional list))
+          (unless (consp names)
+            (setf names (list names)))
+          (flet ((option-names (names)
+                   (let ((n (mapcar 'command-line-arguments::option-name names)))
+                     (if sort-names
+                       (stable-sort n #'< :key #'length)
+                       n))))
+            (when documentation
+              (format stream "~& ~32A ~8A ~@<~@;~{~A ~}~@:>"
+                      (format nil "~{ ~A~}" (option-names names))
+                      (string-downcase type)
+                      (cl-ppcre:split " " documentation))
+              (format stream "~:[~*~; (default: ~S)~]~%" initial-value-p initial-value))
+            (when negation-documentation
+              (format stream " ~32A ~8A ~@<~@;~{~A ~}~@:>~%"
+                      (format nil "~{ ~A~}" (option-names (command-line-arguments::make-negated-names names negation)))
+                      (string-downcase type)
+                      (cl-ppcre:split " " negation-documentation)))))))
+
+
 (defun main (&optional (arg-list (get-command-line-arguments)))
   (multiple-value-bind (keys rest)
                        (process-command-line-options
