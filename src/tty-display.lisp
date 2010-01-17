@@ -78,17 +78,17 @@
     (do ((dl-fonts dis-line-fonts (cdr dis-line-fonts))
          (si-fonts (si-line-fonts si-line) (cdr si-fonts)))
         ((or (null dl-fonts) (null si-fonts))
+         0
+         #+nil ;this is buggy; just bail out for now
          (let ((next-font (car (or dl-fonts si-fonts))))
            (if next-font
                (let ((end (min dl-len si-len (cadr next-font))))
-                 (or (unless (<= okay-until end) end) ;FIXME
-                     (string/= dl-chars si-chars
+                 (or (string/= dl-chars si-chars
                                :start1 okay-until :start2 okay-until
                                :end1 end :end2 end)
                      end))
                (let ((end (min dl-len si-len)))
-                 (or (unless (<= okay-until end) end) ;FIXME
-                     (string/= dl-chars si-chars
+                 (or (string/= dl-chars si-chars
                                :start1 okay-until :start2 okay-until
                                :end1 end :end2 end)
                      (if (= dl-len si-len) nil end))))))
@@ -100,6 +100,8 @@
             (si-stop (cddar si-fonts)))
         (unless (and (= dl-font si-font)
                      (= dl-start si-start))
+          (return 0)
+          #+nil ;this is buggy; just bail out for now
           (let ((font-lossage (min dl-start si-start)))
             (return (or (string/= dl-chars si-chars
                                   :start1 okay-until :start2 okay-until
@@ -136,6 +138,8 @@
     (do ((dl-fonts (reverse dis-line-fonts) (cdr dis-line-fonts))
          (si-fonts (reverse (si-line-fonts si-line)) (cdr si-fonts)))
         ((or (null dl-fonts) (null si-fonts))
+          0
+          #+nil ;this is buggy; just bail out for now
          (cond (dl-fonts
                 (min (- dl-len (cddar dl-fonts)) count))
                (si-fonts
@@ -150,6 +154,8 @@
             (si-stop (- si-len (cddar si-fonts))))
         (unless (and (= dl-font si-font)
                      (= dl-stop si-stop))
+          (return 0)
+          #+nil ;this is buggy; just bail out for now
           (return (min dl-stop si-stop count)))
         (unless (= dl-start si-start)
           (return (min dl-start si-start count)))
