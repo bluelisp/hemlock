@@ -1376,8 +1376,6 @@
       (let ((main-win (make-window (buffer-start-mark *current-buffer*)
                                    :device device
                                    :window xwindow)))
-        (print (xlib:drawable-height xwindow) *trace-output*)
-        (force-output *trace-output*)
         (setf *echo-area-window*
               (let ((hemlock::thumb-bar-meter nil))
                 (make-window
