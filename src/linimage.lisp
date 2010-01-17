@@ -432,10 +432,8 @@
 ;;; underhang, then this is 0.
 ;;;    3) The index in line after the last character displayed.
 ;;;
-(defvar *enable-syntax* nil)
 (defun compute-line-image (string underhang line offset dis-line width)
-  (when *enable-syntax*
-    (ensure-syntax-marks line))
+  (ensure-syntax-marks line)
   ;;
   ;; Release any old font-changes.
   (let ((changes (dis-line-font-changes dis-line)))
