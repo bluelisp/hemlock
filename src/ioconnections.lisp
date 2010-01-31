@@ -145,6 +145,9 @@
     (set-iolib-handlers instance)
     (note-connected instance)))
 
+(defmethod delete-connection :before ((connection process-connection/iolib))
+  (isys:%sys-kill (connection-pid connection) 15))
+
 ;; ccl gives an exception in foreign code without this:
 #+ccl
 (defun invoke-without-interrupts (fun)

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
+
 <svg
    xmlns:dc="http://purl.org/dc/elements/1.1/"
-   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:cc="http://creativecommons.org/ns#"
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns="http://www.w3.org/2000/svg"
@@ -13,15 +14,21 @@
    height="1200"
    id="svg2"
    sodipodi:version="0.32"
-   inkscape:version="0.44"
+   inkscape:version="0.47 r22583"
    version="1.0"
-   sodipodi:docbase="/home/michael"
-   sodipodi:docname="Aquarius.svg"
+   sodipodi:docname="background.svg"
    inkscape:export-filename="/home/michael/Aquarius.png"
    inkscape:export-xdpi="90"
    inkscape:export-ydpi="90">
   <defs
      id="defs4">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 600 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="1600 : 600 : 1"
+       inkscape:persp3d-origin="800 : 400 : 1"
+       id="perspective30" />
     <linearGradient
        id="linearGradient3685">
       <stop
@@ -162,8 +169,8 @@
      objecttolerance="10"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.53588673"
-     inkscape:cx="270.65409"
+     inkscape:zoom="0.26794337"
+     inkscape:cx="1019.3225"
      inkscape:cy="377.1036"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -171,10 +178,12 @@
      height="1200px"
      showguides="true"
      inkscape:guide-bbox="true"
-     inkscape:window-width="1280"
-     inkscape:window-height="949"
+     inkscape:window-width="1024"
+     inkscape:window-height="768"
      inkscape:window-x="0"
-     inkscape:window-y="25" />
+     inkscape:window-y="25"
+     showgrid="false"
+     inkscape:window-maximized="0" />
   <metadata
      id="metadata7">
     <rdf:RDF>
@@ -216,22 +225,15 @@
        height="1200"
        x="-0.52218753"
        y="0.50767136" />
-    <path
-       style="opacity:0.50931672;fill:url(#radialGradient10851);fill-opacity:1;fill-rule:evenodd;stroke:url(#radialGradient11744);stroke-width:3.0999999;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       d="M -388.64335,1040.1908 C 537.07093,477.33363 565.64236,-8.3806497 582.78522,-54.094939 C 599.92807,-99.809223 1354.2137,-234.09494 1222.7852,51.619351 C 1091.3566,337.33363 -382.92907,1037.3336 -388.64335,1040.1908 z "
-       id="path2768" />
-    <path
-       style="opacity:0.53763446;fill:url(#radialGradient10849);fill-opacity:1;fill-rule:evenodd;stroke:url(#radialGradient11742);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:0.72131144"
-       d="M 759.04095,1263.187 C 547.61238,477.47277 1424.7552,-271.09866 1424.7552,-271.09866 C 1424.7552,-271.09866 1581.8981,-471.09866 1744.7552,260.32992 C 1907.6123,991.75849 761.8981,1274.6156 761.8981,1274.6156 L 759.04095,1263.187 z "
-       id="path3695" />
-    <path
-       style="opacity:0.51612902;fill:url(#radialGradient10847);fill-opacity:1;fill-rule:evenodd;stroke:url(#radialGradient11746);stroke-width:1.34907568px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="M -457.14145,705.30003 C 779.32096,1790.6841 1944.5032,1143.4996 1788.388,1188.5732 C 1709.1462,1211.4519 264.83889,150.72425 -5.1931319,206.18184 C -275.22514,261.6394 -451.45657,717.1838 -457.14145,705.30003 z "
-       id="path6368"
-       sodipodi:nodetypes="cssc" />
-    <path
-       style="fill:url(#linearGradient9934);fill-opacity:1;fill-rule:evenodd;stroke:url(#linearGradient11758);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="M 1648.5493,1389.1716 C 407.39293,1065.8243 41.761696,1302.1166 -167.17044,1394.1462 C -376.10257,1486.1758 -480.56864,968.82009 -127.37384,916.58706 C 225.82096,864.35403 1549.0578,458.92619 1772.9137,1063.337 C 1996.7696,1667.7478 1643.5748,1389.1716 1648.5493,1389.1716 z "
-       id="path9041" />
+    <text
+       xml:space="preserve"
+       style="font-size:260.53936768px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans"
+       x="231.15089"
+       y="642.88373"
+       id="text2836"><tspan
+         sodipodi:role="line"
+         id="tspan2838"
+         x="231.15089"
+         y="642.88373">Hemlock</tspan></text>
   </g>
 </svg>

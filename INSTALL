@@ -1,21 +1,38 @@
 About Hemlock
 
-  This is a Qt port of Hemlock, based on portable hemlock.
-  Thanks to Gilbert Baumann for making hemlock portable.
+  Hemlock is an Emacs-style editor written in Common Lisp.
 
-Dependencies
+  Originally written as a part of CMUCL, work started in 2002 to make it
+  portable to other Common Lisp implementations.
 
-  This version of Hemlock needs CommonQt.
 
-Installation
+Backends
+
+  This version of Hemlock has three backends, of which you need at least
+  one:
+
+    * The TTY backend doesn't need much, except for a terminal
+      and an installed terminfo database.
+
+    * The X11 backend needs CLX and an X server.
+
+    * The experimental Qt backends needs CommonQt.
+
+
+
+Building and invocation of a binary
+
+  ./build.sh
+  ./hemlock --help
+
+
+Building and invocation from the REPL
 
   (push #p"/path/to/hemlock/" asdf:*central-registry*)
-  (asdf:operate 'asdf:load-op :hemlock)
-
-Usage
+  (asdf:operate 'asdf:load-op :hemlock.tty)
+  (asdf:operate 'asdf:load-op :hemlock.clx)
+  (asdf:operate 'asdf:load-op :hemlock.qt)
 
   (hemlock:hemlock)
-
 or just
-
-  (ed)    ;SBCL only
+  (ed)    ;SBCL and CCL only
