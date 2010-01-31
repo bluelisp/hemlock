@@ -747,13 +747,15 @@
     ;; I have no idea.]
     #+sbcl (sb-kernel::default-interrupt sb-unix:sigchld)
 
-    (format t "Loading libraries [qt")
-    (force-output)
-    (ensure-smoke :qt)
-
-    (format t ", qtwebkit")
-    (force-output)
-    (ensure-smoke :qtwebkit)
+    (format t "Loading shared libraries [")
+    (let ((first t))
+      (dolist (module '(:qtcore :qtgui :qtnetwork :qtwebkit))
+        (if first
+            (setf first nil)
+            (write-string ", "))
+        (format t "~A" (string-downcase module))
+        (force-output)
+        (ensure-smoke :qt)))
 
     (format t "].~%Connecting to window system...")
     (force-output)
