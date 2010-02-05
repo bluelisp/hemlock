@@ -749,13 +749,13 @@
 
     (format t "Loading shared libraries [")
     (let ((first t))
-      (dolist (module '(:qtcore :qtgui :qtnetwork :qtwebkit))
+      (dolist (module '(:qtcore :qtgui :qtnetwork :qtsvg :qtwebkit))
         (if first
             (setf first nil)
             (write-string ", "))
         (format t "~A" (string-downcase module))
         (force-output)
-        (ensure-smoke :qt)))
+	(ensure-smoke module)))
 
     (format t "].~%Connecting to window system...")
     (force-output)
