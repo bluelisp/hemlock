@@ -18,13 +18,14 @@
 (defcommand "Grep Goto" (p)
   "" ""
   (declare (ignore p))
-  (cl-ppcre:register-groups-bind
-      (file line)
+  (cl-ppcre:register-groups-bind (file line)
       ("^\([^:]+\):\([0-9]+\):" (line-string (mark-line (current-point))))
+    (when file
       (change-to-buffer (find-file-buffer (merge-pathnames file (default-directory))))
       (let ((point (current-point)))
         (push-buffer-mark (copy-mark point))
         (buffer-start point)
-        (line-offset point (1- (parse-integer line))))))
+        (when line
+          (line-offset point (1- (parse-integer line))))))))
 
 (bind-key "Grep Goto" #k"return" :mode "Grep")
