@@ -1,6 +1,8 @@
 #!/bin/sh
 unset backends
 
+SBCL=${SBCL:-clbuild lisp}
+
 if test $# -eq 0; then
 	cat <<eof
 Building backends tty and clx.
@@ -23,8 +25,7 @@ else
 fi
 
 
-clbuild lisp <<EOF
-
+$SBCL <<EOF
 ;; NOTE: the order in which clx and tty are given matters.
 ;; The last backend loaded is the default, and only if no $DISPLAY is
 ;; specified, main.lisp has special-cased the tty backend as a fallback,
