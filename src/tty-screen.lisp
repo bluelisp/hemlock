@@ -183,10 +183,18 @@
            (init-file-string (if init-file (get-init-file-string init-file)))
            (init-cm-string (termcap :init-cursor-motion)))
       (setf (tty-device-init-string device)
-            (concatenate 'simple-string (or init-string "")
-                         (or init-file-string "") (or init-cm-string ""))))
+	    (concatenate 'simple-string
+			 (or init-string "")
+			 (or init-file-string "")
+			 (or init-cm-string "")
+			 ;; Transmit-mode: this makes arrow-keys give sequences matching
+			 ;; the terminfo db.
+			 hemlock.terminfo:keypad-xmit)))
     (setf (tty-device-cm-end-string device)
-          (or (termcap :end-cursor-motion) ""))
+	  (concatenate 'simple-string
+		       (or (termcap :end-cursor-motion) "")
+		       ;; Exit transmit-mode.
+		       hemlock.terminfo:keypad-local))
     ;;
     ;; Screen image initialization.
     (set-up-screen-image device)

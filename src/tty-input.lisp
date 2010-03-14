@@ -41,33 +41,63 @@
 
 (defun register-tty-translations ()
   (assert hemlock.terminfo:*terminfo*)
-  (flet ((reg (string keysym &key kludge)
-           (when kludge
-             ;; FIXME: This is pretty terrible, but for some reason my *terminfo* has
-             ;; Esc,O,<foo> for arraw keys, whereas terminal actually sends Esc,[,<foo>
-             ;; -- either I don't understand how terminfo stuff is supposed to work,
-             ;; Apple ships with a broken terminfo db, or if something is wrong with
-             ;; the terminfo code. I'm inclined to blame me...
-             (assert (eq #\O (char string 1)))
-             (setf string (format nil "~A[~A" (char string 0) (subseq string 2))))
-           (setf (gethash (string string) *tty-translations*) keysym)))
-    (reg hemlock.terminfo:key-left #k"Leftarrow" :kludge t)
-    (reg hemlock.terminfo:key-up #k"Uparrow" :kludge t)
-    (reg hemlock.terminfo:key-down #k"Downarrow" :kludge t)
-    (reg hemlock.terminfo:key-right #k"Rightarrow" :kludge t)
+  (flet ((reg (string keysym)
+           (let ((string (etypecase string
+                           (character (string string))
+                           (list (coerce string 'simple-string))
+                           (string string))))
+              (setf (gethash string *tty-translations*) keysym))))
+    ;; KLUDGE: There seems to be no way get F1-F4 reliably transmit
+    ;; things in the terminfo db, since some terminals transmit them
+    ;; as if they were vt100 PF1-PF4, so, register these aliases here.
+    ;; If they double as something else, that will override these.
+    (reg '(#\Esc #\O #\P) #k"F1")
+    (reg '(#\Esc #\O #\Q) #k"F2")
+    (reg '(#\Esc #\O #\R) #k"F3")
+    (reg '(#\Esc #\O #\S) #k"F4")
+    ;; Terminfo definitions for F1-F12
+    (reg hemlock.terminfo:key-f1 #k"F1")
+    (reg hemlock.terminfo:key-f2 #k"F2")
+    (reg hemlock.terminfo:key-f3 #k"F3")
+    (reg hemlock.terminfo:key-f4 #k"F4")
+    (reg hemlock.terminfo:key-f5 #k"F5")
+    (reg hemlock.terminfo:key-f6 #k"F6")
+    (reg hemlock.terminfo:key-f7 #k"F7")
+    (reg hemlock.terminfo:key-f8 #k"F8")
+    (reg hemlock.terminfo:key-f9 #k"F9")
+    (reg hemlock.terminfo:key-f10 #k"F10")
+    (reg hemlock.terminfo:key-f11 #k"F11")
+    (reg hemlock.terminfo:key-f12 #k"F12")
+    ;; Terminfo definitions for movement keys
+    (reg hemlock.terminfo:key-left #k"Leftarrow")
+    (reg hemlock.terminfo:key-up #k"Uparrow")
+    (reg hemlock.terminfo:key-down #k"Downarrow")
+    (reg hemlock.terminfo:key-right #k"Rightarrow")
     (reg hemlock.terminfo:key-ppage #k"Pageup")
     (reg hemlock.terminfo:key-npage #k"Pagedown")
+    ;; Best-effort to tell C-h and backspace apart: we have set VERASE to
+    ;; #\Rubout so we can _sometimes_ do this: C-h is always send as
+    ;; backspace.
+    ;;
+    ;; FIXME: This is less elegant than we'd like, however, since
+    ;; #k"Delete" and #k"Rubout" are currently the same keysym in Hemlock:
+    ;; so we can't use
+    ;;   User-Backspace -> #k"Backspace"
+    ;;   User-Delete    -> #k"Delete"
+    ;;   User-C-h       -> #k"Rubout"
+    ;; which wold degrade gracefully by collapsing User-Backspace
+    ;; and User-C-h into #k"Rubout" -- now they collapse into #k"Control-h".
+    (reg #\Rubout #k"Backspace")
+    (reg hemlock.terminfo:key-backspace #k"Control-h")
+    (reg hemlock.terminfo:key-dc #k"Delete")
+    ;; Misc.
     (reg #\newline #k"Return")
     (reg #\tab #k"Tab")
-    (reg #\backspace #k"Backspace")
-    (reg #\rubout #k"Delete")
     (reg #\escape #k"Escape")))
 
 (defun translate-tty-event (data)
-  (let* ((string (coerce data 'string))
-         (sym (gethash string *tty-translations*)))
-    (if sym
-        (hemlock-ext:make-key-event sym 0)
+  (let ((string (coerce data 'string)))
+    (or (gethash string *tty-translations*)
         (when (= 1 (length string))
           (hemlock-ext:char-key-event (char string 0))))))
 
