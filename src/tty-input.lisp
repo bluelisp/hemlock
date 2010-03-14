@@ -93,7 +93,9 @@
     ;; Misc.
     (reg #\newline #k"Return")
     (reg #\tab #k"Tab")
-    (reg #\escape #k"Escape")))
+    (reg #\escape #k"Escape")
+    ;; Kludge: This shouldn't be needed, but otherwise C-c M-i doesn't work.
+    (reg '(#\Esc #\i) #k"meta-i")))
 
 (defun translate-tty-event (data)
   (let ((string (coerce data 'string)))
