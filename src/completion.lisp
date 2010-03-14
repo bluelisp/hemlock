@@ -515,16 +515,14 @@
 (add-hook redisplay-hook #'completion-redisplay-fun)
 
 
-;;;; The following is an attempt at Lisp symbol completion.
+;;;; The following is an attempt at Lisp symbol completion..
 ;;;;
-;;;; It's already somewhat helpful, but regrettably unfinished in the
-;;;; following ways:
+;;;; Can this be merged with the rest of the file? 
 ;;;;
-;;;;  - completely unintegrated with the rest of this file
-;;;;  - when there are several completions, a pop up pops up only if the
-;;;;    user re-does the command with a prefix argument.  In other emacsen
-;;;;    it's enough to just re-type TAB.
-;;;;  - You can't choose anything from the pop up.
+
+;;;; Fixme: when there are several completions, a pop up pops up only if the
+;;;; user re-does the command with a prefix argument.  In other emacsen
+;;;; it's enough to just re-type TAB.
 
 (defun starts-with-p (string prefix)
   (let ((mismatch (mismatch string prefix)))
@@ -548,7 +546,6 @@
   (let ((completion
          (cond
           ((cdr matches)
-           ;; clearly this case warrants improvement
            (let ((match (car matches)))
              (dolist (next (cdr matches))
                (setf match (subseq match 0 (mismatch match next))))
@@ -569,37 +566,40 @@
            (message "no matches")
            nil))))
     (when completion
-      (let ((point (current-point)))
-        (if *last-completion-mark*
-            (move-mark *last-completion-mark* point)
-            (setq *last-completion-mark* (copy-mark point :temporary)))
-        (let ((mark *last-completion-mark*))
-          (reverse-find-attribute mark :completion-wordchar #'zerop)
-          (let* ((region (region mark point))
-                 (string (region-to-string region)))
-            (declare (simple-string string))
-            (delete-region region)
-            (let* ((first (position-if #'alpha-char-p string))
-                   (next (if first (position-if #'alpha-char-p string
-                                                :start (1+ first)))))
-              ;; Often completions start with asterisks when hacking on Lisp
-              ;; code, so we look for alphabetic characters.
-              (insert-string point
-                             ;; Leave the cascading IF's alone.
-                             ;; Writing this as a COND, using LOWER-CASE-P as
-                             ;; the test is not equivalent to this code since
-                             ;; numbers (and such) are nil for LOWER-CASE-P and
-                             ;; UPPER-CASE-P.
-                             (if (and first (upper-case-p (schar string first)))
-                                 (if (and next
-                                          (upper-case-p (schar string next)))
-                                     (string-upcase completion)
-                                     (word-capitalize completion))
-                                 completion)))))))
+      (%insert-completion completion))
     (when (and show-matches-p matches)
-      (with-pop-up-display (s)
-        (dolist (match matches)
-          (write-line match s))))))
+      (split-window-command nil)
+      (make-completelist-buffer (mapcar #'make-completelist-entry matches)))))
+
+(defun %insert-completion (completion)
+  (let ((point (current-point)))
+    (if *last-completion-mark*
+        (move-mark *last-completion-mark* point)
+        (setq *last-completion-mark* (copy-mark point :temporary)))
+    (let ((mark *last-completion-mark*))
+      (reverse-find-attribute mark :completion-wordchar #'zerop)
+      (let* ((region (region mark point))
+             (string (region-to-string region)))
+        (declare (simple-string string))
+        (delete-region region)
+        (let* ((first (position-if #'alpha-char-p string))
+               (next (if first (position-if #'alpha-char-p string
+                                            :start (1+ first)))))
+          ;; Often completions start with asterisks when hacking on Lisp
+          ;; code, so we look for alphabetic characters.
+          (insert-string point
+                         ;; Leave the cascading IF's alone.
+                         ;; Writing this as a COND, using LOWER-CASE-P as
+                         ;; the test is not equivalent to this code since
+                         ;; numbers (and such) are nil for LOWER-CASE-P and
+                         ;; UPPER-CASE-P.
+                         (if (and first (upper-case-p (schar string first)))
+                             (if (and next
+                                      (upper-case-p (schar string next)))
+                                 (string-upcase completion)
+                                 (word-capitalize completion))
+                             completion)))))))
+
 
 (defun find-symbol-completion (show-matches-p prefix)
   (multiple-value-bind (package-prefix symname)
@@ -636,3 +636,94 @@
             (test-char (previous-character mark) :lisp-syntax :whitespace)))
       (indent-command p)
       (complete-for-mode-command p)))
+
+;;; Mode
+
+(defvar *completelist-entries* nil)
+;;;
+
+(defun make-completelist-entry (str)
+  (internal-make-fuzzylist-entry str nil nil "????????"))
+
+;;; This is the completelist buffer if it exists.
+;;;
+(defvar *completelist-buffer* nil)
+
+;;; This is the cleanup method for deleting *completelist-buffer*.
+;;;
+(defun delete-completelist-buffers (buffer)
+  (when (eq buffer *completelist-buffer*)
+    (setf *completelist-buffer* nil)
+    (setf *completelist-entries* nil)))
+
+
+;;;; Commands.
+
+(defmode "Completelist" :major-p t
+  :documentation "Completelist mode presents a list of completions.")
+
+(defcommand "Completelist Quit" (p)
+  "Kill the completelist buffer."
+  ""
+  (declare (ignore p))
+  (when *completelist-buffer*
+        (delete-buffer-if-possible *completelist-buffer*)))
+
+(defun completelist-entry-from-mark (mark)
+  (array-element-from-mark (current-point) *completelist-entries*))
+
+(defcommand "Completelist Find Definition" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((entry (completelist-entry-from-mark (current-point))))
+    (when entry
+      (change-to-definition entry))))
+
+(defcommand "Completelist Pick" (p)
+  "" ""
+  (declare (ignore p))
+  (let ((entry (completelist-entry-from-mark (current-point))))
+    (when entry
+      (completelist-quit-command nil)
+      (delete-window-command nil)
+      (%insert-completion (fuzz-completed-string entry)))))
+
+(defun refresh-completelist (buf entries)
+  (with-writable-buffer (buf)
+    (delete-region (buffer-region buf))
+    (setf *completelist-entries-end* (length entries))
+    (setf *completelist-entries* (coerce entries 'vector))
+    (with-output-to-mark (s (buffer-point buf))
+      (dolist (entry entries)
+        (completelist-write-line entry s)))))
+
+(defun make-completelist-buffer (entries)
+  (let ((buf (or *completelist-buffer*
+                 (make-buffer "*Completelist*" :modes '("Completelist")))))
+    (setf *completelist-buffer* buf)
+    (refresh-completelist buf entries)
+    (let ((fields (buffer-modeline-fields *completelist-buffer*)))
+      (setf (cdr (last fields))
+            (list (or (modeline-field :completelist-cmds)
+                      (make-modeline-field
+                       :name :completelist-cmds :width 18
+                       :function
+                       #'(lambda (buffer window)
+                           (declare (ignore buffer window))
+                           "  Type ? for help.")))))
+      (setf (buffer-modeline-fields *completelist-buffer*) fields))
+    (buffer-start (buffer-point buf))
+    (change-to-buffer buf)))
+
+(defun completelist-write-line (entry s)
+  (format s "~A ~40T~A~%"
+	  (fuzz-completed-string entry)
+	  ;; (fuzz-score entry)
+	  ;; (fuzz-chunks entry)
+	  (fuzz-classification-string entry)))
+
+(defcommand "Completelist Help" (p)
+  "Show this help."
+  "Show this help."
+  (declare (ignore p))
+  (describe-mode-command nil "Completelist"))

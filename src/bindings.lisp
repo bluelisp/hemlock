@@ -832,6 +832,11 @@
 (bind-key "Fuzzylist Find Definition" #k"." :mode "Fuzzylist")
 (bind-key "Fuzzylist Help" #k"?" :mode "Fuzzylist")
 
+(bind-key "Completelist Pick" #k"space" :mode "Completelist")
+(bind-key "Completelist Quit" #k"q" :mode "Completelist")
+(bind-key "Completelist Find Definition" #k"." :mode "Completelist")
+(bind-key "Completelist Help" #k"?" :mode "Completelist")
+
 
 
 ;;;; Dired.
