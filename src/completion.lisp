@@ -525,58 +525,51 @@
 ;;;;    user re-does the command with a prefix argument.  In other emacsen
 ;;;;    it's enough to just re-type TAB.
 ;;;;  - You can't choose anything from the pop up.
-;;;;  - It completes in the master, not the slave, which is pretty useless.
-;;;;    We need to go through something similar to SLAVE-APROPOS et al.
 
 (defun starts-with-p (string prefix)
   (let ((mismatch (mismatch string prefix)))
     (or (null mismatch) (= mismatch (length prefix)))))
 
-(defun find-symbol-completion (prefix)
-  (multiple-value-bind (packname symname)
-                       (let ((p (position #\: prefix)))
-                         (if p
-                             (values (subseq prefix 0 p)
-                                     (string-downcase (subseq prefix (1+ p))))
-                             (values nil (string-downcase prefix))))
-    (let* ((package (or (and packname (find-package (string-upcase packname)))
-                        (package-at-point)
-                        :cl))
-           (matches
-            (iter:iter
-             (iter:for c in-package package)
-             (let ((str (string-downcase c)))
-               (when (starts-with-p str symname)
-                 (iter:collect str))))))
-      (cond
-       ((cdr matches)
-        ;; clearly this case warrants improvement
-        (let ((match (car matches)))
-          (dolist (next (cdr matches))
-            (setf match (subseq match 0 (mismatch match next))))
-          (if (find match matches :test 'equal)
-              (message "~D other match~:P, use prefix to see"
-                       (1- (length matches)))
-              (message "~D possible match~:P, use prefix to see"
-                       (length matches)))
-          (values (if packname
-                      (concatenate 'string packname ":" match)
-                      match)
-                  matches)))
-       (matches
-        (if packname
-            (concatenate 'string packname ":" (car matches))
-            (car matches)))
-       (t
-        (message "no matches for ~S in ~S" symname package)
-        nil)))))
+(defun %find-symbol-completion/request
+       (show-matches-p prefix packname symname)
+  (let* ((package (or (and packname (find-package (string-upcase packname)))
+                      :cl))
+         (matches
+          (iter:iter
+           (iter:for c in-package package)
+           (let ((str (string-downcase c)))
+             (when (starts-with-p str symname)
+               (iter:collect str))))))
+    (hemlock::eval-in-master
+     `(%find-symbol-completion/results 
+       ',show-matches-p ',prefix ',matches))))
 
-
-(defun complete-symbol (&optional show-matches)
-  (multiple-value-bind (completion matches)
-                       (find-symbol-completion (symbol-string-at-point))
-    (let ((point (current-point)))
-      (when completion
+(defun %find-symbol-completion/results (show-matches-p prefix matches)
+  (let ((completion
+         (cond
+          ((cdr matches)
+           ;; clearly this case warrants improvement
+           (let ((match (car matches)))
+             (dolist (next (cdr matches))
+               (setf match (subseq match 0 (mismatch match next))))
+             (if (find match matches :test 'equal)
+                 (message "~D other match~:P, use prefix to see"
+                          (1- (length matches)))
+                 (message "~D possible match~:P, use prefix to see"
+                          (length matches)))
+             (values (if prefix
+                         (concatenate 'string prefix ":" match)
+                         match)
+                     matches)))
+          (matches
+           (if prefix
+               (concatenate 'string prefix ":" (car matches))
+               (car matches)))
+          (t
+           (message "no matches")
+           nil))))
+    (when completion
+      (let ((point (current-point)))
         (if *last-completion-mark*
             (move-mark *last-completion-mark* point)
             (setq *last-completion-mark* (copy-mark point :temporary)))
@@ -603,10 +596,28 @@
                                      (string-upcase completion)
                                      (word-capitalize completion))
                                  completion)))))))
-    (when (and show-matches matches)
+    (when (and show-matches-p matches)
       (with-pop-up-display (s)
         (dolist (match matches)
           (write-line match s))))))
+
+(defun find-symbol-completion (show-matches-p prefix)
+  (multiple-value-bind (package-prefix symname)
+                       (let ((p (position #\: prefix)))
+                         (if p
+                             (values (subseq prefix 0 p)
+                                     (string-downcase (subseq prefix (1+ p))))
+                             (values nil
+                                     (string-downcase prefix))))
+    (hemlock::eval-in-slave
+     `(%find-symbol-completion/request
+       ',(and show-matches-p t)
+        ',package-prefix
+        ',(or package-prefix (package-at-point))
+        ',symname))))
+
+(defun complete-symbol (&optional show-matches-p)
+  (find-symbol-completion show-matches-p (symbol-string-at-point)))
 
 (defhvar "Completion Function" ""
   :value 'completion-complete-word)

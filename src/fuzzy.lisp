@@ -16,23 +16,28 @@
 			     (values (subseq prefix 0 p)
 				     (string-downcase (subseq prefix (1+ p))))
 			     (values nil (string-downcase prefix))))
-    (let* ((package (or (and packname (find-package (string-upcase packname)))
-                        (package-at-point)
-                        :cl))
-	   (*buffer-package* package))
-      (destructuring-bind (matches exhaustedp)
-			  (fuzzy-completions symname (package-name package))
-	(declare (ignore exhaustedp))
-	(cond
-	 ((cdr matches)
-	  (split-window-command nil)
-	  (make-fuzzylist-buffer (mapcar #'parse-fuzzylist-entry matches))
-	  nil)
-	 (matches
-	  (caar matches))
-	 (t
-	  (message "no matches for ~S in ~S" symname package)
-	  nil))))))
+    (hemlock::eval-in-slave
+     `(%fuzzy-complete-symbol/request
+       ,(or packname (package-at-point) "CL")
+       ,symname))))
+
+(defun %fuzzy-complete-symbol/request (packname symname)
+  (hemlock::eval-in-master
+   `(%fuzzy-complete-symbol/results 
+     ',(let ((*buffer-package* packname))
+	 (fuzzy-completions symname packname)))))
+
+(defun %fuzzy-complete-symbol/results (results)
+  (destructuring-bind (matches exhaustedp) results
+    (declare (ignore exhaustedp))
+    (cond
+     ((cdr matches)
+      (split-window-command nil)
+      (make-fuzzylist-buffer (mapcar #'parse-fuzzylist-entry matches)))
+     (matches
+      (%fuzzy-insert-completion (caar matches)))
+     (t
+      (message "no matches")))))
 
 (defcommand "Fuzzy Complete Symbol" (&optional p)
   "" ""
@@ -69,9 +74,7 @@
 			       completion))))))))
 
 (defun fuzzy-complete-symbol (&optional show-matches)
-  (let ((completion (%fuzzy-complete-symbol (symbol-string-at-point))))
-    (when completion
-      (%fuzzy-insert-completion completion))))
+  (%fuzzy-complete-symbol (symbol-string-at-point)))
 
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
