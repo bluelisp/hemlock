@@ -52,8 +52,8 @@
 (deftermcap "ul" :boolean :underlines transparent-underline)
 
 ;;; font related stuff, added by William
-(deftermcap "ae" :string :end-alternate-char-set exit-alt-charset)
-(deftermcap "as" :string :start-alternate-char-set enter-alt-charset)
+(deftermcap "ae" :string :end-alternate-char-set exit-alt-charset-mode)
+(deftermcap "as" :string :start-alternate-char-set enter-alt-charset-mode)
 (deftermcap "mb" :string :start-blinking-attribute enter-blink-mode)
 (deftermcap "md" :string :start-bold-attribute enter-bold-mode)
 (deftermcap "me" :string :end-all-attributes exit-attribute-mode)
