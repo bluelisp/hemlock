@@ -513,3 +513,115 @@
     (clear-completion-display)))
 ;;;
 (add-hook redisplay-hook #'completion-redisplay-fun)
+
+
+;;;; The following is an attempt at Lisp symbol completion.
+;;;;
+;;;; It's already somewhat helpful, but regrettably unfinished in the
+;;;; following ways:
+;;;;
+;;;;  - completely unintegrated with the rest of this file
+;;;;  - when there are several completions, a pop up pops up only if the
+;;;;    user re-does the command with a prefix argument.  In other emacsen
+;;;;    it's enough to just re-type TAB.
+;;;;  - You can't choose anything from the pop up.
+;;;;  - It completes in the master, not the slave, which is pretty useless.
+;;;;    We need to go through something similar to SLAVE-APROPOS et al.
+
+(defun starts-with-p (string prefix)
+  (let ((mismatch (mismatch string prefix)))
+    (or (null mismatch) (= mismatch (length prefix)))))
+
+(defun find-symbol-completion (prefix)
+  (multiple-value-bind (packname symname)
+                       (let ((p (position #\: prefix)))
+                         (if p
+                             (values (subseq prefix 0 p)
+                                     (string-downcase (subseq prefix (1+ p))))
+                             (values nil (string-downcase prefix))))
+    (let* ((package (or (and packname (find-package (string-upcase packname)))
+                        (package-at-point)
+                        :cl))
+           (matches
+            (iter:iter
+             (iter:for c in-package package)
+             (let ((str (string-downcase c)))
+               (when (starts-with-p str symname)
+                 (iter:collect str))))))
+      (cond
+       ((cdr matches)
+        ;; clearly this case warrants improvement
+        (let ((match (car matches)))
+          (dolist (next (cdr matches))
+            (setf match (subseq match 0 (mismatch match next))))
+          (if (find match matches :test 'equal)
+              (message "~D other match~:P, use prefix to see"
+                       (1- (length matches)))
+              (message "~D possible match~:P, use prefix to see"
+                       (length matches)))
+          (values (if packname
+                      (concatenate 'string packname ":" match)
+                      match)
+                  matches)))
+       (matches
+        (if packname
+            (concatenate 'string packname ":" (car matches))
+            (car matches)))
+       (t
+        (message "no matches for ~S in ~S" symname package)
+        nil)))))
+
+
+(defun complete-symbol (&optional show-matches)
+  (multiple-value-bind (completion matches)
+                       (find-symbol-completion (symbol-string-at-point))
+    (let ((point (current-point)))
+      (when completion
+        (if *last-completion-mark*
+            (move-mark *last-completion-mark* point)
+            (setq *last-completion-mark* (copy-mark point :temporary)))
+        (let ((mark *last-completion-mark*))
+          (reverse-find-attribute mark :completion-wordchar #'zerop)
+          (let* ((region (region mark point))
+                 (string (region-to-string region)))
+            (declare (simple-string string))
+            (delete-region region)
+            (let* ((first (position-if #'alpha-char-p string))
+                   (next (if first (position-if #'alpha-char-p string
+                                                :start (1+ first)))))
+              ;; Often completions start with asterisks when hacking on Lisp
+              ;; code, so we look for alphabetic characters.
+              (insert-string point
+                             ;; Leave the cascading IF's alone.
+                             ;; Writing this as a COND, using LOWER-CASE-P as
+                             ;; the test is not equivalent to this code since
+                             ;; numbers (and such) are nil for LOWER-CASE-P and
+                             ;; UPPER-CASE-P.
+                             (if (and first (upper-case-p (schar string first)))
+                                 (if (and next
+                                          (upper-case-p (schar string next)))
+                                     (string-upcase completion)
+                                     (word-capitalize completion))
+                                 completion)))))))
+    (when (and show-matches matches)
+      (with-pop-up-display (s)
+        (dolist (match matches)
+          (write-line match s))))))
+
+(defhvar "Completion Function" ""
+  :value 'completion-complete-word)
+
+(defhvar "Completion Function" ""
+  :mode "Lisp" :value 'complete-symbol)
+
+(defcommand "Complete For Mode" (p)
+  "" ""
+  (funcall (value completion-function) p))
+
+(defcommand "Indent Or Complete" (p)
+  """"
+  (if (let ((mark (current-point)))
+        (or (zerop (mark-charpos mark))
+            (test-char (previous-character mark) :lisp-syntax :whitespace)))
+      (indent-command p)
+      (complete-for-mode-command p)))
