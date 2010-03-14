@@ -229,7 +229,8 @@
                           (ccref osicat-posix::cflag-vstart)
                           (ccref osicat-posix::cflag-vstop)
                           (ccref osicat-posix::cflag-vsusp)
-                          (ccref osicat-posix::cflag-vdsusp)
+                          (when (boundp 'osicat-posix::cflag-vdsusp)
+                            (ccref osicat-posix::cflag-vdsusp))
                           (ccref osicat-posix::cflag-vmin)
                           (ccref osicat-posix::cflag-vtime)))
             (setf osicat-posix::lflag
@@ -253,7 +254,7 @@
             (setf (ccref osicat-posix::cflag-vstart) #xff)
             (setf (ccref osicat-posix::cflag-vstop) #xff)
             (setf (ccref osicat-posix::cflag-vsusp) #xff)
-            (when (boundp osicat-posix::cflag-vdsusp)
+            (when (boundp 'osicat-posix::cflag-vdsusp)
               ;; Default VDSUSP is C-y; it causes SIGTSTP on BSD-heritage
               ;; systems -- but may be undefined elsewhere.
               (setf (ccref osicat-posix::cflag-vdsusp) #xff))
@@ -365,9 +366,10 @@
 		  (ccref osicat-posix::cflag-vquit) (elt *old-c-cc* 4)
 		  (ccref osicat-posix::cflag-vstart) (elt *old-c-cc* 5)
 		  (ccref osicat-posix::cflag-vstop) (elt *old-c-cc* 6)
-		  (ccref osicat-posix::cflag-vsusp) (elt *old-c-cc* 7)
-		  (ccref osicat-posix::cflag-vdsusp) (elt *old-c-cc* 8)
-		  (ccref osicat-posix::cflag-vmin) (elt *old-c-cc* 9)
+		  (ccref osicat-posix::cflag-vsusp) (elt *old-c-cc* 7))
+            (when (boundp 'osicat-posix::cflag-vdsusp)
+              (setf (ccref osicat-posix::cflag-vdsusp) (elt *old-c-cc* 8)))
+            (setf (ccref osicat-posix::cflag-vmin) (elt *old-c-cc* 9)
 		  (ccref osicat-posix::cflag-vtime) (elt *old-c-cc* 10)))
           (osicat-posix::tcsetattr fd osicat-posix::tcsaflush tios))))))
 
