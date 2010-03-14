@@ -386,6 +386,9 @@
 (bind-key "Describe Symbol" #k"control-meta-S")
 (bind-key "Goto Definition" #k"control-meta-F")
 
+(bind-key "Fuzzy Complete Symbol" #k"control-c meta-i" :mode "Lisp")
+
+
 
 ;;;; Debug mode
 
@@ -819,6 +822,15 @@
 (bind-key "Apropos Find Definition" #k"." :mode "Apropos")
 (bind-key "Apropos Describe" #k"space" :mode "Apropos")
 (bind-key "Apropos Help" #k"?" :mode "Apropos")
+
+
+
+;;;; Fuzzylist
+
+(bind-key "Fuzzylist Pick" #k"space" :mode "Fuzzylist")
+(bind-key "Fuzzylist Quit" #k"q" :mode "Fuzzylist")
+(bind-key "Fuzzylist Find Definition" #k"." :mode "Fuzzylist")
+(bind-key "Fuzzylist Help" #k"?" :mode "Fuzzylist")
 
 
 

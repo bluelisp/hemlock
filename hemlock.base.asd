@@ -236,6 +236,8 @@
                (:file "xref")
                #+port-user-lisp-lib (:file "lisp-lib")
                (:file "completion")
+               (:file "cpc")
+               (:file "fuzzy")
                (:file "shell")
                (:file "debug")
                #+port-user-netnews (:file "netnews")
