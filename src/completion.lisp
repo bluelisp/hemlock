@@ -633,7 +633,9 @@
   """"
   (if (let ((mark (current-point)))
         (or (zerop (mark-charpos mark))
-            (test-char (previous-character mark) :lisp-syntax :whitespace)))
+            ;; why doesn't this work?
+            ;; (test-char (next-character mark) :lisp-syntax :whitespace)
+            (find (previous-character mark) '(#\space #\tab #\newline))))
       (indent-command p)
       (complete-for-mode-command p)))
 
