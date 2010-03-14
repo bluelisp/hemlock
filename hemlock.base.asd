@@ -62,7 +62,9 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:bordeaux-threads
+     :depends-on (:alexandria
+                  :bordeaux-threads
+                  :conium
                   :trivial-gray-streams
                   :iterate
                   :prepl

@@ -490,38 +490,14 @@
   "Takes a symbol or function and returns the pathname for the file the
    function was defined in.  If it was not defined in some file, nil is
    returned."
-  #-CMU(declare (ignorable function))
-  #+CMU
-  (flet ((frob (code)
-           (let ((info (kernel:%code-debug-info code)))
-             (when info
-               (let ((sources (c::debug-info-source info)))
-                 (when sources
-                   (let ((source (car sources)))
-                     (when (eq (c::debug-source-from source) :file)
-                       (c::debug-source-name source)))))))))
-    (typecase function
-      (symbol (fun-defined-from-pathname (fdefinition function)))
-      (kernel:byte-closure
-       (fun-defined-from-pathname (kernel:byte-closure-function function)))
-      (kernel:byte-function
-       (frob (c::byte-function-component function)))
-      (function
-       (frob (kernel:function-code-header (kernel:%function-self function))))
-      (t nil)))
-    #+openmcl
-    (flet ((true-namestring (path) (namestring (truename path))))
-      (typecase function
-        (function (fun-defined-from-pathname (ccl::function-name function)))
-        (symbol (let* ((info (ccl::%source-files function)))
-                  (if (atom info)
-                    (true-namestring info)
-                    (let* ((finfo (assq 'function info)))
-                      (when finfo
-                        (true-namestring
-                         (if (atom finfo)
-                           finfo
-                           (car finfo)))))))))))
+  (let ((location (conium:find-source-location
+                   (if (functionp function)
+                       function
+                       (fdefinition function)))))
+    (when (alexandria:starts-with :location location)
+      (let ((file (second location)))
+        (when (alexandria:starts-with :file file)
+          (pathname (second file)))))))
 
 
 (defvar *editor-describe-stream*
