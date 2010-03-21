@@ -33,8 +33,6 @@
 
 (declaim (special *window-list*))
 
-(eval-when (:compile-toplevel :execute)
-
 ;;; REDISPLAY-LOOP -- Internal.
 ;;;
 ;;; This executes internal redisplay routines on all windows interleaved with
@@ -69,55 +67,43 @@
 ;;; redisplay methods throw to this to abort redisplay in addition to this
 ;;; code.
 ;;;
-(defmacro redisplay-loop (general-fun special-fun &optional (afterp t))
-  (let* ((device (gensym)) (point (gensym)) (hunk (gensym)) (n-res (gensym))
-         (win-var (gensym))
-         (general-form (if (symbolp general-fun)
-                           `(,general-fun ,win-var)
-                           `(funcall ,general-fun ,win-var)))
-         (special-form (if (symbolp special-fun)
-                           `(,special-fun ,win-var)
-                           `(funcall ,special-fun ,win-var))))
-    `(let ((,n-res nil)
-           (*in-redisplay* t))
-       (catch 'redisplay-catcher
-         (when (listen-editor-input *real-editor-input*)
-           (throw 'redisplay-catcher :editor-input))
-         (let ((,win-var *current-window*))
-           (when ,special-form
-             (setf ,n-res t)))
-         (dolist (,win-var *window-list*)
-           (unless (eq ,win-var *current-window*)
-             (when (listen-editor-input *real-editor-input*)
-               (throw 'redisplay-catcher :editor-input))
-             (when (if (window-display-recentering ,win-var)
-                       ,special-form
-                       ,general-form)
-                (setf ,n-res t))))
-         (let* ((,hunk (window-hunk *current-window*))
-                (,device (device-hunk-device ,hunk))
-                (,point (window-point *current-window*)))
-           (move-mark ,point (buffer-point (window-buffer *current-window*)))
-           (multiple-value-bind (x y)
-                                (mark-to-cursorpos ,point *current-window*)
-             (if x
-                 (device-put-cursor ,device ,hunk x y)
-                 (setf ,n-res t)))
-           (device-force-output ,device)
-           ,@(if afterp
-                 (list
-                  `(progn
-                    (device-after-redisplay ,device)
-                     ;; The after method may have queued input that the input
-                     ;; loop won't see until the next input arrives, so check
-                     ;; here to return the correct value as per the redisplay
-                     ;; contract.
-                     (when (listen-editor-input *real-editor-input*)
-                       (setf ,n-res :editor-input)))))
-           ,n-res)))))
-
-) ;eval-when
-
+(defun redisplay-loop (general-fun special-fun &optional (afterp t))
+  (let ((n-res nil)
+        (*in-redisplay* t))
+    (catch 'redisplay-catcher
+      (when (listen-editor-input *real-editor-input*)
+        (throw 'redisplay-catcher :editor-input))
+      (let ((win *current-window*))
+        (when (funcall special-fun win)
+          (setf n-res t)))
+      (dolist (win *window-list*)
+        (unless (eq win *current-window*)
+          (when (listen-editor-input *real-editor-input*)
+            (throw 'redisplay-catcher :editor-input))
+          (when (funcall (if (window-display-recentering win)
+                             special-fun
+                             general-fun)
+                         win)
+            (setf n-res t))))
+      (let* ((hunk (window-hunk *current-window*))
+             (device (device-hunk-device hunk))
+             (point (window-point *current-window*)))
+        (move-mark point (buffer-point (window-buffer *current-window*)))
+        (multiple-value-bind (x y)
+                             (mark-to-cursorpos point *current-window*)
+          (if x
+              (device-put-cursor device hunk x y)
+              (setf n-res t)))
+        (device-force-output device)
+        (when afterp
+          (device-after-redisplay device)
+          ;; The after method may have queued input that the input
+          ;; loop won't see until the next input arrives, so check
+          ;; here to return the correct value as per the redisplay
+          ;; contract.
+          (when (listen-editor-input *real-editor-input*)
+            (setf n-res :editor-input)))
+        n-res))))
 
 ;;; REDISPLAY -- Public.
 ;;;
@@ -137,7 +123,7 @@
            (setf *screen-image-trashed* nil)
            t))
         (t
-         (redisplay-loop redisplay-window redisplay-window-recentering))))
+         (redisplay-loop #'redisplay-window #'redisplay-window-recentering))))
 
 
 ;;; REDISPLAY-ALL -- Public.
@@ -159,7 +145,7 @@
           ;; It's cleared whether we did clear it or there was no method.
           (push device cleared-devices)))))
   (redisplay-loop
-   redisplay-window-all
+   #'redisplay-window-all
    #'(lambda (window)
        (setf (window-tick window) (tick))
        (update-window-image window)
@@ -185,7 +171,7 @@
            (setf *screen-image-trashed* nil)
            t))
         (t
-         (redisplay-loop redisplay-window redisplay-window-recentering))))
+         (redisplay-loop #'redisplay-window #'redisplay-window-recentering))))
 
 ;;; REDISPLAY-WINDOWS-FROM-MARK -- Internal Interface.
 ;;;
