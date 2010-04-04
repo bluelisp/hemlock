@@ -741,7 +741,8 @@
     (add-command-action menu "Save All Files and Exit"))
   (let ((menu (#_addMenu parent "View")))
     (add-command-action menu "Toggle Menu Bar")
-    (add-command-action menu "Toggle Tab Bar"))
+    (add-command-action menu "Toggle Tab Bar")
+    (add-command-action menu "Toggle Full Screen"))
   (let ((menu (#_addMenu parent "Lisp")))
     (add-command-action menu "Start Slave Thread")
     (add-command-action menu "Start Slave Process")
@@ -1585,6 +1586,14 @@
     "" ""
   (let ((menubar (#_menuBar (main-window))))
     (#_setVisible menubar (not (#_isVisible menubar)))))
+
+(defcommand "Toggle Full Screen" (p)
+  "" ""
+  (let ((win (main-window)))
+    (if (logtest (#_windowState win)
+                 (primitive-value (#_Qt::WindowFullScreen)))
+        (#_showNormal win)
+        (#_showFullScreen win))))
 
 #+nil
 (defcommand "Def" (p)
