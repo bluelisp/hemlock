@@ -260,12 +260,6 @@
 
 ;;;; Changing window size
 
-(defun enlarge-window (window offset)
-  "offset in lines.  Can be negative."
-  (device-enlarge-window (device-hunk-device (window-hunk window))
-                         window
-                         offset))
-
 (defmethod device-enlarge-window ((device tty-device) window offset)
   (let* ((hunk (window-hunk window))
          (victim

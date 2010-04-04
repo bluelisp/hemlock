@@ -14,20 +14,24 @@
       (#_setUrl widget (#_new QUrl url))
       (let ((buffer
              (make-virtual-buffer name widget :modes '("QWebView"))))
+        #+nil
         (connect/string widget
                         (QSIGNAL "titleChanged(const QString&)")
                         (lambda (title)
                           (note-webkit-title-changed buffer title)))
+        #+nil
         (connect widget
                  (QSIGNAL "loadStarted()")
                  (lambda ()
                    (message "Loading page...")))
+        #+nil
         (connect/boolean widget
                          (QSIGNAL "loadFinished(bool)")
                          (lambda (ok)
                            (message (if ok
                                         "Page loaded."
                                         "Failed to load page."))))
+        #+nil
         (connect/int widget
                      (QSIGNAL "loadProgress(int)")
                      (lambda (p)

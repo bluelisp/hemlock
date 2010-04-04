@@ -1224,6 +1224,12 @@
     (unless new (editor-error "Could not make a new window."))
     (setf (current-window) new)))
 
+(defun hi::enlarge-window (window offset)
+  "offset in lines.  Can be negative."
+  (hi::device-enlarge-window (device-hunk-device (window-hunk window))
+                             window
+                             offset))
+
 (defcommand "Enlarge Window" (p)
   "" ""
   (hi::enlarge-window (current-window) (or p 1)))
