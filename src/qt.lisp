@@ -5,9 +5,10 @@
 (pushnew :qt hi::*available-backends*)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (named-readtables:defreadtable :hemlock.qt
+  (unless (named-readtables:find-readtable :hemlock.qt)
+    (named-readtables:defreadtable :hemlock.qt
       (:merge :qt)
-    (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun)))
+      (:dispatch-macro-char #\# #\k 'hemlock-ext::parse-key-fun))))
 
 (named-readtables:in-readtable :hemlock.qt)
 
@@ -163,7 +164,9 @@
 (defmethod initialize-instance :after ((instance hunk-widget) &key)
   (new instance)
   (#_setFocusPolicy instance (#_Qt::StrongFocus))
-  (#_setScene instance (#_new QGraphicsScene instance)))
+  (#_setScene instance (#_new QGraphicsScene instance))
+  (#_setHorizontalScrollBarPolicy instance (#_Qt::ScrollBarAlwaysOff))
+  (#_setVerticalScrollBarPolicy instance (#_Qt::ScrollBarAlwaysOff)))
 
 (defmethod device-init ((device qt-device))
   ;; (redisplay-all)
@@ -304,6 +307,11 @@
         ;; (setf *currently-selected-hunk* nil)
         (setf hi::*screen-image-trashed* t)
         (setf (qt-hunk-item new-hunk) (#_addWidget scene new-widget))
+        (#_setTransform (qt-hunk-item new-hunk)
+                        #+nil (#_translate (#_new QTransform)  1 2)
+                        (#_translate (#_rotate (#_scale (#_new QTransform) 2.0 2.0) 20)
+                                     50 0)
+                        nil)
         (let ((p (position *current-window* (slot-value device 'windows))))
           (setf (slot-value device 'windows)
                 (append (subseq (slot-value device 'windows) 0 p)
@@ -511,10 +519,10 @@
       (#_setSpacing vbox 0)
       (#_setMargin vbox 0)
       ;; fixme: should be a default, not a strict minimum:
-      (#_setMinimumSize wrapper
+      #+nil (#_setMinimumSize wrapper
                         (standard-width-in-pixels)
                         (* 25 (#_height metrics)))
-      (#_setMaximumHeight echo 100)
+      #+nil (#_setMaximumHeight echo 100)
       (values main echo font wrapper tabs))))
 
 (defun add-buffer-tab-hook (buffer)
@@ -551,6 +559,43 @@
 (add-hook hemlock::buffer-name-hook 'update-buffer-tab-hook)
 (add-hook hemlock::set-buffer-hook 'set-buffer-tab-hook)
 (add-hook hemlock::set-buffer-hook 'set-stack-widget-hook)
+
+(defun splitter-sizes (splitter)
+  (qt::qlist-to-list (#_sizes splitter)))
+
+(defun (setf splitter-sizes) (newval splitter)
+  (#_setSizes splitter (qt::qlist-append (qt::make-qlist<int>) newval))
+  newval)
+
+(defun resize-echo-area (nlines &optional widget)
+  (let* ((widget (or widget
+                     (qt-hunk-widget (window-hunk *echo-area-window*))))
+         (splitter (#_centralWidget (#_window widget)))
+         (new-height (with-object (metrics (#_new QFontMetrics *font*))
+                       (+ (* 2 *gutter*)
+                          (* nlines (#_height metrics))))))
+    (#_setMinimumHeight widget 1)
+    (destructuring-bind (top bottom)
+        (splitter-sizes splitter)
+      (let ((diff (- new-height bottom)))
+        (setf (splitter-sizes splitter)
+              (list (- top diff) new-height))))))
+
+(defun minimize-echo-area (&optional widget)
+  (resize-echo-area 1 widget))
+
+(defun enlarge-echo-area (&optional widget)
+  (resize-echo-area 7 widget))
+
+(defun set-window-hook (new-window)
+  (when (in-main-qthread-p)
+    (cond
+      ((eq new-window *echo-area-window*)
+       (enlarge-echo-area))
+      ((eq *current-window* *echo-area-window*)
+       (minimize-echo-area)))))
+
+(add-hook hemlock::set-window-hook 'set-window-hook)
 
 (defun signal-receiver (function)
   (make-instance 'signal-receiver
@@ -722,11 +767,15 @@
         (connect (#_new QShortcut key (#_window *main-hunk-widget*))
                  (QSIGNAL "activated()")
                  'control-g-handler))
+      (#_setMinimumHeight echo
+                          (with-object (metrics (#_new QFontMetrics *font*))
+                            (+ (* 2 *gutter*) (#_height metrics))))
       (restore-window-geometry window)
       (#_show window)
+      (minimize-echo-area echo)
       ;; undo the minimum set before, so that it's only a default
       ;; (fixme: it still overrides a saved geometry):
-      (#_setMinimumSize widget 0 0)
+      #+nil (#_setMinimumSize widget 0 0)
       (setf *notifier* (make-instance 'qt-repl::repl-notifier))
       (setf *executor* (make-instance 'qt-repl::repl-executer
                                       :notifier *notifier*)))))
@@ -976,7 +1025,7 @@
   #+nil "Courier New")
 
 (defvar *font-size*
-  11)
+  8)
 
 (defun redraw-widget (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-widget hunk) 'hunk)
@@ -1258,25 +1307,23 @@
 
 (defcommand "Def" (p)
   "" ""
-  (let* ((widget #+nil (#_new QWebView) (#_new QPushButton "test"))
+  (let* ((widget (#_new QWebView))
          (w (#_addWidget
              (#_scene (qt-hunk-widget (window-hunk (current-window))))
              widget)))
     (push widget *do-not-gc-list*)
     (push w *do-not-gc-list*)
-    #+nil (#_setUrl widget (#_new QUrl "file:///etc"))
-    (#_setZValue w 500)
-    #+nil
-    (#_setTransform (let* ((old (qt::qobject-class w))
-                           (old-ptr (qt::qobject-pointer w))
-                           (new (qt::find-qclass "QGraphicsItem"))
-                           (new-ptr (qt::%cast old-ptr
-                                               (qt::unbash old)
-                                               (qt::unbash new))))
-                      (make-instance 'qt::qobject
-                                     :class new
-                                     :pointer new-ptr))
+    (#_setUrl widget (#_new QUrl "http://www.google.com"))
+    #+nil (#_setZValue w 500)
+    #+nil (let* ((new-class (qt::find-qclass "QGraphicsItem"))
+                 (new-ptr (qt::%cast w new-class)))
+            (make-instance 'qt::qobject
+                           :class new-class
+                           :pointer new-ptr))
+    (#_setTransform w
+                    #+nil (#_translate (#_new QTransform)  1 2)
                     (#_translate (if p
                                      (#_rotate (#_scale (#_new QTransform) 0.75 0.75) 45)
-                                     (#_new QTransform)) 200 0)
+                                     (#_new QTransform))
+                                 400 0)
                     nil)))
