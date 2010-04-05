@@ -1096,11 +1096,11 @@
 
 (defun invoke-with-temporary-file-name (fun)
   (multiple-value-bind (fd pathname)
-                       (iolib.syscalls:%sys-mkstemp "/tmp/hemlock")
-    (iolib.syscalls:%sys-close fd)
+                       (isys:mkstemp "/tmp/hemlock")
+    (isys:close fd)
     (funcall fun pathname)
     (when (iolib.os::get-file-kind pathname nil)
-      (iolib.syscalls:%sys-unlink pathname))))
+      (isys:unlink pathname))))
 
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)

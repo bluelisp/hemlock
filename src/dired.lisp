@@ -576,8 +576,8 @@
 ;;;; Mach Operations
 
 (defun get-write-date (ses-name)
-  (iolib.syscalls:stat-mtime
-   (or (isys:%sys-stat ses-name)
+  (isys:stat-mtime
+   (or (isys:stat ses-name)
        (funcall *error-function* "Couldn't stat file ~S" ses-name))))
 
 ;;; SUB-RENAME-FILE must exist because we can't use Common Lisp's RENAME-FILE.
@@ -587,7 +587,7 @@
 ;;; have this problem.
 ;;;
 (defun sub-rename-file (ses-name1 ses-name2)
-  (isys:%sys-rename ses-name1 ses-name2))
+  (isys:rename ses-name1 ses-name2))
 
 (defun directory-existsp (ses-name)
   (iolib.os:directory-exists-p ses-name))
@@ -599,11 +599,11 @@
                       length-1)
                    (subseq ses-name 0 (1- (length ses-name)))
                    ses-name)))
-    (isys:%sys-mkdir name #o755)))
+    (isys:mkdir name #o755)))
 
 (defun delete-directory (ses-name)
   (declare (simple-string ses-name))
-  (isys:%sys-rmdir (subseq ses-name 0 (1- (length ses-name)))))
+  (isys:rmdir (subseq ses-name 0 (1- (length ses-name)))))
 
 
 

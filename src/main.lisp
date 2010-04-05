@@ -364,7 +364,7 @@ GB
 (defun hemlock (&optional x
                 &key (load-user-init t)
                      backend-type
-                     (display (iolib.syscalls:%sys-getenv "DISPLAY")))
+                     (display (isys:getenv "DISPLAY")))
   "Invokes the editor, Hemlock.  If X is supplied and is a symbol, the
    definition of X is put into a buffer, and that buffer is selected.  If X is
    a pathname, the file specified by X is visited in a new buffer.  If X is not

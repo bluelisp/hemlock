@@ -35,7 +35,7 @@
                  (eq (iolib.os:file-kind p) :directory)
                (iolib.pathnames:invalid-file-path () nil)))
         p
-        (iolib.syscalls:%sys-getcwd))))
+        (isys:getcwd))))
 
 (defun find-buffer (name)
   (getstring name hi::*buffer-names*))

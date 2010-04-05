@@ -309,21 +309,21 @@
     (dolist (char '(#\p #\q) (error "no pty found"))
       (dotimes (digit 16)
         (handler-case
-            (iolib.syscalls:%sys-open (format nil "/dev/pty~C~X" char digit)
-                                      iolib.syscalls:o-rdwr)
-          ((or iolib.syscalls:enoent
-               iolib.syscalls:enxio
-               iolib.syscalls:eio)
+            (isys:open (format nil "/dev/pty~C~X" char digit)
+                                      isys:o-rdwr)
+          ((or isys:enoent
+               isys:enxio
+               isys:eio)
            ())
           (:no-error (master-fd)
             (let ((slave-name (format nil "/dev/tty~C~X" char digit)))
               (handler-case
-                  (iolib.syscalls:%sys-open slave-name iolib.syscalls:o-rdwr)
-                ((or iolib.syscalls:enoent
-                     iolib.syscalls:enxio
-                     iolib.syscalls:eio)
+                  (isys:open slave-name isys:o-rdwr)
+                ((or isys:enoent
+                     isys:enxio
+                     isys:eio)
                  ()
-                 (iolib.syscalls:%sys-close master-fd))
+                 (isys:close master-fd))
                 (:no-error (slave-fd)
                   (return-from t
                     (values master-fd
@@ -335,7 +335,7 @@
   (multiple-value-bind (master slave slave-name)
       (find-a-pty)
     (let ((pc (make-process-connection command :slave-pty-name slave-name)))
-      (iolib.syscalls:%sys-close slave)
+      (isys:close slave)
       (make-pipelike-connection master
                                 master
                                 :name (or name (princ-to-string command))

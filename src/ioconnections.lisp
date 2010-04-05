@@ -13,7 +13,7 @@
 (defmethod dispatch-events-with-backend ((backend (eql :iolib)))
   (handler-case
       (iolib:event-dispatch *event-base* :one-shot t :min-step 0)
-    ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
+    ((or isys:etimedout isys:eagain) ())))
 
 (defmethod dispatch-events-no-hang-with-backend ((backend (eql :iolib)))
   (handler-case
@@ -21,7 +21,7 @@
                             :one-shot t
                             :timeout 0
                             :min-step 0)
-    ((or iolib.syscalls:etimedout iolib.syscalls:eagain) ())))
+    ((or isys:etimedout isys:eagain) ())))
 
 (defmethod invoke-later ((backend (eql :iolib)) fun)
   (iolib.multiplex:add-timer *event-base* fun 0 :one-shot t))
@@ -77,7 +77,7 @@
          (n
           ;; fixme: with-pointer-to-vector-data isn't portable
           (cffi-sys:with-pointer-to-vector-data (ptr buffer)
-            (iolib.syscalls:%sys-read fd ptr (length buffer)))))
+            (isys:read fd ptr (length buffer)))))
     (cond
       ((zerop n)
        :eof)
@@ -86,8 +86,8 @@
 
 (defmethod delete-connection :before ((connection iolib-connection))
   (with-slots (read-fd write-fd) connection
-    (when read-fd (iolib.syscalls:%sys-close read-fd))
-    (when write-fd (iolib.syscalls:%sys-close write-fd))))
+    (when read-fd (isys:close read-fd))
+    (when write-fd (isys:close write-fd))))
 
 (defmethod connection-listen ((connection iolib-connection))
   (iolib.multiplex:fd-readablep (connection-read-fd connection)))
@@ -115,7 +115,7 @@
                  (check-type bytes (simple-array (unsigned-byte 8) (*)))
                  (cffi-sys:with-pointer-to-vector-data (ptr bytes)
                    (let ((n-bytes-written
-                          (iolib.syscalls:%sys-write fd ptr (length bytes))))
+                          (isys:write fd ptr (length bytes))))
                      (unless (eql n-bytes-written (length bytes))
                        (push (subseq bytes n-bytes-written)
                              (connection-write-buffers connection)))))
@@ -147,7 +147,7 @@
     (note-connected instance)))
 
 (defmethod delete-connection :before ((connection process-connection/iolib))
-  (isys:%sys-kill (connection-pid connection) 15))
+  (isys:kill (connection-pid connection) 15))
 
 ;; ccl gives an exception in foreign code without this:
 #+ccl
@@ -165,26 +165,26 @@
        (stdin-read stdin-write stdout-read stdout-write file args directory
                    slave-pty-name)
   (maybe-without-interrupts
-   (iolib.syscalls:%sys-close stdin-write)
-   (iolib.syscalls:%sys-close stdout-read)
-   (iolib.syscalls:%sys-dup2 stdin-read 0)
-   (iolib.syscalls:%sys-dup2 stdout-write 1)
-   (iolib.syscalls:%sys-dup2 stdout-write 2)
-   (iolib.syscalls:%sys-close stdin-read)
-   (iolib.syscalls:%sys-close stdout-write)
+   (isys:close stdin-write)
+   (isys:close stdout-read)
+   (isys:dup2 stdin-read 0)
+   (isys:dup2 stdout-write 1)
+   (isys:dup2 stdout-write 2)
+   (isys:close stdin-read)
+   (isys:close stdout-write)
    (when slave-pty-name
-     (iolib.syscalls:%sys-setsid)
+     (isys:setsid)
      (handler-case
-         (iolib.syscalls:%sys-open "/dev/tty" iolib.syscalls:o-rdwr)
-       (iolib.syscalls:enoent ())
-       (iolib.syscalls:enxio ())
+         (isys:open "/dev/tty" isys:o-rdwr)
+       (isys:enoent ())
+       (isys:enxio ())
        (:no-error (fd)
-         (iolib.syscalls:%sys-ioctl fd osicat-posix:tiocnotty 0)
-         (iolib.syscalls:%sys-close fd)))
-     (iolib.syscalls:%sys-close 0)
-     (iolib.syscalls:%sys-open slave-pty-name iolib.syscalls:o-rdwr)
-     (iolib.syscalls:%sys-dup2 0 1)
-     (iolib.syscalls:%sys-dup2 0 2)
+         (isys:ioctl fd osicat-posix:tiocnotty 0)
+         (isys:close fd)))
+     (isys:close 0)
+     (isys:open slave-pty-name isys:o-rdwr)
+     (isys:dup2 0 1)
+     (isys:dup2 0 2)
      (cffi:with-foreign-object (tios 'osicat-posix::termios)
        (osicat-posix::tcgetattr 0 tios)
        (cffi:with-foreign-slots ((osicat-posix::iflag
@@ -210,7 +210,7 @@
                #o177)
          (osicat-posix::tcsetattr 0 osicat-posix::tcsaflush tios))))
    (when directory
-     (iolib.syscalls:%sys-chdir directory))
+     (isys:chdir directory))
    (let ((n (length args)))
      (cffi:with-foreign-object (argv :pointer (1+ n))
        (iter:iter (iter:for i from 0)
@@ -218,15 +218,15 @@
                   (setf (cffi:mem-aref argv :pointer i)
                         (cffi:foreign-string-alloc arg)))
        (setf (cffi:mem-aref argv :pointer n) (cffi:null-pointer))
-       (iolib.syscalls:%sys-execvp file argv)))
-   (iolib.syscalls::%sys-exit 1)))
+       (isys:execvp file argv)))
+   (isys::exit 1)))
 
 (defun %fork-and-exec (file args &optional directory slave-pty-name)
   (multiple-value-bind (stdin-read stdin-write)
-      (iolib.syscalls:%sys-pipe)
+      (isys:pipe)
     (multiple-value-bind (stdout-read stdout-write)
-        (iolib.syscalls:%sys-pipe)
-      (let ((pid (iolib.syscalls:%sys-fork)))
+        (isys:pipe)
+      (let ((pid (isys:fork)))
         (case pid
           (0 (%exec stdin-read
                     stdin-write
@@ -237,8 +237,8 @@
                     directory
                     slave-pty-name))
           (t
-           (iolib.syscalls:%sys-close stdin-read)
-           (iolib.syscalls:%sys-close stdout-write)
+           (isys:close stdin-read)
+           (isys:close stdout-write)
            (values pid stdout-read stdin-write)))))))
 
 
@@ -379,5 +379,5 @@
 #+(or)
 (trace connection-write
        %read
-       iolib.syscalls:%sys-read
-       iolib.syscalls:%sys-write)
+       isys:read
+       isys:write)

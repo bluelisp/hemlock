@@ -969,15 +969,15 @@
                                              :test #'char=)
                                    -1)))))
         (handler-case
-            (isys:%sys-lstat namestring)
+            (isys:lstat namestring)
           ((or isys:enoent isys:eloop) (c)
             (format t "Couldn't stat ~A -- ~A.~%" tail c))
           (:no-error (stat)
-            (let ((mode (iolib.syscalls:stat-mode stat))
-                  (uid (iolib.syscalls:stat-uid stat))
-                  (nlink (iolib.syscalls:stat-nlink stat))
-                  (size (iolib.syscalls:stat-size stat))
-                  (mtime (iolib.syscalls:stat-mtime stat)))
+            (let ((mode (isys:stat-mode stat))
+                  (uid (isys:stat-uid stat))
+                  (nlink (isys:stat-nlink stat))
+                  (size (isys:stat-size stat))
+                  (mtime (isys:stat-mtime stat)))
               ;;
               ;; Print characters for file modes.
               (write-file-mode mode)
@@ -994,13 +994,13 @@
                           size
                           (decode-universal-time-for-files mtime year)
                           tail
-                          (= (logand mode iolib.syscalls:s-ifmt)
-                             iolib.syscalls:s-ifdir))))
+                          (= (logand mode isys:s-ifmt)
+                             isys:s-ifdir))))
               ;;
               ;; return
               (when return-list
-                (push (if (= (logand mode iolib.syscalls:s-ifmt)
-                             iolib.syscalls:s-ifdir)
+                (push (if (= (logand mode isys:s-ifmt)
+                             isys:s-ifdir)
                           (pathname (concatenate 'string namestring "/"))
                           ;; let's return a namestring rather than an
                           ;; IOLIB pathname for now, to insulate the rest
