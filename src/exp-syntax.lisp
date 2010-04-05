@@ -67,113 +67,12 @@
 ;; descend parsers.
 
 (defun line-syntax-info (line)
-  (getf (line-plist line) 'syntax-info-4))
+  (tag-syntax-info (line-tag line)))
 
 (defun (setf line-syntax-info) (value line)
   (setf (getf (line-plist line) 'syntax-info-4) value))
 
-#|
-
-(defun hi::ensure-syntax-marks (line)
-  (let ((si (line-syntax-info line)))
-    (cond ((null si)
-           (setf si
-                 (setf (line-syntax-info line)
-                       (cons :frob nil)))))
-    (setf (line-syntax-info line)
-          (ensure-syntax-marks-2 line si))))
-
-(defun ensure-syntax-marks-2 (line si)
-  (destructuring-bind (signature . font-marks) si
-    (cond ((eq signature (line-signature line))
-           si)
-          (t
-           ;; work to do
-           ;; 1. remove font marks
-           (dolist (fm font-marks)
-             (hi::delete-font-mark fm))
-           (setf font-marks nil)
-           (let ((in-string-p nil)
-                 (in-comment-p nil))
-             (loop for p from 0 below (line-length line) do
-                   (cond ((char= (line-character line p) #\")
-                          (unless in-comment-p
-                            (if in-string-p
-                                (push (hi::font-mark line p 0) font-marks)
-                                (push (hi::font-mark line (1+ p) 2) font-marks))
-                            (setf in-string-p (not in-string-p))))
-                         ((char= (line-character line p) #\;)
-                          (unless (or in-string-p in-comment-p)
-                            (setf in-comment-p t)
-                            (push (hi::font-mark line p 1) font-marks))))))
-           (cons (line-signature line) font-marks)
-           ))))
-
-|#
-
-;; second approach:
-;; syntax-info: (signature start-state end-state font-marks)
-;;
-
-#|
-
-(defun empty-syntax-info ()
-  (list :frob nil nil nil))
-
-(defun hi::ensure-syntax-marks (line)
-  (let ((si (line-syntax-info line)))
-    (cond ((null si)
-           (setf si
-                 (setf (line-syntax-info line) (empty-syntax-info)))))
-    (setf (line-syntax-info line)
-          (ensure-syntax-marks-2 line si))))
-
-(defun line-syntax-info* (line)
-  (cond ((null line)
-         (list :frob nil (list nil) nil))
-        (t
-         (hi::ensure-syntax-marks line))))
-
-(defun ensure-syntax-marks-2 (line si)
-  (destructuring-bind (signature start end font-marks) si
-    (let ((prev-end (third (line-syntax-info* (line-previous line)))))
-      (cond ((and (eq signature (line-signature line))
-                  (equal start prev-end))
-             ;; no work
-             si)
-            (t
-             ;; work to do, but first remove old font marks
-             (dolist (fm font-marks)
-               (hi::delete-font-mark fm))
-             (setf font-marks nil)
-             ;; now do the highlighting
-             (let ((in-string-p (first prev-end))
-                   (in-comment-p nil))
-               (when in-string-p
-                 (push (hi::font-mark line 0 2) font-marks))
-               (loop for p from 0 below (line-length line) do
-                     (unless (and (> p 0)
-                                  (char= (line-character line (1- p)) #\\))
-                       (cond ((char= (line-character line p) #\")
-                              (unless in-comment-p
-                                (if in-string-p
-                                    (push (hi::font-mark line p 0) font-marks)
-                                    (push (hi::font-mark line (1+ p) 2) font-marks))
-                                (setf in-string-p (not in-string-p))))
-                             ((char= (line-character line p) #\;)
-                              (unless (or in-string-p in-comment-p)
-                                (setf in-comment-p t)
-                                (push (hi::font-mark line p 1) font-marks))))))
-               (print (list :ending :with (list in-string-p)) *trace-output*)
-               ;; return new info
-               (list (line-signature line)
-                     prev-end
-                     (list in-string-p)
-                     font-marks) ))))))
-
-|#
-
-(eval-when (compile eval load)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defun me (form)
     (cond ((atom form)
            (list form))
@@ -417,60 +316,52 @@
 
 ;;;;;;;;;;;;;
 
+(defun initial-syntax-state ()
+  (list 'initial 0))
+
 (defun empty-syntax-info ()
-  (list :frob nil (list 'initial 0) nil))
+  (make-syntax-info :frob nil (initial-syntax-state) nil))
 
-(defun hi::ensure-syntax-marks (line)
-  (let ((si (line-syntax-info line)))
-    (cond ((null si)
-           (setf si
-                 (setf (line-syntax-info line) (empty-syntax-info)))))
-    (setf (line-syntax-info line)
-          (ensure-syntax-marks-2 line si))))
-
-(defun line-syntax-info* (line)
-  (cond ((null line)
-         (empty-syntax-info))
-        (t
-         (hi::ensure-syntax-marks line))))
-
-(defun ensure-syntax-marks-2 (line si)
-  (destructuring-bind (signature start end font-marks) si
-    (let ((prev-end (third (line-syntax-info* (line-previous line)))))
-      (cond ((and (eq signature (line-signature line))
-                  (equal start prev-end))
-             ;; no work
-             si)
-            (t
-             ;; work to do, but first remove old font marks
-             (dolist (fm font-marks)
-               (hi::delete-font-mark fm))
-             (setf font-marks nil)
-             ;; now do the highlighting
-             (let ((state prev-end)
-                   (last-font 0))
-               ;;(print `(:begin ,state) *trace-output*)
-               (loop for p from 0 below (line-length line) do
-                     (let ((ch (line-character line p)))
-                       (setf state (step** state ch))
-                       (let ((font (state-font state)))
-                         (unless (eq font last-font)
-                           (push (hi::font-mark line p font) font-marks)
-                           (setf last-font font)))))
-               (setf state (step** state #\newline))
-               ;; hack
-               (let ((s (line-string line)) p1 p2)
-                 (when (and (eql 0 (search "(def" s))
-                            (setf p1 (position #\space s))
-                            (setf p2 (position #\space s :start (1+ p1))))
-                   (push (hi::font-mark line (1+ p1) 5) font-marks)
-                   (push (hi::font-mark line p2 0) font-marks)))
-               ;;(print (list prev-end state) *trace-output*)
-               ;; return new info
-               (list (line-signature line)
-                     prev-end
-                     state
-                     font-marks) ))))))
+(defun recompute-syntax-marks (line tag)
+  (let* ((sy (or (tag-syntax-info tag)
+                 (empty-syntax-info)))
+         (prev (line-previous line))
+         (prev-to (if prev
+                      (sy-to-state (tag-syntax-info (%line-tag prev)))
+                      (initial-syntax-state)))
+         (font-marks (sy-font-marks sy)))
+    (cond ((and (eq (sy-signature sy) (line-signature line))
+                (equal (sy-from-state sy) prev-to))
+           ;; no work
+           sy)
+          (t
+           ;; work to do, but first remove old font marks
+           (dolist (fm font-marks)
+             (hi::delete-font-mark fm))
+           (setf font-marks nil)
+           ;; now do the highlighting
+           (let ((state prev-to)
+                 (last-font 0))
+             ;;(print `(:begin ,state) *trace-output*)
+             (loop for p from 0 below (line-length line) do
+                  (let ((ch (line-character line p)))
+                    (setf state (step** state ch))
+                    (let ((font (state-font state)))
+                      (unless (eq font last-font)
+                        (push (hi::font-mark line p font) font-marks)
+                        (setf last-font font)))))
+             (setf state (step** state #\newline))
+             ;; hack
+             (let ((s (line-string line)) p1 p2)
+               (when (and (eql 0 (search "(def" s))
+                          (setf p1 (position #\space s))
+                          (setf p2 (position #\space s :start (1+ p1))))
+                 (push (hi::font-mark line (1+ p1) 5) font-marks)
+                 (push (hi::font-mark line p2 0) font-marks)))
+             (make-syntax-info (line-signature line)
+                               prev-to
+                               state
+                               font-marks) )))))
 
 (defun state-font (state)
   (cond ((member 'hash-plus state)
@@ -486,6 +377,52 @@
              (hash-plus 6)
              (hash-minus 7)
              ((nil) 0))))))
+
+
+;;;; Tag computation
+
+;; This should probably go into a different file
+
+(defun line-tag (line)
+  (let ((buffer (line-buffer line)))
+    (cond
+     ((null buffer)
+      nil)
+     (t
+      (unless (< (line-number line)
+                 (buffer-tag-line-number buffer))
+        (recompute-tags-up-to line)
+        (setf (buffer-tag-line-number buffer) (1+ (line-number line))))
+      (%line-tag line)))))
+
+(defun recompute-tags-up-to (end-line)
+  (let* ((level (buffer-tag-line-number (line-buffer end-line)))
+         (start-line
+          (iter (for line initially end-line then prev)
+                (for prev = (line-previous line))
+                (let ((validp (< (line-number line) level)))
+                  (finding line such-that (or validp (null prev)))))))
+    (unless (line-previous start-line)
+      (setf (%line-tag start-line) (make-tag :syntax-info (empty-syntax-info)))
+      (setf start-line (line-next start-line)))
+    (iter (for line initially start-line then (line-next line))
+          (while line)
+          (recompute-line-tag line)
+          (until (eq line end-line)))))
+
+(defun recompute-line-tag (line)
+  (let* ((prev (line-previous line))
+         (ptag (%line-tag prev))
+         (tag (or (%line-tag line)
+                  (setf (%line-tag line) (make-tag)))))
+    (let ((new-line (1+ (tag-line-number ptag)))
+          (new-offset (+ (tag-offset ptag) (line-length* prev))))
+      (unless (and (eql (tag-line-number tag) new-line)
+                   (eql (tag-offset tag) new-offset))
+        (incf (tag-ticks tag)))
+      (setf (tag-line-number tag) new-line)
+      (setf (tag-offset tag) new-offset))
+    (setf (tag-syntax-info tag) (recompute-syntax-marks line tag))))
 
 ;; $Log: exp-syntax.lisp,v $
 ;; Revision 1.1  2004-07-09 15:16:14  gbaumann

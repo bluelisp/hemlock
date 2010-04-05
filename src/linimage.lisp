@@ -407,6 +407,15 @@
             (font-change-mark new-fc) ,mark)
       new-fc)))
 
+(defun sync-dis-line-tag (line dis-line)
+  (let ((tag (line-tag line)))
+    (unless (and (eq (dis-line-tag dis-line) tag)
+                 (eql (dis-line-tag-ticks dis-line) (tag-ticks tag)))
+      (setf (dis-line-flags dis-line)
+            (logior retag-bit (dis-line-flags dis-line)))
+      (setf (dis-line-tag dis-line) tag)
+      (setf (dis-line-tag-ticks dis-line) (tag-ticks tag)))))
+
 ;;;
 ;;; compute-line-image  --  Internal
 ;;;
@@ -433,7 +442,14 @@
 ;;;    3) The index in line after the last character displayed.
 ;;;
 (defun compute-line-image (string underhang line offset dis-line width)
-  (ensure-syntax-marks line)
+  ;;
+  ;; Check the tag.
+  ;;
+  ;; FIXME This isn't sufficient, because we don't get called in cases
+  ;; where line contents are unchanged.  For now, the backend papers
+  ;; over that, but this should get moved elsewhere.
+  ;;
+  (sync-dis-line-tag line dis-line)
   ;;
   ;; Release any old font-changes.
   (let ((changes (dis-line-font-changes dis-line)))

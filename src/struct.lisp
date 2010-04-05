@@ -91,7 +91,8 @@
   display-start               ; Window display start when switching to buf.
   %modeline-fields            ; List of modeline-field-info's.
   (delete-hook nil)           ; List of functions to call upon deletion.
-  (widget nil))
+  (widget nil)                ; for virtual buffers, the Qt widget to show
+  (tag-line-number -1))       ; tags valid for earlier lines only
 
 (defun virtual-buffer-p (buffer)
   (and (buffer-widget buffer) t))
@@ -302,7 +303,9 @@
   (delta 0 :type fixnum)      ; # lines moved from previous position.
   (position 0 :type fixnum)   ; Line # to be displayed on.
   (end 0 :type fixnum)        ; Index after last logical character displayed.
-  (tick 0))
+  (tick 0)
+  (tag nil :type (or null tag))
+  (tag-ticks -1 :type fixnum))
 
 (defstruct (font-change (:copier nil)
                         (:constructor make-font-change (next)))

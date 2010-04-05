@@ -100,7 +100,12 @@
     :accessor line-buffered-p
     :documentation "A slot that indicates whether this line is a buffered line, and if so
                     contains information about how the text is stored. On the RT, this is
-                    the length of the text pointed to by the Line-%Chars"))
+                    the length of the text pointed to by the Line-%Chars")
+   (tag
+    :accessor %line-tag
+    :initform nil
+    :documentation "Line tag, which records information available only if all
+                    preceding lines have been analyzed yet."))
   (:documentation
    "A Hemlock line object.  See Hemlock design document for details."))
 
@@ -112,6 +117,21 @@
 
 (defmethod linep ((object t))
   nil)
+
+(defstruct (syntax-info
+             (:conc-name "SY-")
+             (:constructor make-syntax-info
+                           (signature from-state to-state font-marks)))
+  (signature :bogus-signature)
+  from-state
+  to-state
+  font-marks)
+
+(defstruct tag
+  (ticks -1)
+  (line-number 1 :type (integer 1))
+  (offset 0 :type (integer 0))
+  (syntax-info nil :type (or null syntax-info)))
 
 ;;; Make Line-Chars the same as Line-%Chars on implementations without
 ;;; buffered lines.

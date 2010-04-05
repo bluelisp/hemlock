@@ -103,25 +103,37 @@
 
 ;;;; Insertion
 
+(defun update-tag-line-number (mark)
+  (let* ((line (mark-line mark))
+         (buffer (line-buffer line)))
+    (when buffer
+      (setf (buffer-tag-line-number buffer)
+            (min (buffer-tag-line-number buffer)
+                 (line-number line))))))
+
 (defmethod insert-character :around (mark character)
   (push `(insert-string ,(mark-position mark) ,(string character))
         (buffer-undo-list (line-buffer (mark-line mark))))
+  (update-tag-line-number mark)
   (call-next-method))
 
 (defmethod insert-string :around (mark string &optional (start 0) (end (length string)))
   (push `(insert-string ,(mark-position mark) ,(subseq string start end))
         (buffer-undo-list (line-buffer (mark-line mark))))
+  (update-tag-line-number mark)
   (call-next-method))
 
 (defmethod insert-region :around (mark region)
   (push `(insert-string ,(mark-position mark) ,(region-to-string region))
         (buffer-undo-list (line-buffer (mark-line mark))))
+  (update-tag-line-number mark)
   (call-next-method))
 
 (defmethod ninsert-region :around (mark region)
   ;; the "n" refers to the region argument.
   (push `(insert-region ,(mark-position mark) ,(region-to-string region))
         (buffer-undo-list (line-buffer (mark-line mark))))
+  (update-tag-line-number mark)
   (call-next-method))
 
 ;;;; Deletion
@@ -154,10 +166,12 @@
   (delete-and-save-region region))
 
 (defmethod delete-and-save-region :around (region)
-  (let ((pos (mark-position (region-start region)))
-        (matter (call-next-method)))
+  (let* ((mark (region-start region))
+         (pos (mark-position mark))
+         (matter (call-next-method)))
     (push `(delete-region ,pos ,(region-to-string matter))
           (buffer-undo-list (car pos)))
+    (update-tag-line-number mark)
     matter))
 
 ;;;;

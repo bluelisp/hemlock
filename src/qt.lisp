@@ -1124,7 +1124,7 @@
   "Sans")
 
 (defvar *font-size*
-  8)
+  10)
 
 (defun redraw-widget (device window hunk buffer modelinep)
   (setf (slot-value (qt-hunk-widget hunk) 'hunk)
@@ -1294,6 +1294,20 @@
     (unless (zerop (dis-line-flags dl))
       (setf (hi::dis-line-tick dl) (incf *tick*)))
     (clear-line-items scene hunk position)
+    ;; 
+    (handler-case
+        (let* ((no (hi::tag-line-number (hi::dis-line-tag dl)))
+               (str (princ-to-string no)))
+          (push (add-chunk-item scene hunk str
+                                (- (+ (* w (length str)) (* 2 *gutter*)))
+                                (+ 1 y)
+                                0
+                                (length str)
+                                (if (zerop (mod no 5))
+                                    16
+                                    15))
+                (line-items hunk position)))
+      (error (c) (warn "~A" c)))
     ;; font changes
     (let ((start 0)
           (font 0)
@@ -1434,8 +1448,12 @@
          (dl (cdr first) (cdr dl)))
         ((eq dl the-sentinel)
          (setf (window-old-lines window) (1- i)))
-      (when (or dumb (plusp (dis-line-flags (car dl))))
-        (update-line-items scene hunk (car dl))))
+      (let ((dis-line (car dl)))
+        ;; fixme.  See comment in COMPUTE-LINE-IMAGE:
+        (hi::sync-dis-line-tag (hi::dis-line-line dis-line) dis-line)
+
+        (when (or dumb (plusp (dis-line-flags dis-line)))
+          (update-line-items scene hunk dis-line))))
 
     ;; modeline
     (when (window-modeline-buffer window)
@@ -1501,8 +1519,9 @@
                   #x0000ff #xbebebe
                   #xff00ff #xbebebe
                   #x00ffff #xbebebe
-                  #xbebebe #x000000)
-                (* 2 (mod font-color 16)))))
+                  #xbebebe #x000000
+                  #xffffff #x000000)
+                (* 2 (mod font-color 17)))))
       (with-objects ((color (#_new QColor
                                    (ldb (byte 8 16) color)
                                    (ldb (byte 8 8) color)
