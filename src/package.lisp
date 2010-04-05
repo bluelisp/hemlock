@@ -578,7 +578,7 @@
    ))
 
 (defpackage :hemlock-internals
-  (:use :common-lisp :hemlock-interface :command-line-arguments)
+  (:use :common-lisp :hemlock-interface :command-line-arguments :iterate)
   (:nicknames :hi)
   (:shadow #:char-code-limit #:show-option-help)
   (:use trivial-gray-streams)
@@ -760,7 +760,7 @@
 
 
 (defpackage :hemlock
-  (:use :common-lisp :hemlock-interface :hi :hemlock-ext)
+  (:use :common-lisp :hemlock-interface :hi :hemlock-ext :iterate)
 ;;;  (:import-from :hemlock-ext #:delq #:memq #:assq)
 ;;;  (:import-from :hemlock-internals #:*fast*)
   (:import-from :hemlock-internals #:hemlock)
