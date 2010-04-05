@@ -130,7 +130,6 @@
 (defstruct tag
   (ticks -1)
   (line-number 1 :type (integer 1))
-  (offset 0 :type (integer 0))
   (syntax-info nil :type (or null syntax-info)))
 
 ;;; Make Line-Chars the same as Line-%Chars on implementations without

@@ -415,13 +415,10 @@
          (ptag (%line-tag prev))
          (tag (or (%line-tag line)
                   (setf (%line-tag line) (make-tag)))))
-    (let ((new-line (1+ (tag-line-number ptag)))
-          (new-offset (+ (tag-offset ptag) (line-length* prev))))
-      (unless (and (eql (tag-line-number tag) new-line)
-                   (eql (tag-offset tag) new-offset))
+    (let ((new-line (1+ (tag-line-number ptag))))
+      (unless (eql (tag-line-number tag) new-line)
         (incf (tag-ticks tag)))
-      (setf (tag-line-number tag) new-line)
-      (setf (tag-offset tag) new-offset))
+      (setf (tag-line-number tag) new-line))
     (setf (tag-syntax-info tag) (recompute-syntax-marks line tag))))
 
 ;; $Log: exp-syntax.lisp,v $
