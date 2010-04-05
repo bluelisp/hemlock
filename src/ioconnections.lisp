@@ -1,6 +1,7 @@
 ;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
 (in-package :hi)
+#+sbcl (declaim (optimize (speed 2)))
 
 (defmethod invoke-with-event-loop ((backend (eql :iolib)) fun)
   ;; the epoll muxer gives me segfaults and memory corruption.
@@ -253,7 +254,7 @@
     (connection-note-event instance :initialized)
     (unless (or read-fd write-fd)
       (setf socket
-            (iolib.sockets:make-socket :address-family :internet
+            (iolib.sockets:make-socket :address-family :ipv4
                                        :connect :active
                                        :type :stream
                                        :remote-host host
@@ -306,7 +307,7 @@
                       iolib.sockets:+ipv4-unspecified+)))
         (setf socket
               (flet ((doit (port)
-                       (iolib.sockets:make-socket :address-family :internet
+                       (iolib.sockets:make-socket :address-family :ipv4
                                                   :connect :passive
                                                   :type :stream
                                                   :local-host addr
@@ -319,7 +320,7 @@
                                  (:no-error (socket)
                                    (setf port p)
                                    (return socket))
-                                 (error ())))))))
+                                 (error (c) (warn "~A" c))))))))
       (setf fd (iolib.sockets:socket-os-fd socket)))
     (set-iolib-server-handlers instance)))
 
