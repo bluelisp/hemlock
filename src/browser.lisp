@@ -103,10 +103,9 @@
     (when buffer
       (change-to-buffer buffer))))
 
-(defcommand "Toggle Full Screen" (p)
+(defcommand "Browser Toggle Full Screen" (p)
   "" ""
   (declare (ignore p))
-  (print (#_window *main-stack*))
   (#_showFullScreen (#_window *main-stack*)))
 
 (defmode "QWebView" :major-p t)
