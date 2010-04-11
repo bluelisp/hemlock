@@ -59,11 +59,11 @@
 (defcommand "Select Font" (p)
   "Open a font dialog and change the current display font." ""
   (declare (ignore p))
-  (cffi:with-foreign-object (arg :char)
-    (let ((font (#_QFontDialog::getFont (qt::bool* arg) *font*)))
-      (when (zerop (cffi:mem-ref arg :char))
-        (editor-error "Font dialog cancelled"))
-      (setf *font* font))))
+  (let (font)
+    (unless (qt::with-&bool (arg nil)
+              (setf font (#_QFontDialog::getFont arg *font*)))
+      (editor-error "Font dialog cancelled"))
+    (setf *font* font)))
 
 (defparameter *gutter* 10
   "The gutter to place between between the matter in a hemlock pane and its
@@ -194,6 +194,19 @@
 
 (defmethod device-exit ((device qt-device)))
 
+(defmacro with-timer (&body body)
+  `(call-with-timer (lambda () ,@body)))
+
+(defun call-with-timer (fun)
+  (let ((a (get-internal-real-time)))
+    (multiple-value-prog1
+        (funcall fun)
+      (let ((b (get-internal-real-time)))
+        (format *trace-output*
+                " ~D"
+                (round(* (- b a) (/ 1000 internal-time-units-per-second))))
+        (force-output *trace-output*)))))
+
 (defmethod device-smart-redisplay ((device qt-device) window)
   (dumb-or-smart-redisplay device window nil))
 
@@ -279,7 +292,7 @@
       (setf (hunk-native-widget-item hunk) nil)
       (with-slots (itab) hunk
         (fill itab nil))
-      (qt:delete-object group))
+      (#_delete group))
     (setf (device-hunk-next prev) next)
     (setf (device-hunk-previous next) prev)
     (let ((buffer (window-buffer window)))
@@ -398,7 +411,7 @@
   (hi::q-event *editor-input* (qevent-to-key-event event)))
 
 (defun parse-modifiers (event)
-  (let ((mods (qt::primitive-value (#_modifiers event))))
+  (let ((mods (#_modifiers event)))
     (logior (if (logtest mods
                          (qt::primitive-value (#_Qt::ControlModifier)))
                 (hemlock-ext:key-event-bits #k"control-a")
@@ -406,7 +419,7 @@
             (if (or (logtest mods
                              (qt::primitive-value (#_Qt::MetaModifier)))
                     (and *alt-is-meta*
-                         (logtest (qt::primitive-value (#_modifiers event))
+                         (logtest mods
                                   (qt::primitive-value (#_Qt::AltModifier)))))
                 (hemlock-ext:key-event-bits #k"meta-a")
                 0))))
@@ -1056,8 +1069,6 @@
       (hi::change-window-image-height w (+ offset (window-height w))))
     (do ((hunk (device-hunk-next first) (device-hunk-next hunk)))
         ((eq hunk first))
-      (format sb-sys::*tty* "moving ~A by ~A~%" hunk offset)
-      (force-output sb-sys::*tty*)
       (incf (device-hunk-position hunk) offset)
       (incf (device-hunk-text-position hunk) offset))
     (let ((hunk (window-hunk *echo-area-window*)))
@@ -1236,7 +1247,7 @@
 (defun clear-line-items (scene hunk position)
   (declare (ignore scene))
   (dolist (old-item (line-items hunk position))
-    (qt:delete-object old-item))
+    (#_delete old-item))
   (setf (line-items hunk position) nil))
 
 (defun update-modeline-items (scene hunk dl)
@@ -1349,7 +1360,8 @@
   (declare (ignore window))
   (let* ((widget (qt-hunk-widget hunk))
          (scene (#_scene widget)))
-    (mapc #'qt:delete-object (hunk-background-items hunk))
+    (dolist (item (hunk-background-items hunk))
+      (#_delete item))
     (setf (hunk-background-items hunk)
           (when (qt-hunk-want-background-p hunk)
             (let ((offset (offset-on-each-side widget)))
@@ -1410,7 +1422,7 @@
           (when current-item
             (setf (hunk-native-widget-item hunk) nil)
             (#_setWidget current-item (qt::null-qobject "QWidget"))
-            (qt:delete-object current-item))
+            (#_delete current-item))
           (when native-widget
             (let ((item (#_new QGraphicsProxyWidget)))
               (#_setParent native-widget (qt::null-qobject "QWidget"))

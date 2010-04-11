@@ -31,7 +31,7 @@
     (cffi-sys:with-pointer-to-vector-data (ptr bytes)
       (let ((n-bytes-written
              (#_write (connection-io-device connection)
-                      (qt::char* ptr)
+                      ptr
                       (length bytes))))
         (when (minusp n-bytes-written)
           (error "error on socket: ~A" connection))
@@ -51,7 +51,7 @@
             0
             (cffi-sys:with-pointer-to-vector-data (ptr buffer)
               (let ((n-bytes-read
-                     (#_read io (qt::char* ptr) n-bytes-available)))
+                     (#_read io ptr n-bytes-available)))
                 (when (minusp n-bytes-read)
                   (error "error on socket: ~A" connection))
                 (assert (>= n-bytes-read n-bytes-available))
@@ -257,7 +257,9 @@
     (setf (connection-server instance) server)
     (connection-note-event instance :initialized)
     (unless (#_listen server
-                      (#_new QHostAddress (connection-host instance))
+                      (#_new QHostAddress
+                             :|const QString&|
+                             (connection-host instance))
                       (or (connection-port instance) 0))
       (error "failed to listen on connection ~A" instance))
     (setf (connection-port instance) (#_serverPort server))))
