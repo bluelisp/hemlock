@@ -646,18 +646,7 @@
   (cl-ppcre:regex-replace "^SB!" (string-upcase str) "SB-"))
 
 (defun package-at-point ()
-  (iter:iter
-   (iter:for line initially (mark-line (current-point))
-             then (line-previous line))
-   (iter:while line)
-   (cl-ppcre:register-groups-bind
-       (package)
-       ("^\\((?:[a-zA-Z]+:)?in-package (?:[^)]*::?)([^)]*)\\)" (line-string line))
-     (return (canonicalize-slave-package-name package)))
-   (cl-ppcre:register-groups-bind
-       (package)
-       ("^\\(in-package \"([^)]*)\"\\)" (line-string line))
-     (return (canonicalize-slave-package-name package)))))
+  (hi::tag-package (hi::line-tag (mark-line (current-point)))))
 
 #+(or)
 (defcommand "Set Buffer Package" (p)

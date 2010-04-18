@@ -130,7 +130,8 @@
 (defstruct tag
   (ticks -1)
   (line-number 1 :type (integer 1))
-  (syntax-info nil :type (or null syntax-info)))
+  (syntax-info nil :type (or null syntax-info))
+  (package "CL-USER" :type (or null string)))
 
 ;;; Make Line-Chars the same as Line-%Chars on implementations without
 ;;; buffered lines.

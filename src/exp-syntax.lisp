@@ -410,6 +410,10 @@
           (recompute-line-tag line)
           (until (eq line end-line)))))
 
+(defmacro cache-scanner (regex)
+  ;; help compilers that don't support compiler macros
+  `(load-time-value (ppcre:create-scanner ,regex)))
+
 (defun recompute-line-tag (line)
   (let* ((prev (line-previous line))
          (ptag (%line-tag prev))
@@ -419,7 +423,22 @@
       (unless (eql (tag-line-number tag) new-line)
         (incf (tag-ticks tag)))
       (setf (tag-line-number tag) new-line))
-    (setf (tag-syntax-info tag) (recompute-syntax-marks line tag))))
+    (setf (tag-syntax-info tag) (recompute-syntax-marks line tag))
+    (setf (tag-package tag)
+          (or (cl-ppcre:register-groups-bind
+                  (package)
+                  ((cache-scanner
+                    "^\\((?:[a-zA-Z]+:)?in-package (?:[^)]*::?)([^)]*)\\)")
+                   (line-string line))
+                (when package
+                  (hemlock::canonicalize-slave-package-name package)))
+              (cl-ppcre:register-groups-bind
+                  (package)
+                  ((cache-scanner "^\\(in-package \"([^)]*)\"\\)")
+                   (line-string line))
+                (when package
+                  (hemlock::canonicalize-slave-package-name package)))
+              (tag-package ptag)))))
 
 ;; $Log: exp-syntax.lisp,v $
 ;; Revision 1.1  2004-07-09 15:16:14  gbaumann
