@@ -36,7 +36,7 @@ $SBCL <<EOF
 
 (defun hemlock-toplevel ()
   #+ccl (when (find-package :qt) (funcall (find-symbol "REBIRTH" :qt)))
-  (let ((argv0 (car sb-ext:*posix-argv*))) 
+  (let ((argv0 (car (command-line-arguments:get-command-line-arguments)))) 
     (setf hi::*installation-directory*
 	  (concatenate 
 	   'string
