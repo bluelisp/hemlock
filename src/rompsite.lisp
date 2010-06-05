@@ -227,6 +227,10 @@
   (setf *editor-input* (make-tty-editor-input :fd 0))
   (setf *real-editor-input* *editor-input*))
 
+(defmethod backend-init-raw-io ((backend (eql :mini)) display)
+  (declare (ignore display))
+  (backend-init-raw-io :tty display))
+
 (defun init-raw-io (backend-type display)
   (setf *editor-windowed-input* nil)
   (backend-init-raw-io backend-type display))
@@ -330,6 +334,7 @@
 (declaim (special *gc-notify-before*
                   *gc-notify-after*))
 
+;; fixme: this is neither site-specific nor should it be a macro.
 (defmacro site-wrapper-macro (&body body)
   `(unwind-protect
      (progn
@@ -338,9 +343,7 @@
             (device-init device)))
        (let ((*beep-function* #'hemlock-beep)
              (*gc-notify-before* #'hemlock-gc-notify-before)
-             (*gc-notify-after* #'hemlock-gc-notify-after)
-             (*standard-input* *illegal-read-stream*)
-             (*query-io* *illegal-read-stream*))
+             (*gc-notify-after* #'hemlock-gc-notify-after))
          (cond ((not *editor-windowed-input*)
                 ,@body)
                (t

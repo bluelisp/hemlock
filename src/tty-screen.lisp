@@ -25,7 +25,7 @@
 (defvar *do-not-finalize*)
 (defvar *tty-connection*)
 
-(defun init-tty-screen-manager (tty-name)
+(defun init-tty-screen-manager (device)
   (setf *line-wrap-char* #\!)
   (setf *window-list* ())
   (setf *tty-connection*
@@ -41,8 +41,7 @@
                      (tty-key-event
                       (hi::default-filter connection bytes))
                      nil))))
-  (let* ((device (make-tty-device tty-name))
-         (width (tty-device-columns device))
+  (let* ((width (tty-device-columns device))
          (height (tty-device-lines device))
          (echo-height (value hemlock::echo-area-height))
          (main-lines (- height echo-height 1)) ;-1 for echo modeline.
@@ -444,4 +443,15 @@
              )
            t)
         (t nil)))
+
+(defclass tty-hunk (device-hunk)
+  ((text-position :initarg :text-position
+                  :accessor tty-hunk-text-position)
+   (text-height :initarg :text-height
+                :accessor tty-hunk-text-height)))
+
+(defun make-tty-hunk (&rest args
+                      &key position height text-position text-height device)
+  (declare (ignore position height text-position text-height device))
+  (apply #'make-instance 'tty-hunk args))
 

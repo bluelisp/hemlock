@@ -24,4 +24,5 @@
                (:file "tty-display" :depends-on ("terminfo"))
                (:file "tty-screen" :depends-on ("terminfo"))
                (:file "tty-stuff")
-               (:file "tty-input" :depends-on ("terminfo"))))))
+               (:file "tty-input" :depends-on ("terminfo"))
+               (:file "linedit" :depends-on ("terminfo"))))))

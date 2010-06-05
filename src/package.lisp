@@ -583,7 +583,7 @@
   (:shadow #:char-code-limit #:show-option-help)
   (:use trivial-gray-streams)
   (:import-from :hemlock-ext
-                #:delq #:memq #:assq)
+                #:delq #:memq #:assq #:concat)
   ;;
   (:export
    #:*FAST*                             ;hmm not sure about this one
@@ -756,7 +756,14 @@
 
    ;; start hemlock
    #:hemlock
-   #:main))
+   #:main
+   #:with-editor
+   #:call-with-editor
+   #:linedit
+   #:formedit
+   #:repl
+
+   #:concat))
 
 
 (defpackage :hemlock
@@ -766,8 +773,13 @@
   (:import-from :hemlock-internals #:hemlock)
   (:export #:hemlock
            #:main
+           #:with-editor
+           #:call-with-editor
            #:start-slave
-           #:*background-image*)
+           #:*background-image*
+           #:linedit
+           #:formedit
+           #:repl)
   (:shadowing-import-from #:hemlock-ext
                           #:char-code-limit)
   ;;  #+cmu

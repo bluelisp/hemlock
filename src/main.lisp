@@ -361,6 +361,22 @@ GB
        (t
         (apply #'hemlock rest keys))))))
 
+(defmacro with-editor
+    ((&key (load-user-init t) backend-type display) &body body)
+  `(call-with-editor (lambda () ,@body)
+                     :load-user-init ,load-user-init
+                     :backend-type ,backend-type
+                     :display ,display))
+
+;;; This function is the user-visible entry point to the Hemlock editor.
+;;; It calls out to CALL-WITH-EDITOR and COMMAND-LOOP to do the hard work.
+;;;
+;;; In addition to those, it runs entry and exit hooks.
+;;;
+;;; This function may also be when already in the editor, or when in a slave,
+;;; and merely processes the command line argument in that case, allowing ED
+;;; to work when already in Hemlock.
+;;;
 (defun hemlock (&optional x
                 &key (load-user-init t)
                      backend-type
@@ -382,47 +398,67 @@ GB
      (hemlock.wire:remote-value (hemlock::ts-stream-wire *terminal-io*)
                                 (process-command-line-argument x)))
     (t
-     (when (and backend-type (not (validate-backend-type backend-type)))
-       (error "Specified backend ~A not loaded" backend-type))
-     ;; fixme: pass DISPLAY to WITH-EVENT-LOOP, so that Qt can pick it up
-     ;; in case the user wants a DISPLAY != $DISPLAY
-     (let* ((backend-type (or backend-type (choose-backend-type display)))
-            (*default-backend* backend-type))
-       (setf *connection-backend*
-             (ecase backend-type
-               (:qt :qt)
-               ((:tty :clx) :iolib)))
-       (with-event-loop ()
-         (let* ((*in-the-editor* t)
-                (display (unless *editor-has-been-entered*
-                           (maybe-load-hemlock-init load-user-init)
-                           ;; Device dependent initializaiton.
-                           (init-raw-io backend-type display))))
-           (catch 'editor-top-level-catcher
-             (site-wrapper-macro
-              (unless *editor-has-been-entered*
-                ;; Make an initial window, and set up redisplay's internal
-                ;; data structures.
-                (%init-redisplay backend-type display)
-                (setq *editor-has-been-entered* t)
-                ;; Pick up user initializations to be done after initialization.
-                (invoke-hook (reverse *after-editor-initializations-funs*)))
-              (catch 'hemlock-exit
-                (catch 'editor-top-level-catcher
-                  (process-command-line-argument x))
-                (invoke-hook hemlock::entry-hook)
-                (unwind-protect
-                    (progn
-                      (process-command-line-argument x)
-                      (loop
-                        (catch 'command-loop-catcher
-                          (catch 'editor-top-level-catcher
-                            (handler-bind ((error #'(lambda (condition)
-                                                      (lisp-error-error-handler condition
-                                                                                :internal))))
-                              (invoke-hook hemlock::abort-hook)
-                              (%command-loop))))))
-                  (invoke-hook hemlock::exit-hook)))))))))))
+     (with-editor (:load-user-init load-user-init
+                   :backend-type backend-type
+                   :display display)
+       (process-command-line-argument x)
+       (invoke-hook hemlock::entry-hook)
+       (unwind-protect
+            (command-loop)
+         (invoke-hook hemlock::exit-hook))))))
+
+(defun command-loop ()
+  (let ((*standard-input* *illegal-read-stream*)
+        (*query-io* *illegal-read-stream*))
+    (loop
+       (catch 'command-loop-catcher     ;fixme: isn't this redundant?
+         (catch 'editor-top-level-catcher
+           (handler-bind
+               ((error #'(lambda (condition)
+                           (lisp-error-error-handler condition :internal))))
+             (invoke-hook hemlock::abort-hook)
+             (%command-loop)))))))
+
+;;; This function does all the hard work for Hemlock initialization, in
+;;; particular backend initialization.  It differs from the main function
+;;; in that it lets the caller take control once initialization is done,
+;;; instead of entering the command loop.
+;;;
+(defun call-with-editor
+    (fun
+     &key (load-user-init t) backend-type (display (isys:getenv "DISPLAY")))
+  (when *in-the-editor*
+    (error "already in the editor"))
+  (when (and backend-type (not (validate-backend-type backend-type)))
+    (error "Specified backend ~A not loaded" backend-type))
+  ;; fixme: pass DISPLAY to WITH-EVENT-LOOP, so that Qt can pick it up
+  ;; in case the user wants a DISPLAY != $DISPLAY
+  (let* ((backend-type (or backend-type (choose-backend-type display)))
+         (*default-backend* backend-type))
+    (setf *connection-backend*
+          (ecase backend-type
+            (:qt :qt)
+            ((:tty :clx :mini) :iolib)))
+    (with-event-loop ()
+      (unwind-protect
+           (let* ((*in-the-editor* t)
+                  (display (unless *editor-has-been-entered*
+                             (maybe-load-hemlock-init load-user-init)
+                             ;; Device dependent initializaiton.
+                             (init-raw-io backend-type display))))
+             (catch 'editor-top-level-catcher
+               (site-wrapper-macro
+                 (unless *editor-has-been-entered*
+                   ;; Make an initial window, and set up redisplay's internal
+                   ;; data structures.
+                   (%init-redisplay backend-type display)
+                   (setq *editor-has-been-entered* t)
+                   ;; Pick up user initializations to be done after initialization.
+                   (invoke-hook (reverse *after-editor-initializations-funs*)))
+                 (catch 'hemlock-exit
+                   (funcall fun)))))
+        ;; fixme:
+        (setf *editor-has-been-entered* nil)))))
 
 (defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher
