@@ -70,12 +70,28 @@
 (defmethod device-smart-redisplay ((device linedit-device) window)
   (mini-redisplay device window))
 
+(defvar *suppress-linedit-redisplay* nil)
+
 (defun mini-redisplay (device window)
   (declare (ignorable device))
-  ;; only ever display the current window:
-  (when (eq window *current-window*)
-    ;; this function gets defined by linedit:
-    (%redraw-line-with-markup (hi:window-buffer window)))
+  (unless *suppress-linedit-redisplay*
+    ;; only ever display the current window:
+    (when (eq window *current-window*)
+      (let ((buffer (hi:window-buffer window)))
+	(linedit-redisplay
+	 device
+	 :prompt (editor-prompt device)
+	 :line (region-to-string (buffer-region buffer))
+	 :point (let ((mark (buffer-point buffer)))
+		  (+ (mark-charpos mark)
+		     (let ((line (line-previous (mark-line mark))))
+		       (if line
+			   (iter
+			     (while line)
+			     (summing (1+ (line-length line)))
+			     (setf line (line-previous line)))
+			   0))))
+	 :markup t))))
 
   ;; tell the redisplay algorithm that we did our job, otherwise it
   ;; retries forever:
@@ -111,12 +127,16 @@
           (error ()
             nil)))))
 
+(defvar *inner-linedit-p* nil)
+
 (defcommand "Finish Linedit" (p) "" ""
   (declare (ignore p))
   (when (and (find "Lisp" (buffer-modes (current-buffer)) :test #'string=)
              (not (buffer-contains-complete-form-p)))
     (editor-error "Not a complete form"))
-  (hemlock::save-all-files-and-exit-command nil))
+  (if *inner-linedit-p*
+      (throw 'inner-linedit-result (get-string (current-device)))
+      (hemlock::save-all-files-and-exit-command nil)))
 
 (defcommand "Illegal Linedit Command" (p) "" ""
   (declare (ignore p))
@@ -135,7 +155,7 @@
 (defcommand "Linedit Clear Screen" (p) "" ""
   (device-write-string hemlock.terminfo:clear-screen))
 
-(defun install-linedit-keys (buffer)
+(defun install-linedit-mode (buffer)
   (bind-key "Finish Linedit" #k"return" :buffer buffer)
   (bind-key "Finish Linedit" #k"control-m" :buffer buffer)
   (bind-key "Finish Linedit" #k"control-j" :buffer buffer)
@@ -160,7 +180,23 @@
   (bind-key "Illegal Linedit Command" #k"super-rightdown" :buffer buffer)
   (bind-key "Do Nothing" #k"super-rightup" :buffer buffer)
   (bind-key "Linedit Complete" #k"control-i" :buffer buffer)
-  (bind-key "Linedit Complete" #k"tab" :buffer buffer))
+  (bind-key "Linedit Complete" #k"tab" :buffer buffer)
+  (bind-key "Linedit Describe Symbol" #k"control-c control-d d"
+	    :buffer buffer)
+  (bind-key "Linedit Describe Symbol" #k"control-c control-d control-d"
+	    :buffer buffer)
+  (bind-key "Linedit Apropos" #k"control-c ?"
+	    :buffer buffer)
+  (bind-key "Linedit Apropos" #k"control-c control-d a"
+	    :buffer buffer)
+  (bind-key "Linedit Apropos" #k"control-c control-d control-a"
+	    :buffer buffer)
+  (defhvar "Indent with Tabs" ""
+    :buffer buffer
+    :value #'hemlock::indent-using-spaces)
+  (defhvar "Indent Function" ""
+    :buffer buffer
+    :value #'hemlock::spaces-to-tab-stop))
 
 
 
@@ -195,23 +231,39 @@
 ;;;; Buffer management and initialization hacks
 ;;;;
 
+(defun make-linedit-buffer (modes)
+  (iter
+    (for i from 1)
+    (let ((buf (make-buffer (format nil "*linedit-~D*" i)
+			    :modes modes)))
+      (when buf
+	(return buf)))))
+
 (defun initialize-linedit (instance string point modes)
-  (setf (hbuf instance)
-	(iter
-	  (for i from 1)
-	  (let ((buf (make-buffer (format nil "*linedit-~D*" i)
-				  :modes modes)))
-	    (when buf
-	      (return buf)))))
-  (install-linedit-keys (hbuf instance))
-  (defhvar "Indent with Tabs" ""
-    :buffer (hbuf instance)
-    :value #'hemlock::indent-using-spaces)
-  (defhvar "Indent Function" ""
-    :buffer (hbuf instance)
-    :value #'hemlock::spaces-to-tab-stop)
+  (setf (hbuf instance) (make-linedit-buffer modes))
+  (install-linedit-mode (hbuf instance))
   (when string (setf (get-string instance) string))
   (when point (setf (get-point instance) point)))
+
+(defun change-to-linedit-buffer (buf)
+  (setf (hbuf (current-device)) buf)
+  (change-to-buffer buf))
+
+(defun inner-linedit
+    (&key (prompt (editor-prompt (current-device)))
+          (modes (buffer-modes (current-buffer))))
+  (let* ((dev (current-device))
+	 (original-buffer (hbuf dev))
+	 (original-prompt (editor-prompt dev))
+	 (*inner-linedit-p* t))
+    (change-to-linedit-buffer (make-linedit-buffer modes))
+    (install-linedit-mode (hbuf dev))
+    (setf (editor-prompt dev) prompt)
+    (multiple-value-prog1
+	(catch 'inner-linedit-result
+	  (command-loop))
+      (change-to-linedit-buffer original-buffer)
+      (setf (editor-prompt dev) original-prompt))))
 
 (defmethod get-string ((editor linedit-device))
   (region-to-string (buffer-region (hbuf editor))))
@@ -250,13 +302,13 @@
   25)
 
 (defun read-chord ()
-  (hemlock-ext:key-event-char
-   (next-key-event (get-key-event *editor-input* t))))
+  (let ((*suppress-linedit-redisplay* t))
+    (hemlock-ext:key-event-char (get-key-event *editor-input* t))))
 
 (defmethod page ((backend linedit-device))
   (write-string "--more--")
   (force-output)
-  (let ((q (read-chord backend)))
+  (let ((q (read-chord)))
     (write-char #\Return)
     (not (equal #\q q))))
 
@@ -291,6 +343,7 @@
       (newline backend))))
 
 (defmethod print-in-lines ((backend linedit-device) string)
+  (hemlock.terminfo:tputs hemlock.terminfo:clr-eos)
   (newline backend)
   (do ((i 0 (1+ i))
        (lines 0))
@@ -416,7 +469,7 @@
     (force-output *terminal-io*)
     (rem col width)))
 
-(defun display (backend &key prompt line point markup)
+(defun linedit-redisplay (backend &key prompt line point markup)
   (declare (ignore markup))
   (let* ( ;; SBCL and CMUCL traditionally point *terminal-io* to /dev/tty,
          ;; and we do output on it assuming it goes to STDOUT. Binding
@@ -520,21 +573,6 @@
 
 
 ;;;; stuff from editor.lisp, pending refactoring
-
-(defun %redraw-line-with-markup (buffer)
-  (display (current-device)
-	   :prompt (editor-prompt (current-device))
-	   :line (region-to-string (buffer-region buffer))
-	   :point (let ((mark (buffer-point buffer)))
-		    (+ (mark-charpos mark)
-		       (let ((line (line-previous (mark-line mark))))
-			 (if line
-			     (iter
-			       (while line)
-			       (summing (1+ (line-length line)))
-			       (setf line (line-previous line)))
-			     0))))
-	   :markup t))
 
 (defun get-finished-string (editor)
   (let ((str (get-string editor)))
@@ -963,6 +1001,39 @@ to the appropriate home directory."
 
 (defcommand "Linedit Complete" (p) "" ""
   (complete nil (current-device)))
+
+(defun inner-formedit (prompt &optional (eof-error-p t) eof-value)
+  (read-from-string (inner-linedit :prompt prompt)
+		    eof-error-p
+		    eof-value))
+
+(defcommand "Linedit Describe Symbol"
+    (p &optional (sym (hemlock::slave-symbol-at-point)))
+    "" ""
+  (declare (ignore p))
+  (newline (current-device))
+  (let* ((marker 'eof)
+	 (sym (if sym
+		  (hemlock::resolve-slave-symbol sym)
+		  (inner-formedit "Describe symbol: " nil marker))))
+    (unless (eq sym marker)
+      (describe sym)
+      (newline (current-device)))))
+
+(defcommand "Linedit Apropos"
+    (p &optional (sym (hemlock::slave-symbol-at-point)))
+    "" ""
+  (declare (ignore p))
+  (newline (current-device))
+  (let* ((marker 'eof)
+	 (sym (if sym
+		  (hemlock::resolve-slave-symbol sym)
+		  (inner-formedit "Apropos symbol: " nil marker))))
+    (unless (eq sym marker)
+      (print-in-lines (current-device)
+		      (with-output-to-string (*standard-output*)
+			(apropos sym)))
+      (newline (current-device)))))
 
 (defcommand "Linedit Isearch" (p)
     "" ""
