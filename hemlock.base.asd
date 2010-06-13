@@ -8,6 +8,17 @@
 
 (in-package #:hemlock-system)
 
+(defvar *modern-hemlock* nil)
+#+cmu (let ((packages (remove-if-not #'find-package
+                                     '(:hemlock :hemlock-internals))))
+        (when (and packages (not *modern-hemlock*))
+          (cerror "Continue and delete the old packages"
+                  "It looks like you're trying to load a modern version of ~
+                 Hemlock into a CMUCL image that already has an old Hemlock ~
+                 present.  Hit the restart to replace all old packages.")
+          (mapc #'delete-package packages)))
+(setf *modern-hemlock* t)
+
 (defclass hemlock-file (asdf:cl-source-file) ())
 (defmethod asdf:perform ((o asdf:compile-op) (c hemlock-file))
   ;; Darn.  Can't just CALL-NEXT-METHOD; have to reimplement the
