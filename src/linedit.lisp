@@ -169,6 +169,7 @@
   (when (and (find "Lisp" (buffer-modes (current-buffer)) :test #'string=)
              (not (buffer-contains-complete-form-p)))
     (editor-error "Not a complete form"))
+  (newline (current-device))
   (if *inner-linedit-p*
       (throw 'inner-linedit-result (get-string (current-device)))
       (hemlock::save-all-files-and-exit-command nil)))
@@ -341,10 +342,10 @@
     (hemlock-ext:key-event-char (get-key-event *editor-input* t))))
 
 (defmethod page ((backend linedit-device))
-  (write-string "--more--")
-  (force-output)
+  (device-write-string "--more--")
+  (device-force-output backend)
   (let ((q (read-chord)))
-    (write-char #\Return)
+    (device-write-string (string #\Return))
     (not (equal #\q q))))
 
 ;;; FIXME: Explicit line-wrap needed
@@ -358,10 +359,10 @@
       (incf col)
       ;; Padding
       (when pad
-	(write-string pad)
+	(device-write-string pad)
 	(setf pad nil))
       ;; Item
-      (write-string item)
+      (device-write-string item)
       ;; Maybe newline
       (cond ((= col max-col)
 	     (newline backend)
@@ -378,7 +379,7 @@
       (newline backend))))
 
 (defmethod print-in-lines ((backend linedit-device) string)
-  (hemlock.terminfo:tputs hemlock.terminfo:clr-eos)
+  (device-write-string hemlock.terminfo:clr-eos)
   (newline backend)
   (do ((i 0 (1+ i))
        (lines 0))
@@ -390,14 +391,14 @@
 	  (return-from print-in-lines nil)))
       (when (eql #\newline c)
 	(incf lines))
-      (write-char c)))
+      (device-write-string (string c))))
   (newline backend))
 
 (defmethod newline ((backend linedit-device))
   (setf (dirty-p backend) t)
-  (write-char #\newline)
-  (write-char #\return)
-  (force-output))
+  (device-write-string (string #\newline))
+  (device-write-string (string #\return))
+  (device-force-output backend))
 
 
 ;;;; Linedit device redraw
@@ -423,10 +424,10 @@
   ;; ti:column-address doesn't seem to be supported on revelant terminals.
   (cond ((< n current)
 	 (loop repeat (- current n) 
-	    do (hemlock.terminfo:tputs hemlock.terminfo:cursor-left)))
+	    do (device-write-string hemlock.terminfo:cursor-left)))
 	((> n current)
 	 (loop repeat (- n current) 
-	    do (hemlock.terminfo:tputs hemlock.terminfo:cursor-right)))))
+	    do (device-write-string hemlock.terminfo:cursor-right)))))
 
 (defun find-row-and-col
     (region-string columns &optional (end (length region-string)))
@@ -448,13 +449,13 @@
 (defun move-cursor (&key col vertical clear-to-eos current-col)
   (cond
     ((>= vertical 0)
-     (loop repeat vertical do (hemlock.terminfo:tputs hemlock.terminfo:cursor-up))
+     (loop repeat vertical do (device-write-string hemlock.terminfo:cursor-up))
      (set-column-address col current-col))
     (t
-     (loop repeat (abs vertical) do (hemlock.terminfo:tputs hemlock.terminfo:cursor-down))
+     (loop repeat (abs vertical) do (device-write-string hemlock.terminfo:cursor-down))
      (set-column-address col 0)))
   (when clear-to-eos
-    (hemlock.terminfo:tputs hemlock.terminfo:clr-eos)))
+    (device-write-string hemlock.terminfo:clr-eos)))
 
 (defun find-col (str columns &optional (end (length str)))
   (nth-value 1 (find-row-and-col str columns end)))
@@ -464,7 +465,7 @@
   ;; will wrap around to the first column on the same line:
   ;; hence move down if so.
   (when (and (< start end) (zerop (find-col str columns end)))
-    (hemlock.terminfo:tputs hemlock.terminfo:cursor-down)))
+    (device-write-string hemlock.terminfo:cursor-down)))
 
 ;;; (defun play ()
 ;;;   (iter
@@ -473,15 +474,15 @@
 ;;; 	((#\x #\y)
 ;;; 	 (write-char char *terminal-io*))
 ;;; 	((#\p #\k)
-;;; 	 (hemlock.terminfo:tputs hemlock.terminfo:cursor-up))
+;;; 	 (device-write-string hemlock.terminfo:cursor-up))
 ;;; 	((#\n #\j)
-;;; 	 (hemlock.terminfo:tputs hemlock.terminfo:cursor-down))
+;;; 	 (device-write-string hemlock.terminfo:cursor-down))
 ;;; 	((#\f #\l)
-;;; 	 (hemlock.terminfo:tputs hemlock.terminfo:cursor-right))
+;;; 	 (device-write-string hemlock.terminfo:cursor-right))
 ;;; 	((#\b #\h)
-;;; 	 (hemlock.terminfo:tputs hemlock.terminfo:cursor-left))
-;;; 	(#\s (hemlock.terminfo:tputs hemlock.terminfo:clr-eos))
-;;; 	(#\e (hemlock.terminfo:tputs hemlock.terminfo:clr-eol))
+;;; 	 (device-write-string hemlock.terminfo:cursor-left))
+;;; 	(#\s (device-write-string hemlock.terminfo:clr-eos))
+;;; 	(#\e (device-write-string hemlock.terminfo:clr-eol))
 ;;; 	(#\q
 ;;; 	 (return)))
 ;;;       (force-output *terminal-io*))))
@@ -504,39 +505,27 @@
 	    (pop fonts))))
       (unwind-protect
 	   (progn
-	     (force-output *terminal-io*)
-	     (device-force-output (current-device))
 	     (if boldp
 		 (enter-bold-mode)
 		 (exit-attribute-mode))
 	     (setaf font)
-	     (force-output *terminal-io*)
-	     (device-force-output (current-device))
 	     (cond
 	       ((member c '(#\newline #\return))
-		(force-output *terminal-io*)
-		(hemlock.terminfo:tputs hemlock.terminfo:cursor-down)
+		(device-write-string hemlock.terminfo:cursor-down)
 		(setf col 0))
 	       ((< (char-code c) 32)
-		(write-char #\? *terminal-io*)
+		(device-write-string (string #\?))
 		(incf col))
 	       (t
-		(write-char c *terminal-io*)
+		(device-write-string (string c))
 		(incf col))))
-	(force-output *terminal-io*)
-	(device-force-output (current-device))
-	(setaf 7)
-	(force-output *terminal-io*)
-	(device-force-output (current-device))))
-    (force-output *terminal-io*)
+	(setaf 7)))
     (rem col width)))
 
 (defun linedit-redisplay (backend &key prompt line point fonts)
   (let* ( ;; SBCL and CMUCL traditionally point *terminal-io* to /dev/tty,
          ;; and we do output on it assuming it goes to STDOUT. Binding
          ;; *terminal-io* is unportable, so do it only when needed.
-;;;          #+(or sbcl cmu)
-;;;            (*terminal-io* *standard-output*)
 	 (columns (backend-columns backend))
 	 (old-point (old-point backend))
 	 (old-col (old-point-col backend))
@@ -573,7 +562,7 @@
 		(setf	(old-point-col backend) point-col
 			(old-point-row backend) point-row
 			(dirty-p backend) nil)))))))
-    (force-output *terminal-io*)))
+    (device-force-output backend)))
 
 
 
@@ -638,7 +627,6 @@
 (defun get-finished-string (editor)
   (let ((str (get-string editor)))
     (linedit-history-push str (editor-history editor))
-    (newline editor)
     (save-to-history-file str)
     str))
 
