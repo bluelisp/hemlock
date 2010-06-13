@@ -19,10 +19,8 @@
 
 ;;;; Macros.
 
-(eval-when (:compile-toplevel :execute)
 (defmacro tty-hunk-modeline-pos (hunk)
   `(tty-hunk-text-height ,hunk))
-) ;eval-when
 
 
 (defvar *currently-selected-hunk* nil)
@@ -30,7 +28,6 @@
 
 (declaim (fixnum *hunk-top-line*))
 
-(eval-when (:compile-toplevel :execute)
 (defmacro select-hunk (hunk)
   `(unless (eq ,hunk *currently-selected-hunk*)
      (setf *currently-selected-hunk* ,hunk)
@@ -41,7 +38,6 @@
                                  (tty-hunk-text-position ,hunk))
                             (the fixnum
                                  (tty-hunk-text-height ,hunk)))))))))
-) ;eval-when
 
 
 ;;; Screen image lines.

@@ -264,13 +264,19 @@
         (unless ok
           (return "fell through)"))))))
 
+(defvar *synchronous-evaluation-of-slave-requests-in-the-master* nil)
+
 (defun eval-in-master (form)
-  (hemlock.wire:remote hemlock.wire::*current-wire*
-                       (eval-safely-in-master form)))
+  (if *synchronous-evaluation-of-slave-requests-in-the-master*
+      (eval form)
+      (hemlock.wire:remote hemlock.wire::*current-wire*
+        (eval-safely-in-master form))))
 
 (defun eval-in-slave (form)
-  (hemlock.wire:remote (server-info-wire (get-current-eval-server))
-                       (eval-safely-in-slave form)))
+  (if *synchronous-evaluation-of-slave-requests-in-the-master*
+      (eval form)
+      (hemlock.wire:remote (server-info-wire (get-current-eval-server))
+        (eval-safely-in-slave form))))
 
 ;;; EVAL-FORM-IN-SERVER -- Public.
 ;;;

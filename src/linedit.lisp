@@ -59,7 +59,10 @@
   (change-class (make-tty-device name) 'linedit-device))
 
 (defmethod device-show-mark ((device linedit-device) window x y time)
-  (declare (ignore window x y time)))
+  (declare (ignore window x y time))
+  (ecase *linedit-redisplay-mode*
+    ((:full-tty-redisplay :partial-tty-redisplay) (call-next-method))
+    ((:no-redisplay :linedit-redisplay))))
 
 ;;; (defmethod device-finish-output ((device linedit-device) window)
 ;;;   (declare (ignore window))
@@ -67,17 +70,39 @@
 
 (defvar *linedit-redisplay-mode* :full-tty-redisplay)
 
-(defmethod device-dumb-redisplay ((device linedit-device) window)
-  (ecase *linedit-redisplay-mode*
-    (:full-tty-redisplay (call-next-method))
-    ((:no-redisplay :linedit-redisplay)
-     (dumb-linedit-redisplay device window))))
+(flet
+    ((% (device window call-next-method)
+       (ecase *linedit-redisplay-mode*
+	 (:full-tty-redisplay (funcall call-next-method))
+	 (:partial-tty-redisplay
+	  ;; This is conceptually the reverse of linedit redisplay.
+	  ;; Instead of only displaying the linedit buffer, we display
+	  ;; everything _except_ for the linedit buffer.
+	  (cond
+	    ((eq (window-buffer window) (hbuf device))
+	     (let ((hunk (window-hunk window)))
+	       (let ((y (hi::tty-hunk-modeline-pos hunk)))
+		 (modeline-init hunk)
+		 (funcall (tty-device-clear-to-eol device) hunk 0 y)
+		 (device-write-string
+		  (make-string (tty-device-columns device)
+			       :initial-element #\space))
+		 (modeline-end hunk))
+	       (mark-window-display-as-done window)))
+	    (t (funcall call-next-method))))
+	 ((:no-redisplay :linedit-redisplay)
+	  (dumb-linedit-redisplay device window)))))
+  (defmethod device-dumb-redisplay ((device linedit-device) window)
+    (% device window #'call-next-method))
+  (defmethod device-smart-redisplay ((device linedit-device) window)
+    (% device window #'call-next-method)))
 
-(defmethod device-smart-redisplay ((device linedit-device) window)
-  (ecase *linedit-redisplay-mode*
-    (:full-tty-redisplay (call-next-method))
-    ((:no-redisplay :linedit-redisplay)
-     (dumb-linedit-redisplay device window))))
+(defun mark-window-display-as-done (window)
+  (let* ((first (window-first-line window))
+         ;; (hunk (window-hunk window))
+         #+nil (device (device-hunk-device hunk)))
+    (setf (window-first-changed window) the-sentinel
+          (window-last-changed window) first)))
 
 ;; no smarts yet
 (defun dumb-linedit-redisplay (device window)
@@ -112,11 +137,7 @@
 
   ;; tell the redisplay algorithm that we did our job, otherwise it
   ;; retries forever:
-  (let* ((first (window-first-line window))
-         ;; (hunk (window-hunk window))
-         #+nil (device (device-hunk-device hunk)))
-    (setf (window-first-changed window) the-sentinel
-          (window-last-changed window) first)))
+  (mark-window-display-as-done window))
 
 (iter::defclause-driver (for var in-buffer-lines buffer)
   "Lines of a buffer"
@@ -160,13 +181,13 @@
 
 (defmethod device-clear ((device linedit-device))
   (ecase *linedit-redisplay-mode*
-    (:full-tty-redisplay (call-next-method))
-    ((:no-redisplay :linedit-redisplay))))
+    ((:full-tty-redisplay) (call-next-method))
+    ((:no-redisplay :linedit-redisplay :partial-tty-redisplay))))
 
 (defmethod device-put-cursor ((device linedit-device) hunk x y)
   hunk x y
   (ecase *linedit-redisplay-mode*
-    (:full-tty-redisplay (call-next-method))
+    ((:full-tty-redisplay :partial-tty-redisplay) (call-next-method))
     ((:no-redisplay :linedit-redisplay))))
 
 
@@ -248,6 +269,10 @@
 	    :buffer buffer)
   (bind-key "Linedit Apropos" #k"control-c control-d control-a"
 	    :buffer buffer)
+  (bind-key "Linedit Fuzzy Complete" #k"control-c meta-i" :buffer buffer)
+  (bind-key "Linedit Test" #k"control-c control-d control-t"
+	    :buffer buffer)
+  (bind-key "Linedit Find Definitions" #k"meta-." :buffer buffer)
   (defhvar "Indent with Tabs" ""
     :buffer buffer
     :value #'hemlock::indent-using-spaces)
@@ -418,6 +443,7 @@
 
 (defmethod newline ((backend linedit-device))
   (setf (dirty-p backend) t)
+  (device-write-string hemlock.terminfo:clr-eol)
   (device-write-string (string #\newline))
   (device-write-string (string #\return))
   (device-force-output backend))
@@ -785,6 +811,7 @@ empty string."
   "Reads a single line of input with line-editing."
   (let ((editor nil)
 	(*linedit-redisplay-mode* :linedit-redisplay)
+	(hemlock::*synchronous-evaluation-of-slave-requests-in-the-master* t)
 	(*linedit-buffers* nil))
     (hemlock:with-editor (:backend-type :mini :load-user-init nil)
       (setf editor (current-device))
@@ -1114,6 +1141,84 @@ to the appropriate home directory."
 		      (with-output-to-string (*standard-output*)
 			(apropos sym)))
       (newline (current-device)))))
+
+(defcommand "Linedit Find Definitions" (p)
+    "" ""
+  (declare (ignore p))
+  (let* ((default (hemlock::symbol-string-at-point))
+	 (default (if (and default
+			   ;; Fixme: MARK-SYMBOL isn't very good, meaning that
+			   ;; often we will get random forms rather than a
+			   ;; symbol.  Let's at least catch the case where the
+			   ;; result is more than a line long, and give up.
+			   (plusp (length default))
+			   (not (find #\newline default)))
+		      default
+		      (progn
+			(newline (current-device))
+			(write-line "Finding definitions")
+			(force-output)
+			(inner-linedit :prompt "Find definition for: ")))))
+    (when (plusp (length default))
+      (let ((slavesym (hemlock::parse-slave-symbol default)))
+	(tty-excursion (lambda ()
+			 (hemlock::find-definitions
+			  slavesym))
+		       :clear-screen-before-p :prompt
+		       :split-screen-p t)))))
+
+(defun tty-excursion
+    (fun &key (clear-screen-before-p t)
+              (clear-screen-after-p t)
+              split-screen-p
+              keep-current-split-p)
+  (let ((device (current-device)))
+    (when clear-screen-before-p
+      (device-write-string hemlock.terminfo:clear-screen)
+      (when (eq clear-screen-before-p :prompt) (redisplay-all)))
+    (unless keep-current-split-p
+      (iter
+	(while (cddr *window-list*))
+	(delete-window (next-window (current-window)))))
+    (when split-screen-p
+      (setf (current-window)
+	    (make-window (window-display-start (current-window)))))
+    (let ((*linedit-redisplay-mode* :partial-tty-redisplay))
+      (block t
+	(device-clear device)
+	(funcall fun)
+	(let ((*invoke-hook*
+	       (lambda (command p)
+		 (multiple-value-prog1
+		     (funcall (command-function command) p)
+		   (when (eq *current-buffer* (hbuf device))
+		     (return-from t))))))
+	  (command-loop))))
+    (cond
+      (clear-screen-after-p
+       (device-write-string hemlock.terminfo:clear-screen)
+       (redisplay-all))
+      (t
+       (newline device)))))
+
+(defcommand "Linedit Test"
+    (p &optional (sym (hemlock::slave-symbol-at-point)))
+    "" ""
+  (declare (ignore p))
+  (tty-excursion (lambda ()
+		   (hemlock::find-file-command nil "/etc/passwd"))))
+
+(defcommand "Linedit Fuzzy Complete"
+    (p &optional (sym (hemlock::slave-symbol-at-point)))
+    "" ""
+  (declare (ignore p))
+  (tty-excursion (lambda ()
+		   (hemlock::fuzzy-complete-symbol-command nil)
+		   (hemlock::refresh-screen-command nil))
+		 :clear-screen-before-p :prompt
+		 :clear-screen-after-p t
+		 :keep-current-split-p nil
+		 :split-screen-p nil))
 
 (defcommand "Linedit Isearch" (p)
     "" ""
