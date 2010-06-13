@@ -91,7 +91,7 @@
 			     (summing (1+ (line-length line)))
 			     (setf line (line-previous line)))
 			   0))))
-	 :markup t))))
+	 :fonts (compute-linedit-font-marks buffer (editor-prompt device))))))
 
   ;; tell the redisplay algorithm that we did our job, otherwise it
   ;; retries forever:
@@ -100,6 +100,41 @@
          #+nil (device (device-hunk-device hunk)))
     (setf (window-first-changed window) the-sentinel
           (window-last-changed window) first)))
+
+(iter::defclause-driver (for var in-buffer-lines buffer)
+  "Lines of a buffer"
+  (iter::top-level-check)
+  (let* ((step ''line-next)
+	 (on-var
+	  (iter::make-var-and-default-binding 'line :type '(or line null)))
+	 (setqs (iter::do-dsetq var on-var))
+	 (test `(if (null ,on-var) (go ,iter::*loop-end*))))
+    (setq iter::*loop-end-used?* t)
+    (iter::return-driver-code
+     :initial `((setq ,on-var (mark-line
+			       (region-start
+				(buffer-region ,buffer)))))
+     :next (list test
+		 setqs
+		 (iter::generate-function-step-code on-var step))
+     :variable var)))
+
+(defun compute-linedit-font-marks (buffer prompt)
+  (let ((offset (length prompt)))
+    (list* (list 0 7 t)
+	   (iter (for line in-buffer-lines buffer)
+		       (collect (list offset 7 nil))
+		       (line-tag line)	;update tag/syntax cache 
+		       (when (line-next line)
+			 (line-tag (line-next line)))
+		       (dolist (mark (reverse
+				      (sy-font-marks
+				       (tag-syntax-info
+					(line-tag line)))))
+			 (collect (list (+ offset (mark-charpos mark))
+					(font-mark-font mark)
+					nil)))
+		       (incf offset (1+ (line-length line)))))))
 
 (defmethod device-exit ((device linedit-device))
   (device-write-string (tty-device-cm-end-string device))
@@ -451,26 +486,52 @@
 ;;; 	 (return)))
 ;;;       (force-output *terminal-io*))))
 
-(defun mini-write-string (str start-col width)
-  (let ((col start-col))
+(defun mini-write-string (str start-col width fonts)
+  (let ((col start-col)
+	(font 7)
+	(boldp nil))
     (iter
+      (for i from 0)
       (for c in-vector str)
-      (cond
-	((member c '(#\newline #\return))
-	 (force-output *terminal-io*)
-	 (hemlock.terminfo:tputs hemlock.terminfo:cursor-down)
-	 (setf col 0))
-	((< (char-code c) 32)
-	 (write-char #\? *terminal-io*)
-	 (incf col))
-	(t
-	 (write-char c *terminal-io*)
-	 (incf col))))
+      (iter
+	(while fonts)
+	(let ((spec (car fonts)))
+	  (while (<= (car spec) i))
+	  (destructuring-bind (new-font new-boldp)
+	      (cdr spec)
+	    (setf font (1+ (mod (1- new-font) 8)))
+	    (setf boldp new-boldp)
+	    (pop fonts))))
+      (unwind-protect
+	   (progn
+	     (force-output *terminal-io*)
+	     (device-force-output (current-device))
+	     (if boldp
+		 (enter-bold-mode)
+		 (exit-attribute-mode))
+	     (setaf font)
+	     (force-output *terminal-io*)
+	     (device-force-output (current-device))
+	     (cond
+	       ((member c '(#\newline #\return))
+		(force-output *terminal-io*)
+		(hemlock.terminfo:tputs hemlock.terminfo:cursor-down)
+		(setf col 0))
+	       ((< (char-code c) 32)
+		(write-char #\? *terminal-io*)
+		(incf col))
+	       (t
+		(write-char c *terminal-io*)
+		(incf col))))
+	(force-output *terminal-io*)
+	(device-force-output (current-device))
+	(setaf 7)
+	(force-output *terminal-io*)
+	(device-force-output (current-device))))
     (force-output *terminal-io*)
     (rem col width)))
 
-(defun linedit-redisplay (backend &key prompt line point markup)
-  (declare (ignore markup))
+(defun linedit-redisplay (backend &key prompt line point fonts)
   (let* ( ;; SBCL and CMUCL traditionally point *terminal-io* to /dev/tty,
          ;; and we do output on it assuming it goes to STDOUT. Binding
          ;; *terminal-io* is unportable, so do it only when needed.
@@ -482,7 +543,7 @@
 	 (old-row (old-point-row backend))
 	 (old (old-string backend))
 	 (new (concat prompt line))
-	 (point  (+ point (length prompt))))
+	 (point (+ point (length prompt))))
     (let* ((end (length new))
 	   (rows (find-row-and-col old columns)))
       (when (dirty-p backend)
@@ -504,7 +565,7 @@
 		 :vertical old-row
 		 :current-col old-col
 		 :clear-to-eos t)
-		(mini-write-string new start-col columns)
+		(mini-write-string new start-col columns fonts)
 		(move-cursor
 		 :col point-col
 		 :vertical (- row point-row)
