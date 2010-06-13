@@ -802,7 +802,7 @@
              (invoke-debugger c))))
       (setf *master-machine-and-port* (list machine port))
       (format t "Connecting to ~A:~D~%" machine port)
-      (hi::with-event-loop ()
+      (hi::with-new-event-loop ()
         (let ((hemlock.wire::*current-wire* :wire-not-yet-known))
           (connect-to-editor machine port slave-buffer background-buffer)
           (dispatch-events-no-hang)

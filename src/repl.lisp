@@ -17,7 +17,7 @@
   (eq stream hemlock::*original-terminal-io*))
 
 (defun call-with-typeout-for-thread-debugger (cont)
-  (with-event-loop ()
+  (with-new-event-loop ()
     (let ((prepl:*entering-prepl-debugger-hook* nil)
           (hi::*in-hemlock-slave-p* t)
           (hemlock.wire:*current-wire* :not-yet))

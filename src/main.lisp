@@ -419,6 +419,8 @@ GB
              (invoke-hook hemlock::abort-hook)
              (%command-loop)))))))
 
+(defvar *main-event-base* nil)
+
 ;;; This function does all the hard work for Hemlock initialization, in
 ;;; particular backend initialization.  It differs from the main function
 ;;; in that it lets the caller take control once initialization is done,
@@ -439,26 +441,26 @@ GB
           (ecase backend-type
             (:qt :qt)
             ((:tty :clx :mini) :iolib)))
-    (with-event-loop ()
-      (unwind-protect
-           (let* ((*in-the-editor* t)
-                  (display (unless *editor-has-been-entered*
-                             (maybe-load-hemlock-init load-user-init)
-                             ;; Device dependent initializaiton.
-                             (init-raw-io backend-type display))))
-             (catch 'editor-top-level-catcher
-               (site-wrapper-macro
-                 (unless *editor-has-been-entered*
-                   ;; Make an initial window, and set up redisplay's internal
-                   ;; data structures.
-                   (%init-redisplay backend-type display)
-                   (setq *editor-has-been-entered* t)
-                   ;; Pick up user initializations to be done after initialization.
-                   (invoke-hook (reverse *after-editor-initializations-funs*)))
-                 (catch 'hemlock-exit
-                   (funcall fun)))))
-        ;; fixme:
-        (setf *editor-has-been-entered* nil)))))
+    (with-existing-event-loop
+        (or *main-event-base*
+            (setf *main-event-base*
+                  (make-event-loop *connection-backend*)))
+      (let* ((*in-the-editor* t)
+             (display (unless *editor-has-been-entered*
+                        (maybe-load-hemlock-init load-user-init)
+                        ;; Device dependent initializaiton.
+                        (init-raw-io backend-type display))))
+        (catch 'editor-top-level-catcher
+          (site-wrapper-macro
+            (unless *editor-has-been-entered*
+              ;; Make an initial window, and set up redisplay's internal
+              ;; data structures.
+              (%init-redisplay backend-type display)
+              (setq *editor-has-been-entered* t)
+              ;; Pick up user initializations to be done after initialization.
+              (invoke-hook (reverse *after-editor-initializations-funs*)))
+            (catch 'hemlock-exit
+              (funcall fun))))))))
 
 (defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher

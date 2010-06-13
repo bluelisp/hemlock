@@ -683,8 +683,13 @@
 
 (defvar *connection-backend* :iolib)
 
-(defmacro with-event-loop ((&optional) &body body)
-  `(invoke-with-event-loop *connection-backend* (lambda () ,@body)))
+(defmacro with-new-event-loop ((&optional) &body body)
+  `(invoke-with-new-event-loop *connection-backend* (lambda () ,@body)))
+
+(defmacro with-existing-event-loop (event-base &body body)
+  `(invoke-with-existing-event-loop *connection-backend*
+                                    ,event-base
+                                    (lambda () ,@body)))
 
 (defmacro later (&body body)
   `(invoke-later *connection-backend* (lambda () ,@body)))

@@ -818,7 +818,14 @@
       (setf *executor* (make-instance 'qt-repl::repl-executer
                                       :notifier *notifier*)))))
 
-(defmethod hi::invoke-with-event-loop ((backend (eql :qt)) fun &aux keep)
+(defmethod hi::make-event-loop ((backend (eql :qt)))
+  'qt-event-loop)
+
+(defmethod hi::invoke-with-existing-event-loop ((backend (eql :qt)) loop fun)
+  (assert (eq loop 'qt-event-loop))
+  (hi::invoke-with-new-event-loop backend fun))
+
+(defmethod hi::invoke-with-new-event-loop ((backend (eql :qt)) fun &aux keep)
   (unless *qt-initialized-p*
     ;; HACK!  Disable SBCL's SIGCHLD handler.  I don't know what exactly
     ;; it is doing wrong, but if SBCL sets a signal handler for this, it

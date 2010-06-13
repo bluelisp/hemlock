@@ -176,6 +176,8 @@
 
 (defmethod device-exit ((device linedit-device))
   (device-write-string (tty-device-cm-end-string device))
+  (exit-attribute-mode)
+  (device-write-string (tty-device-standout-end-string device))
   (device-force-output device)
   (reset-input))
 
@@ -862,7 +864,9 @@ empty string."
 		(return-from t
 		  (with-input-from-string (s (formedit :prompt prompt))
 		    (prepl::read-command s))))
-	      (terpri)
+	      (let ((*event-base* *main-event-base*)) ;...
+		(newline (current-device))
+		(dispatch-events-no-hang))
 	      prepl::*eof-command*)))
 	 (real-prompt-fun prepl::*prompt*)
 	 (prepl::*prompt*
