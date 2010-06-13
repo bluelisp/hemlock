@@ -10,7 +10,7 @@
 
 (defvar *modern-hemlock* nil)
 #+cmu (let ((packages (remove-if-not #'find-package
-                                     '(:hemlock :hemlock-internals))))
+                                     '(:hemlock :hemlock-internals :wire))))
         (when (and packages (not *modern-hemlock*))
           (cerror "Continue and delete the old packages"
                   "It looks like you're trying to load a modern version of ~
