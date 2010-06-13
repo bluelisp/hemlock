@@ -29,6 +29,7 @@
 
 (defclass linedit-device (tty-device)
   ((hbuf :accessor hbuf
+	 :initform nil
 	 :initarg :hbuf)
    (start :initform 0
 	  :accessor get-start)
@@ -64,34 +65,50 @@
 ;;;   (declare (ignore window))
 ;;;   )
 
+(defvar *linedit-redisplay-mode* :full-tty-redisplay)
+
 (defmethod device-dumb-redisplay ((device linedit-device) window)
-  (mini-redisplay device window))
+  (ecase *linedit-redisplay-mode*
+    (:full-tty-redisplay (call-next-method))
+    ((:no-redisplay :linedit-redisplay)
+     (dumb-linedit-redisplay device window))))
 
 (defmethod device-smart-redisplay ((device linedit-device) window)
-  (mini-redisplay device window))
+  (ecase *linedit-redisplay-mode*
+    (:full-tty-redisplay (call-next-method))
+    ((:no-redisplay :linedit-redisplay)
+     (dumb-linedit-redisplay device window))))
 
-(defvar *suppress-linedit-redisplay* nil)
-
-(defun mini-redisplay (device window)
+;; no smarts yet
+(defun dumb-linedit-redisplay (device window)
   (declare (ignorable device))
-  (unless *suppress-linedit-redisplay*
-    ;; only ever display the current window:
-    (when (eq window *current-window*)
-      (let ((buffer (hi:window-buffer window)))
-	(linedit-redisplay
-	 device
-	 :prompt (editor-prompt device)
-	 :line (region-to-string (buffer-region buffer))
-	 :point (let ((mark (buffer-point buffer)))
-		  (+ (mark-charpos mark)
-		     (let ((line (line-previous (mark-line mark))))
-		       (if line
-			   (iter
-			     (while line)
-			     (summing (1+ (line-length line)))
-			     (setf line (line-previous line)))
-			   0))))
-	 :fonts (compute-linedit-font-marks buffer (editor-prompt device))))))
+  (ecase *linedit-redisplay-mode*
+    (:no-redisplay)
+    (:linedit-redisplay
+     ;; In linedit display, we aim to mostly ignore Hemlock's idea of
+     ;; redisplay.  Instead, we want to render only the linedit buffer,
+     ;; no matter hemlock thinks it needs to be redisplayed, or which
+     ;; window we're in.  But we don't want to redraw more than once per
+     ;; redisplay cycle.  So what we do is that we run our redisplay only
+     ;; for the current window (i.e, only once), but then ignore the
+     ;; window argument and redraw our buffer instead.
+     (when (and (eq window *current-window*) (hbuf device))
+       ;; window ignored from here on
+       (let ((buffer (hbuf device)))
+	 (linedit-redisplay
+	  device
+	  :prompt (editor-prompt device)
+	  :line (region-to-string (buffer-region buffer))
+	  :point (let ((mark (buffer-point buffer)))
+		   (+ (mark-charpos mark)
+		      (let ((line (line-previous (mark-line mark))))
+			(if line
+			    (iter
+			      (while line)
+			      (summing (1+ (line-length line)))
+			      (setf line (line-previous line)))
+			    0))))
+	  :fonts (compute-linedit-font-marks buffer (editor-prompt device)))))))
 
   ;; tell the redisplay algorithm that we did our job, otherwise it
   ;; retries forever:
@@ -142,11 +159,15 @@
   (reset-input))
 
 (defmethod device-clear ((device linedit-device))
-  )
+  (ecase *linedit-redisplay-mode*
+    (:full-tty-redisplay (call-next-method))
+    ((:no-redisplay :linedit-redisplay))))
 
 (defmethod device-put-cursor ((device linedit-device) hunk x y)
-  (declare (fixnum x y))
-  )
+  hunk x y
+  (ecase *linedit-redisplay-mode*
+    (:full-tty-redisplay (call-next-method))
+    ((:no-redisplay :linedit-redisplay))))
 
 
 ;;;; Linedit support
@@ -172,7 +193,7 @@
   (newline (current-device))
   (if *inner-linedit-p*
       (throw 'inner-linedit-result (get-string (current-device)))
-      (hemlock::save-all-files-and-exit-command nil)))
+      (hemlock::exit-hemlock)))
 
 (defcommand "Illegal Linedit Command" (p) "" ""
   (declare (ignore p))
@@ -273,6 +294,7 @@
     (let ((buf (make-buffer (format nil "*linedit-~D*" i)
 			    :modes modes)))
       (when buf
+	(push buf *linedit-buffers*)
 	(return buf)))))
 
 (defun initialize-linedit (instance string point modes)
@@ -338,7 +360,7 @@
   25)
 
 (defun read-chord ()
-  (let ((*suppress-linedit-redisplay* t))
+  (let ((*linedit-redisplay-mode* :no-redisplay))
     (hemlock-ext:key-event-char (get-key-event *editor-input* t))))
 
 (defmethod page ((backend linedit-device))
@@ -630,6 +652,9 @@
     (save-to-history-file str)
     str))
 
+(defun delete-linedit-buffers ()
+  (mapc #'delete-buffer-if-possible *linedit-buffers*))
+
 (defun read-history-file (editor)
   (handler-case
       (with-open-file (s (merge-pathnames ".linedit-history"
@@ -754,9 +779,13 @@ empty string."
 (defun current-device ()
   (window-device (current-window)))
 
+(defvar *linedit-buffers*)
+
 (defun linedit (&key modes initial-string initial-point (prompt ""))
   "Reads a single line of input with line-editing."
-  (let ((editor nil))
+  (let ((editor nil)
+	(*linedit-redisplay-mode* :linedit-redisplay)
+	(*linedit-buffers* nil))
     (hemlock:with-editor (:backend-type :mini :load-user-init nil)
       (setf editor (current-device))
       (setf (editor-prompt editor) prompt)
@@ -782,7 +811,9 @@ empty string."
 			       (type-of c))))
 		   (setf (dirty-p editor) t))))))
 	(command-loop)))
-    (get-finished-string editor)))
+    (prog1
+	(get-finished-string editor)
+      (delete-linedit-buffers))))
 
 (defun formedit (&rest keys)
   (apply #'linedit :modes '("Lisp") keys))
