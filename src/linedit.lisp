@@ -213,6 +213,8 @@
   (when (and (find "Lisp" (buffer-modes (current-buffer)) :test #'string=)
              (not (buffer-contains-complete-form-p)))
     (editor-error "Not a complete form"))
+  (goto-buffer-end)
+  (redisplay)
   (newline (current-device))
   (if *inner-linedit-p*
       (throw 'inner-linedit-result (get-string (current-device)))
