@@ -540,7 +540,9 @@
 (defun mini-write-string (str start-col width fonts)
   (let ((col start-col)
 	(font 7)
-	(boldp nil))
+	(boldp nil)
+	(previous-font -1)
+	(previous-boldp :unknown))
     (iter
       (for i from 0)
       (for c in-vector str)
@@ -553,23 +555,25 @@
 	    (setf font (1+ (mod (1- new-font) 8)))
 	    (setf boldp new-boldp)
 	    (pop fonts))))
-      (unwind-protect
-	   (progn
-	     (if boldp
-		 (enter-bold-mode)
-		 (exit-attribute-mode))
-	     (setaf font)
-	     (cond
-	       ((member c '(#\newline #\return))
-		(device-write-string hemlock.terminfo:cursor-down)
-		(setf col 0))
-	       ((< (char-code c) 32)
-		(device-write-string (string #\?))
-		(incf col))
-	       (t
-		(device-write-string (string c))
-		(incf col))))
-	(setaf 7)))
+      (progn
+	(unless (eq boldp previous-boldp)
+	  (if boldp
+	      (enter-bold-mode)
+	      (exit-attribute-mode)))
+	(unless (eql font previous-font)
+	  (setaf font))
+	(cond
+	  ((member c '(#\newline #\return))
+	   (device-write-string hemlock.terminfo:cursor-down)
+	   (setf col 0))
+	  ((< (char-code c) 32)
+	   (device-write-string (string #\?))
+	   (incf col))
+	  (t
+	   (device-write-string (string c))
+	   (incf col)))))
+    (when boldp (exit-attribute-mode))
+    (unless (eql font 7) (setaf 7))
     (rem col width)))
 
 (defun linedit-redisplay (backend &key prompt line point fonts)
