@@ -43,9 +43,10 @@
   (defhvar "Indent with Tabs" "override by file-option"
     :buffer buffer
     :value (if value #'indent-using-tabs #'indent-using-spaces))
-  (defhvar "Indent Function" "override by file-option"
-    :buffer buffer
-    :value (if value #'tab-to-tab-stop #'spaces-to-tab-stop)))
+  (when (and (not value) (eq (value indent-function) #'tab-to-tab-stop))
+    (defhvar "Indent Function" "override by file-option"
+      :buffer buffer
+      :value #'spaces-to-tab-stop)))
 
 (defun tab-to-tab-stop (mark)
   (insert-character mark #\tab))
