@@ -618,7 +618,8 @@
 		(setf	(old-point-col backend) point-col
 			(old-point-row backend) point-row
 			(dirty-p backend) nil)))))))
-    (device-force-output backend)))
+    (device-force-output backend)
+    (dispatch-events-no-hang)))
 
 
 
