@@ -91,7 +91,11 @@
     (reg hemlock.terminfo:key-backspace #k"Control-h")
     (reg hemlock.terminfo:key-dc #k"Delete")
     ;; Misc.
-    (reg #\newline #k"Return")
+    ;;
+    ;; Not #\return, because then C-j turns into return aka C-m.
+    ;; Is this translation needed at all?
+    (reg #\newline #k"Linefeed")
+    ;;
     (reg #\tab #k"Tab")
     (reg #\escape #k"Escape")
     ;; Kludge: This shouldn't be needed, but otherwise C-c M-i doesn't work.
