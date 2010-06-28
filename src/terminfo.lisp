@@ -26,6 +26,7 @@
 (in-package :hemlock.terminfo)
 
 (defvar *terminfo-directories* '("/etc/terminfo/"
+                                 "/lib/terminfo/"
                                  "/usr/share/terminfo/"
                                  "/usr/share/misc/terminfo/"))
 
