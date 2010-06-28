@@ -247,7 +247,7 @@
                             #+bsd osicat-posix::tty-onlcr))
             (setf (ccref osicat-posix::cflag-vsusp) #xff)
             (setf (ccref osicat-posix::cflag-veof) #xff)
-	    (setf (ccref osicat-posix::cflag-verase) (char-code #\del))
+	    (setf (ccref osicat-posix::cflag-verase) 127) ;DEL
             (setf (ccref osicat-posix::cflag-vintr)
                   (if *editor-windowed-input* #xff 28))
             (setf (ccref osicat-posix::cflag-vquit) #xff)
