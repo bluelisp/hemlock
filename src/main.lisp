@@ -492,7 +492,7 @@ GB
 
 (defvar *in-hemlock-slave-p* nil)
 
-(defun hemlock-ed-function (x)
+(defun hemlock-ed-function (&optional x)
   (hemlock x)
   t)
 
@@ -504,6 +504,12 @@ GB
   (if ccl:*resident-editor-hook*
       (warn "*resident-editor-hook* already bound, not installing hemlock")
       (setf ccl:*resident-editor-hook* 'hemlock-ed-function)))
+
+#+allegro
+(unless (eq scm::*ed-hook* 'hemlock-ed-function)
+  (if scm::*ed-hook*
+      (warn "*ed-hook* already bound, not installing hemlock")
+      (setf scm::*ed-hook* 'hemlock-ed-function)))
 
 (defun maybe-load-hemlock-init (init)
   (when init
