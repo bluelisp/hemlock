@@ -267,32 +267,31 @@
 
 ;;; not needed at the moment
 
-#+nil
-(progn
-  (defclass file-connection (qiodevice-connection)
-    ((filename :initarg :filename
-               :accessor connection-filename)))
+;; (progn
+;;   (defclass file-connection (qiodevice-connection)
+;;     ((filename :initarg :filename
+;;                :accessor connection-filename)))
 
-  (defmethod initialize-instance :after ((instance file-connection) &key)
-    (let ((socket (#_new QFile (connection-filename instance))))
-      (setf (connection-io-device instance) socket)
-      (connection-note-event instance :initialized)
-      (#_open socket (#_QIODevice::ReadWrite))))
+;;   (defmethod initialize-instance :after ((instance file-connection) &key)
+;;     (let ((socket (#_new QFile (connection-filename instance))))
+;;       (setf (connection-io-device instance) socket)
+;;       (connection-note-event instance :initialized)
+;;       (#_open socket (#_QIODevice::ReadWrite))))
 
-  #+(or)
-  (defmethod (setf connection-io-device)
-      :after
-      (newval (connection file-connection))
-    )
+;;   #+(or)
+;;   (defmethod (setf connection-io-device)
+;;       :after
+;;       (newval (connection file-connection))
+;;     )
 
-  (defun make-file-connection
-      (filename &rest args &key name buffer stream filter sentinel)
-    (declare (ignore buffer stream filter sentinel))
-    (apply #'make-instance
-           'file-connection
-           :filename filename
-           :name (or name filename)
-           args)))
+;;   (defun make-file-connection
+;;       (filename &rest args &key name buffer stream filter sentinel)
+;;     (declare (ignore buffer stream filter sentinel))
+;;     (apply #'make-instance
+;;            'file-connection
+;;            :filename filename
+;;            :name (or name filename)
+;;            args)))
 
 
 ;;;;
@@ -414,6 +413,10 @@
 (defmethod stream-fd ((stream stream))
   ;; sockets appear to be direct instances of STREAM
   (ignore-errors (socket:stream-handles stream)))
+
+#+allegro
+(defmethod stream-fd ((stream stream))
+  (slot-value stream 'excl::input-handle))
 
 (defmethod stream-fd ((stream integer))
   stream)
