@@ -48,7 +48,6 @@
 
 (defcommand "Mark Clbuild Project" (p)
   "" ""
-  (declare (ignore p))
   (let* ((point (current-point))
          (buf-info (array-element-from-mark point *clbuild-info*)))
     (with-writable-buffer (*clbuild-buffer*)

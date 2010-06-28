@@ -99,8 +99,6 @@
 ;;;; IO-CONNECTION
 ;;;;
 
-(defparameter +input-buffer-size+ #x2000)
-
 (defclass io-connection (connection)
   ((connection-filter :initarg :filter
                       :initform nil
@@ -190,9 +188,6 @@
 ;;;;
 ;;;; PROCESS-CONNECTION-MIXIN
 ;;;;
-
-(defun listify (x)
-  (if (listp x) x (list x)))
 
 (defclass process-connection-mixin ()
   ((command :initarg :command
