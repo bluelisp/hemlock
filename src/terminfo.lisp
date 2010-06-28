@@ -961,4 +961,6 @@
 
 (defun set-terminal (&optional name)
   (setf *terminfo*
-        (load-terminfo (or name (hemlock-ext:getenv "TERM") "dumb"))))
+        (let ((name (or name (hemlock-ext:getenv "TERM") "dumb")))
+          (or (load-terminfo name)
+              (error "Failed to load terminfo data for: ~A" name)))))
