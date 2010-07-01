@@ -816,7 +816,10 @@ empty string."
 
 (defvar *linedit-buffers*)
 
-(defun linedit (&key modes initial-string initial-point (prompt ""))
+(defun linedit (&key (modes '("Fundamental"))
+		     initial-string
+		     initial-point
+		     (prompt ""))
   "Reads a single line of input with line-editing."
   (let ((editor nil)
 	(*linedit-redisplay-mode* :linedit-redisplay)
