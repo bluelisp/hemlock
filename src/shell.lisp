@@ -391,25 +391,25 @@
 ;;; This sets some environment variables so the shell will be in the proper
 ;;; state when it comes up.
 ;;;
-(defun frob-environment-list (window)
-  (list* #+fixme
-         (cons :termcap  (concatenate 'simple-string
-                                      "emacs:co#"
-                                      (if window
-                                          (lisp::quick-integer-to-string
-                                           (window-width window))
-                                          "")
-                                      ":tc=unkown:"))
-         #+fixme
-         (cons :emacs "t")
-         #+fixme
-         (cons :term "emacs")
-         #+fixme
-         (remove-if #'(lambda (keyword)
-                        (member keyword '(:termcap :emacs :term)
-                                :test #'(lambda (cons keyword)
-                                          (eql (car cons) keyword))))
-                    ext:*environment-list*)))
+;; (defun frob-environment-list (window)
+;;   (list* #+fixme
+;;          (cons :termcap  (concatenate 'simple-string
+;;                                       "emacs:co#"
+;;                                       (if window
+;;                                           (lisp::quick-integer-to-string
+;;                                            (window-width window))
+;;                                           "")
+;;                                       ":tc=unkown:"))
+;;          #+fixme
+;;          (cons :emacs "t")
+;;          #+fixme
+;;          (cons :term "emacs")
+;;          #+fixme
+;;          (remove-if #'(lambda (keyword)
+;;                         (member keyword '(:termcap :emacs :term)
+;;                                 :test #'(lambda (cons keyword)
+;;                                           (eql (car cons) keyword))))
+;;                     ext:*environment-list*)))
 
 ;;; NEW-SHELL-NAME -- Internal.
 ;;;
