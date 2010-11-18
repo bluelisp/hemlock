@@ -53,7 +53,19 @@
 	    :initarg :history)
    (prompt :accessor editor-prompt
 	   :initform ""
-	   :initarg :prompt)))
+	   :initarg :prompt)
+   (cm-mode :initform nil
+	    :accessor in-cm-mode-p)))
+
+(defun ensure-in-cm-mode (device)
+  (unless (in-cm-mode-p device)
+    (device-write-string hemlock.terminfo:enter-ca-mode)
+    (setf (in-cm-mode-p device) t)))
+
+(defun ensure-not-in-cm-mode (device)
+  (when (in-cm-mode-p device)
+    (device-write-string hemlock.terminfo:exit-ca-mode)
+    (setf (in-cm-mode-p device) nil)))
 
 (defun make-linedit-device (name)
   (change-class (make-tty-device name) 'linedit-device))
@@ -61,7 +73,9 @@
 (defmethod device-show-mark ((device linedit-device) window x y time)
   (declare (ignore window x y time))
   (ecase *linedit-redisplay-mode*
-    ((:full-tty-redisplay :partial-tty-redisplay) (call-next-method))
+    ((:full-tty-redisplay :partial-tty-redisplay)
+     (ensure-in-cm-mode device)
+     (call-next-method))
     ((:no-redisplay :linedit-redisplay))))
 
 ;;; (defmethod device-finish-output ((device linedit-device) window)
@@ -73,11 +87,14 @@
 (flet
     ((% (device window call-next-method)
        (ecase *linedit-redisplay-mode*
-	 (:full-tty-redisplay (funcall call-next-method))
+	 (:full-tty-redisplay
+	  (ensure-in-cm-mode device)
+	  (funcall call-next-method))
 	 (:partial-tty-redisplay
 	  ;; This is conceptually the reverse of linedit redisplay.
 	  ;; Instead of only displaying the linedit buffer, we display
 	  ;; everything _except_ for the linedit buffer.
+	  (ensure-in-cm-mode device)
 	  (cond
 	    ((eq (window-buffer window) (hbuf device))
 	     (let ((hunk (window-hunk window)))
@@ -157,11 +174,21 @@
 		 (iter::generate-function-step-code on-var step))
      :variable var)))
 
+;; the prompt used to be 7 in bold, but all those
+;; black-on-white-by-default terminals look really bad when I try bold
+;; ("double-bright") or standout mode.
+;;
+;; Let's use "hemlock blue" for the prompt, too.
+;;
+(defparameter *prompt-color* 4)
+(defparameter *prompt-bold* nil)
+(defparameter *default-color* 0)
+
 (defun compute-linedit-font-marks (buffer prompt)
   (let ((offset (length prompt)))
-    (list* (list 0 7 t)
+    (list* (list 0 *prompt-color* *prompt-bold*)
 	   (iter (for line in-buffer-lines buffer)
-		       (collect (list offset 7 nil))
+		       (collect (list offset *default-color* nil))
 		       (line-tag line)	;update tag/syntax cache 
 		       (when (line-next line)
 			 (line-tag (line-next line)))
@@ -174,8 +201,23 @@
 					nil)))
 		       (incf offset (1+ (line-length line)))))))
 
+(defmethod device-init ((device tty-device))
+  (setup-input)
+  ;; similar to ordinary tty initialization, but without init-cm-string:
+  (let* ((init-string (termcap :init-string))
+	 (init-file (termcap :init-file))
+	 (init-file-string (if init-file (get-init-file-string init-file))))
+    (device-write-string
+     (concatenate 'simple-string
+		  (or init-string "")
+		  (or init-file-string "")
+		  ;; Transmit-mode: this makes arrow-keys give sequences matching
+		  ;; the terminfo db.
+		  hemlock.terminfo:keypad-xmit)))
+  (redisplay-all))
+
 (defmethod device-exit ((device linedit-device))
-  (device-write-string (tty-device-cm-end-string device))
+  (ensure-not-in-cm-mode device)
   (exit-attribute-mode)
   (device-write-string (tty-device-standout-end-string device))
   (device-force-output device)
@@ -183,13 +225,17 @@
 
 (defmethod device-clear ((device linedit-device))
   (ecase *linedit-redisplay-mode*
-    ((:full-tty-redisplay) (call-next-method))
+    ((:full-tty-redisplay)
+     (ensure-in-cm-mode device)
+     (call-next-method))
     ((:no-redisplay :linedit-redisplay :partial-tty-redisplay))))
 
 (defmethod device-put-cursor ((device linedit-device) hunk x y)
   hunk x y
   (ecase *linedit-redisplay-mode*
-    ((:full-tty-redisplay :partial-tty-redisplay) (call-next-method))
+    ((:full-tty-redisplay :partial-tty-redisplay)
+     (ensure-in-cm-mode device)
+     (call-next-method))
     ((:no-redisplay :linedit-redisplay))))
 
 
@@ -541,7 +587,7 @@
 
 (defun mini-write-string (str start-col width fonts)
   (let ((col start-col)
-	(font 7)
+	(font *default-color*)
 	(boldp nil)
 	(previous-font -1)
 	(previous-boldp :unknown))
@@ -575,7 +621,8 @@
 	   (device-write-string (string c))
 	   (incf col)))))
     (when boldp (exit-attribute-mode))
-    (unless (eql font 7) (setaf 7))
+    (unless (eql font *default-color*) (setaf *default-color*))
+    (device-write-string hemlock.terminfo:cursor-visible)
     (rem col width)))
 
 (defun linedit-redisplay (backend &key prompt line point fonts)
@@ -1181,15 +1228,21 @@ to the appropriate home directory."
 		       :clear-screen-before-p :prompt
 		       :split-screen-p t)))))
 
+;; fixme: clear-screen-before-p, clear-screen-after-p seemed like a
+;; really cool idea until I learned that on most terminals [except GNU
+;; screen] entering or existing cm mode destroys screen contents anyway.
 (defun tty-excursion
     (fun &key (clear-screen-before-p t)
               (clear-screen-after-p t)
               split-screen-p
-              keep-current-split-p)
-  (let ((device (current-device)))
+              keep-current-split-p
+	      (nothing-to-do-message "nothing to do"))
+  (let ((device (current-device))
+	(nothing-to-do nil))
     (when clear-screen-before-p
       (device-write-string hemlock.terminfo:clear-screen)
       (when (eq clear-screen-before-p :prompt) (redisplay-all)))
+    (ensure-in-cm-mode device)
     (unless keep-current-split-p
       (iter
 	(while (cddr *window-list*))
@@ -1197,23 +1250,32 @@ to the appropriate home directory."
     (when split-screen-p
       (setf (current-window)
 	    (make-window (window-display-start (current-window)))))
-    (let ((*linedit-redisplay-mode* :partial-tty-redisplay))
-      (block t
-	(device-clear device)
-	(funcall fun)
-	(let ((*invoke-hook*
-	       (lambda (command p)
-		 (multiple-value-prog1
-		     (funcall (command-function command) p)
-		   (when (eq *current-buffer* (hbuf device))
-		     (return-from t))))))
-	  (command-loop))))
-    (cond
-      (clear-screen-after-p
-       (device-write-string hemlock.terminfo:clear-screen)
-       (redisplay-all))
-      (t
-       (newline device)))))
+    (unwind-protect
+	(let ((*linedit-redisplay-mode* :partial-tty-redisplay))
+	  (redisplay-all)
+	  (block t
+	    (device-clear device)
+	    (funcall fun)
+	    (if (eq *current-buffer* (hbuf device))
+		(setf nothing-to-do t)
+		(let ((*invoke-hook*
+		       (lambda (command p)
+			 (multiple-value-prog1
+			  (funcall (command-function command) p)
+			  (when (eq *current-buffer* (hbuf device))
+			    (return-from t))))))
+		  (command-loop)))))
+      (ensure-not-in-cm-mode device)
+      (cond
+       (clear-screen-after-p
+	(device-write-string hemlock.terminfo:clear-screen)
+	(when nothing-to-do
+	  (print-in-lines (current-device) nothing-to-do-message))
+	(redisplay-all))
+       (t
+	(when nothing-to-do
+	  (print-in-lines (current-device) nothing-to-do-message))
+	(newline device))))))
 
 (defcommand "Linedit Test"
     (p &optional (sym (hemlock::slave-symbol-at-point)))
@@ -1222,6 +1284,9 @@ to the appropriate home directory."
   (tty-excursion (lambda ()
 		   (hemlock::find-file-command nil "/etc/passwd"))))
 
+;; fixme: would be cooler if this didn't clear the screen.
+;; TTY-EXCURSION would be more effective if Unix terminals weren't that
+;; useless.  Perhaps we should give up and do without it.
 (defcommand "Linedit Fuzzy Complete"
     (p &optional (sym (hemlock::slave-symbol-at-point)))
     "" ""
@@ -1229,6 +1294,7 @@ to the appropriate home directory."
   (tty-excursion (lambda ()
 		   (hemlock::fuzzy-complete-symbol-command nil)
 		   (hemlock::refresh-screen-command nil))
+		 :nothing-to-do-message "No completions."
 		 :clear-screen-before-p :prompt
 		 :clear-screen-after-p t
 		 :keep-current-split-p nil
