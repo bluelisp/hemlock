@@ -222,6 +222,8 @@
 (defmethod device-note-read-wait ((device qt-device) on-off)
   )
 
+(defvar *processing-events-p* nil)
+
 (defun exhaustively-dispatch-events-no-hang ()
   ;; Must dispatch all remaining events here (but not actually block).
   ;;
@@ -231,11 +233,14 @@
   ;; like keyboard or socket interaction will make event dispatching
   ;; return.  So if redisplay exited with a pending event,
   ;; editor-input-method would degenerate into a busy loop.
-  (let ((ev (#_QAbstractEventDispatcher::instance)))
+  (assert (not *processing-events-p*))
+  (let ((ev (#_QAbstractEventDispatcher::instance))
+        (*processing-events-p* t))
     (iter (while (#_processEvents ev (#_QEventLoop::AllEvents))))))
 
 (defmethod device-force-output ((device qt-device))
-  (exhaustively-dispatch-events-no-hang))
+  (unless *processing-events-p*
+    (exhaustively-dispatch-events-no-hang)))
 
 (defmethod device-finish-output ((device qt-device) window)
   )
@@ -488,14 +493,18 @@
   ;; socket stuff), but they are only useful in the opposite situation
   ;; of not wanting to block, and briefly wanting to ignore those kinds
   ;; of events.
+  (assert (not *processing-events-p*))
   (setf *interesting-event-received* nil)
-  (iter (until *interesting-event-received*)
-        (#_processEvents (#_QAbstractEventDispatcher::instance)
-                         (#_QEventLoop::WaitForMoreEvents))))
+  (let ((*processing-events-p* t))
+    (iter (until *interesting-event-received*)
+          (#_processEvents (#_QAbstractEventDispatcher::instance)
+                           (#_QEventLoop::WaitForMoreEvents)))))
 
 (defmethod hi::dispatch-events-no-hang-with-backend ((backend (eql :qt)))
-  (#_processEvents (#_QAbstractEventDispatcher::instance)
-                   (#_QEventLoop::AllEvents)))
+  (assert (not *processing-events-p*))
+  (let ((*processing-events-p* t))
+    (#_processEvents (#_QAbstractEventDispatcher::instance)
+                     (#_QEventLoop::AllEvents))))
 
 (defmethod unget-key-event (key-event (stream qt-editor-input))
   (hi::un-event key-event stream))
