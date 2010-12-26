@@ -56,6 +56,30 @@
   (restore-window-geometry
    (#_window (qt-hunk-widget (window-hunk (current-window))))))
 
+(defun save-font ()
+  (with-object (sx (qsettings))
+    (format t "setting font ~A~%" (#_toString *font*))
+    (#_setValue sx "main font" (#_toString *font*))))
+
+(defun qvariant-string (x)
+  ;; fixme: CommonQt now unmarshals string QVariants automatically, so
+  ;; (#_toString ...) fails on those pre-unmarshalled strings.  But
+  ;; sometimes we get a default QVariant, which CommonQt doesn't unpack,
+  ;; and we need to call (#_toString) after all.  This doesn't seem
+  ;; ideal...
+  (if (stringp x)
+      x
+      (#_toString x)))
+
+(defun restore-font ()
+  (with-object (sx (qsettings))
+    (let ((str (qvariant-string (#_value sx "main font"))))
+      (when (plusp (length str))
+        (setf *font*
+              (let ((font (#_new QFont)))
+                (#_fromString font str)
+                font))))))
+
 (defcommand "Select Font" (p)
   "Open a font dialog and change the current display font." ""
   (declare (ignore p))
@@ -63,7 +87,8 @@
     (unless (qt::with-&bool (arg nil)
               (setf font (#_QFontDialog::getFont arg *font*)))
       (editor-error "Font dialog cancelled"))
-    (setf *font* font)))
+    (setf *font* font)
+    (save-font)))
 
 (defparameter *gutter* 10
   "The gutter to place between between the matter in a hemlock pane and its
@@ -517,13 +542,7 @@
   (hi::input-event-next (hi::editor-input-head stream)))
 
 (defun make-hemlock-widget ()
-  (let* ((*modeline-font*
-          (let ((font (#_new QFont)))
-            (#_fromString font *modeline-font-family*)
-            #+nil (#_setWeight font (#_QFont::DemiBold))
-            (#_setPointSize font *font-size*)
-            font))
-         (vbox (#_new QVBoxLayout))
+  (let* ((vbox (#_new QVBoxLayout))
          (tabs (#_new QTabBar))
          (main (make-instance 'hunk-widget
                               :centerize t
@@ -533,21 +552,26 @@
             (#_fromString font *font-family*)
             (#_setPointSize font *font-size*)
             font))
-         (*font* font))
-    (progn ;with-object (metrics (#_new QFontMetrics font))
-      (#_addWidget vbox tabs)
-      (#_hide tabs)
-      (let ((main-stack (#_new QStackedWidget)))
-        (setf *main-stack* main-stack)
-        (setf *main-hunk-widget* main)
-        (#_addWidget vbox main-stack)
-        (#_addWidget main-stack main))
-      (#_setFocusPolicy tabs (#_Qt::NoFocus))
-      (#_setSpacing vbox 0)
-      (#_setMargin vbox 0)
-      (let ((central-widget (#_new QWidget)))
-        (#_setLayout central-widget vbox)
-        (values main font *modeline-font* central-widget tabs)))))
+         (*font* font)
+         (font (progn (restore-font) *font*))
+         (*modeline-font*
+          (let ((font (#_new QFont)))
+            (#_fromString font *modeline-font-family*)
+            (#_setPointSize font (#_pointSize *font*))
+            font)))
+    (#_addWidget vbox tabs)
+    (#_hide tabs)
+    (let ((main-stack (#_new QStackedWidget)))
+      (setf *main-stack* main-stack)
+      (setf *main-hunk-widget* main)
+      (#_addWidget vbox main-stack)
+      (#_addWidget main-stack main))
+    (#_setFocusPolicy tabs (#_Qt::NoFocus))
+    (#_setSpacing vbox 0)
+    (#_setMargin vbox 0)
+    (let ((central-widget (#_new QWidget)))
+      (#_setLayout central-widget vbox)
+      (values main font *modeline-font* central-widget tabs))))
 
 (defun add-buffer-tab-hook (buffer)
   (when (in-main-qthread-p)
