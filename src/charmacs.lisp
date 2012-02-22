@@ -85,20 +85,20 @@
     (:both
      `(progn
        (alpha-chars-loop ,var #\a #\z nil ,forms)
-       (alpha-chars-loop ,var #\ß #\ö nil ,forms)
-       (alpha-chars-loop ,var #\ø #\ÿ nil ,forms)
+       (alpha-chars-loop ,var (code-char 223) (code-char 246) nil ,forms)
+       (alpha-chars-loop ,var (code-char 248) (code-char 255) nil ,forms)
        (alpha-chars-loop ,var #\A #\Z nil ,forms)
-       (alpha-chars-loop ,var #\À #\Ö nil ,forms)
-       (alpha-chars-loop ,var #\Ø #\Þ ,result ,forms) ))
+       (alpha-chars-loop ,var (code-char 192) (code-char 214) nil ,forms)
+       (alpha-chars-loop ,var (code-char 216) (code-char 222) ,result ,forms) ))
     (:lower
      `(progn
-       (alpha-chars-loop ,var #\ß #\ö nil ,forms)
-       (alpha-chars-loop ,var #\ø #\ÿ nil ,forms)
+       (alpha-chars-loop ,var (code-char 223) (code-char 246) ,forms)
+       (alpha-chars-loop ,var (code-char 248) nil ,forms)
        (alpha-chars-loop ,var #\a #\z ,result ,forms) ))
     (:upper
      `(progn
        (alpha-chars-loop ,var #\A #\Z nil ,forms)
-       (alpha-chars-loop ,var #\À #\Ö nil ,forms)
-       (alpha-chars-loop ,var #\Ø #\Þ ,result ,forms) ))
+       (alpha-chars-loop ,var (code-char 192) (code-char 214) nil ,forms)
+       (alpha-chars-loop ,var (code-char 216) (code-char 222) ,result ,forms) ))
     (t (error "Kind argument not one of :lower, :upper, or :both -- ~S."
               kind))))
