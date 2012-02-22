@@ -162,13 +162,10 @@
           (unless in-editor-p
             (message "Editing definition from editor Lisp ..."))
           (go-to-definition pathname type name))
-        (let ((results (eval;-form-in-server ; disabled, trying something close --amb
-                        ;info
-                        (mapcar
-                         #'prin1-to-string
-                        (read-from-string
+        (let ((results (eval-form-in-server
+                        info
                         (format nil "(hemlock::definition-editing-info ~S)"
-                                fun-name))))))
+                                fun-name))))
           (go-to-definition (read-from-string (first results)) ;file
                             (read-from-string (second results)) ;type
                             (read-from-string (third results))))))) ;name
