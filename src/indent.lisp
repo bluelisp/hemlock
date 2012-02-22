@@ -39,14 +39,15 @@
   :value #'indent-using-tabs)
 
 (define-file-option "indent-tabs-mode" (buffer value)
-  (setf value (find-symbol (string-upcase value) :cl))
-  (defhvar "Indent with Tabs" "override by file-option"
-    :buffer buffer
-    :value (if value #'indent-using-tabs #'indent-using-spaces))
-  (when (and (not value) (eq (value indent-function) #'tab-to-tab-stop))
-    (defhvar "Indent Function" "override by file-option"
+  (let* ((value (ignore-errors (let ((*read-eval* nil))
+                                 (read-from-string value)))))
+    (defhvar "Indent with Tabs" "override by file-option"
       :buffer buffer
-      :value #'spaces-to-tab-stop)))
+      :value (if value #'indent-using-tabs #'indent-using-spaces))
+    (when (and (not value) (eq (value indent-function) #'tab-to-tab-stop))
+      (defhvar "Indent Function" "override by file-option"
+        :buffer buffer
+        :value #'spaces-to-tab-stop))))
 
 (defun tab-to-tab-stop (mark)
   (insert-character mark #\tab))
