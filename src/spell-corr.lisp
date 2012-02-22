@@ -754,7 +754,7 @@
 ;;;; Binary File Reading
 
 (defparameter default-binary-dictionary
-  "words.bin" #+nil "spell-dictionary.bin")
+  "spell-dictionary.bin")
 
 ;;; This is the first thing in a spell binary dictionary file to serve as a
 ;;; quick check of its proposed contents.  This particular number is
