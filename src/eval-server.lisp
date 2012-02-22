@@ -341,6 +341,46 @@
         (editor-error "Buffer ~A is already in use." background)))
     (message "Spawning slave ... ")
     (let ((server-info (make-buffers-for-typescript slave background)))
+      #+scl
+      (let ((lisp (ext:unix-namestring (merge-pathnames (value slave-utility)
+                                                        "file://path/")
+                                       t t)))
+     
+        (unless lisp
+          (editor-error "Can't find ``~S'' in your path to run."
+                        (value slave-utility)))
+        (let* ((args `(,@(value slave-utility-switches)
+                         "-eval" ,(format nil "(hemlock::start-slave :slave t :editor ~S :backend-type \~S :slave-buffer ~S :background-buffer ~S)"
+                                          (get-editor-name)
+                                          hi::*default-backend*
+                                          slave
+                                          background)))
+              
+               (proc
+                (ext:run-program lisp args
+                                 :wait nil
+                                 :output "/dev/null"
+                                 :if-output-exists :append)))
+          (message "> ~S" args)
+          (unless proc
+            (editor-error "Could not start slave."))
+          #+nil
+          (dotimes (i *slave-connect-wait*
+                    (editor-error
+                     "Client Lisp is still unconnected.  ~
+                              You must use \"Accept Slave Connections\" to ~
+                              allow the slave to connect at this point."))
+            (system:serve-event 1)
+            (case (ext:process-status proc)
+              (:exited
+               (editor-error "The slave lisp exited before connecting."))
+              (:signaled
+               (editor-error "The slave lisp was kill before connecting.")))
+            (when *newly-created-slave*
+              (message "DONE")
+              (return *newly-created-slave*)))
+          ))
+      #-scl
       (make-process-connection
        command
        :filter (let ((ts (server-info-slave-info server-info)))
@@ -1091,9 +1131,11 @@
 ;;;
 ;;;    Similar to server-eval-text, except that the stuff is compiled.
 ;;;
+#-scl
 (defmacro with-temporary-file-name ((var) &body body)
   `(invoke-with-temporary-file-name (lambda (,var) ,@body)))
 
+#-scl
 (defun invoke-with-temporary-file-name (fun)
   (multiple-value-bind (fd pathname)
                        (isys:mkstemp "/tmp/hemlock")
@@ -1104,10 +1146,11 @@
 
 (defun server-compile-text (note package text defined-from
                             terminal-io error-output)
-  (declare (ignore defined-from))
+  #-scl (declare (ignore defined-from))
   (let ((error-output (if error-output
                         (hemlock.wire:remote-object-value error-output))))
     (do-compiler-operation (note package terminal-io error-output)
+      #-scl
       (with-temporary-file-name (tmp)
         (with-open-file (s tmp :direction :output :if-exists :supersede)
           (write-string text s))
@@ -1115,7 +1158,14 @@
         (load (compile-file tmp
                             ;; :error-stream error-output
                             ;; :source-info defined-from
-                            ))))))
+                            )))
+      #+scl
+      (with-input-from-string (input-stream text)
+	(terpri error-output)
+	(c::compile-from-stream input-stream
+				:error-stream error-output
+				:source-info defined-from)))))
+
 
 ;;; SERVER-COMPILE-FILE -- Public.
 ;;;
@@ -1123,23 +1173,27 @@
 ;;;
 (defun server-compile-file (note package input output error trace
                             load terminal background)
-  (declare (ignore error load))
+  #-scl (declare (ignore error load))
   (macrolet ((frob (x)
                `(if (hemlock.wire:remote-object-p ,x)
                   (hemlock.wire:remote-object-value ,x)
                   ,x)))
     (let ((error-stream (frob background)))
       (do-compiler-operation (note package terminal error-stream)
+        #-(or cmu scl)
         (multiple-value-bind (fasl warning-free-p)
-            (compile-file (frob input)
-                          #+nil #+nil :output-file (frob output)
-                          #+nil #+nil :error-file (frob error)
-                          #+nil #+nil :trace-file (frob trace)
-                          #+nil #+nil :load load
-                          #+nil #+nil :error-output error-stream)
+            (compile-file (frob input))
           (when fasl
             (load fasl))
-          (format nil "~A ~A" fasl warning-free-p))))))
+          (format nil "~A ~A" fasl warning-free-p))
+        #+(or cmu scl)
+        (compile-file (frob input)
+                      :output-file (frob output)
+                      :error-file (frob error)
+                      :trace-file (frob trace)
+                      :load load
+                      :error-output error-stream)
+        ))))
 
 
 ;;;; Other random eval server stuff.
@@ -1178,48 +1232,45 @@
 
 ;;;; Command line switches.
 
-#+NILGB
-(progn
-
-;;; FIND-EVAL-SERVER-SWITCH -- Internal.
-;;;
-;;; This is special to the switches supplied by CREATE-SLAVE and fetched by
-;;; CONNECT-EDITOR-SERVER, so we can use STRING=.
-;;;
-(defun find-eval-server-switch (string)
-  #+NILGB
-  (let ((switch (find string ext:*command-line-switches*
-                      :test #'string=
-                      :key #'ext:cmd-switch-name)))
-    (if switch
-        (or (ext:cmd-switch-value switch)
-            (car (ext:cmd-switch-words switch))))))
-
-
+#+(or cmu scl)
 (defun slave-switch-demon (switch)
-  (let ((editor (ext:cmd-switch-arg switch)))
-    (unless editor
+  (let ((editor-name (ext:cmd-switch-arg switch))
+        (backend-type (ext:get-command-line-switch "backend"))
+        (slave-buffer (ext:get-command-line-switch "slave-buffer"))
+        (background-buffer (ext:get-command-line-switch "background-buffer")))
+    (unless editor-name
       (error "Editor to connect to unspecified."))
-    (start-slave editor)
+    (start-slave :slave t
+                 :editor editor-name
+                 :backend-type backend-type
+                 :slave-buffer slave-buffer
+                 :background-buffer background-buffer)
     (setf debug:*help-line-scroll-count* most-positive-fixnum)))
 ;;;
-(defswitch "slave" 'slave-switch-demon)
-(defswitch "slave-buffer")
-(defswitch "background-buffer")
+#+(or cmu scl)
+(ext:defswitch "slave" 'slave-switch-demon)
+#+(or cmu scl)
+(ext:defswitch "slave-buffer")
+#+(or cmu scl)
+(ext:defswitch "background-buffer")
+#+(or cmu scl)
+(ext:defswitch "background-type")
 
 
+#+(or cmu scl)
 (defun edit-switch-demon (switch)
   (declare (ignore switch))
-#|  (let ((arg (or (ext:cmd-switch-value switch)
+  (let ((arg (or (ext:cmd-switch-value switch)
                  (car (ext:cmd-switch-words switch)))))
-    (when (stringp arg) (setq *editor-name* arg)))|#
-  (let ((initp (not (ext:get-command-line-switch "noinit"))))
-    (if (stringp (car ext:*command-line-words*))
-        (ed (car ext:*command-line-words*) :init initp)
-        (ed nil :init initp))))
+    (when (stringp arg) (setq *editor-name* arg)))
+  (let ((initp (not (ext:get-command-line-switch "noinit")))
+        (backend-type (ext:get-command-line-switch "backend"))
+        (x (car ext:*command-line-words*)))
+     (hemlock (and (stringp x) x) :load-user-init initp
+              :backend-type backend-type)))
 ;;;
-(defswitch "edit" 'edit-switch-demon)
-)
+#+(or cmu scl)
+(ext:defswitch "edit" 'edit-switch-demon)
 
 
 ;;;;
