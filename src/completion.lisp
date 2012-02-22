@@ -528,16 +528,18 @@
   (let ((mismatch (mismatch string prefix)))
     (or (null mismatch) (= mismatch (length prefix)))))
 
+(defun %find-symbol-completion-matches (packname symname)
+  (let ((package (or (and packname (find-package (canonical-case packname)))
+                     :cl)))
+    (iter:iter
+     (iter:for c in-package package)
+     (let ((str (string-downcase c)))
+       (when (starts-with-p str symname)
+         (iter:collect str))))))
+
 (defun %find-symbol-completion/request
        (show-matches-p prefix packname symname)
-  (let* ((package (or (and packname (find-package (string-upcase packname)))
-                      :cl))
-         (matches
-          (iter:iter
-           (iter:for c in-package package)
-           (let ((str (string-downcase c)))
-             (when (starts-with-p str symname)
-               (iter:collect str))))))
+  (let ((matches (%find-symbol-completion-matches packname symname)))
     (hemlock::eval-in-master
      `(%find-symbol-completion/results 
        ',show-matches-p ',prefix ',matches))))
@@ -612,18 +614,38 @@
     (hemlock::eval-in-slave
      `(%find-symbol-completion/request
        ',(and show-matches-p t)
-        ',package-prefix
-        ',(or package-prefix (package-at-point))
-        ',symname))))
+       ',package-prefix
+       ',(or package-prefix (package-at-point))
+       ',symname))))
 
 (defun complete-symbol (&optional show-matches-p)
   (find-symbol-completion show-matches-p (symbol-string-at-point)))
+
+(defun editor-find-symbol-completion (show-matches-p prefix)
+  (multiple-value-bind (package-prefix symname)
+                       (let ((p (position #\: prefix)))
+                         (if p
+                             (values (subseq prefix 0 p)
+                                     (string-downcase (subseq prefix (1+ p))))
+                             (values nil
+                                     (string-downcase prefix))))
+    (let* ((package (or package-prefix (package-at-point)))
+           (matches (%find-symbol-completion-matches package symname)))
+      (%find-symbol-completion/results 
+       (and show-matches-p t)
+       package-prefix matches))))
+
+(defun editor-complete-symbol (&optional show-matches-p)
+  (editor-find-symbol-completion show-matches-p (symbol-string-at-point)))
 
 (defhvar "Completion Function" ""
   :value 'completion-complete-word)
 
 (defhvar "Completion Function" ""
   :mode "Lisp" :value 'complete-symbol)
+
+(defhvar "Completion Function" ""
+  :mode "Editor" :value 'editor-complete-symbol)
 
 (defcommand "Complete For Mode" (p)
   "" ""
