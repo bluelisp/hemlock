@@ -169,8 +169,8 @@
              :help (list "Define the ~A expansion of ~S." mode abbrev))))
     (setq abbrev (string-downcase abbrev))
     (let* ((table (cond (globalp *global-abbrev-table*)
-                        ((hemlock-bound-p 'Mode-Abbrev-Table :mode mode)
-                         (variable-value 'Mode-Abbrev-Table :mode mode))
+                        ((hemlock-bound-p 'mode-abbrev-table :mode mode)
+                         (variable-value 'mode-abbrev-table :mode mode))
                         (t
                          (let ((new (make-hash-table :test #'equal)))
                            (defhvar "Mode Abbrev Table"
@@ -201,9 +201,9 @@
   (declare (ignore p))
   (let* ((word (prev-word 1 (current-point)))
          (glob (gethash (string-downcase word) *global-abbrev-table*))
-         (mode (if (hemlock-bound-p 'Mode-Abbrev-Table)
+         (mode (if (hemlock-bound-p 'mode-abbrev-table)
                    (gethash (string-downcase word)
-                            (value Mode-Abbrev-Table))))
+                            (value mode-abbrev-table))))
          (end-word (reverse-find-attribute (copy-mark (current-point)
                                                       :right-inserting)
                                            :word-delimiter #'zerop))
@@ -299,10 +299,10 @@
   If called with a prefix argument, deletes all word abbrevs define in the
   current mode."
   "Deletes Abbrev in Mode, or all abbrevs in Mode if P is true."
-  (let ((boundp (hemlock-bound-p 'Mode-Abbrev-Table :mode mode)))
+  (let ((boundp (hemlock-bound-p 'mode-abbrev-table :mode mode)))
     (if p
         (when boundp
-          (delete-variable 'Mode-Abbrev-Table :mode mode))
+          (delete-variable 'mode-abbrev-table :mode mode))
         (let ((down
                (string-downcase
                 (or abbrev
@@ -344,8 +344,8 @@
   "Deletes all currently defined Word Abbrevs"
   "Deletes all currently defined Word Abbrevs"
   (declare (ignore p))
-  (Delete-Global-Word-Abbrev-Command 1)
-  (Delete-Mode-Word-Abbrev-Command 1))
+  (delete-global-word-abbrev-command 1)
+  (delete-mode-word-abbrev-command 1))
 
 
 ;;;; Abbrev I/O
@@ -382,7 +382,7 @@
                        (write-abbrev key val nil s t)))
                  *global-abbrev-table*))
       (dolist (modename mode-tables)
-        (let ((table (variable-value 'Mode-Abbrev-Table :mode modename)))
+        (let ((table (variable-value 'mode-abbrev-table :mode modename)))
           (if (search search-string (string-downcase modename))
               (maphash #'(lambda (key val)
                            (write-abbrev key val modename s t))
@@ -401,8 +401,8 @@
          (mode-tables nil))
     (do-strings (which x *mode-names*)
       (declare (ignore x))
-      (when (hemlock-bound-p 'Mode-Abbrev-Table :mode which)
-        (let ((table-count (hash-table-count (variable-value 'Mode-Abbrev-Table
+      (when (hemlock-bound-p 'mode-abbrev-table :mode which)
+        (let ((table-count (hash-table-count (variable-value 'mode-abbrev-table
                                                              :mode which))))
           (unless (zerop table-count)
             (incf count table-count)
@@ -457,7 +457,7 @@
         (let ((modename (if (listp mode) (car mode) mode)))
           (maphash #'(lambda (key val)
                        (write-abbrev key val modename stream))
-                   (variable-value 'Mode-Abbrev-Table :mode modename)))))))
+                   (variable-value 'mode-abbrev-table :mode modename)))))))
 
 
 
@@ -558,14 +558,14 @@
                (setf (gethash abbrev *global-abbrev-table*)
                      expansion))
               (t (setq modename (subseq modename 1 (1- (length modename))))
-                 (unless (hemlock-bound-p 'Mode-Abbrev-Table
+                 (unless (hemlock-bound-p 'mode-abbrev-table
                                           :mode modename)
                    (defhvar "Mode Abbrev Table"
                             "Hash Table of Mode Abbrevs"
                             :value (make-hash-table :test #'equal)
                             :mode modename))
                  (setf (gethash abbrev (variable-value
-                                        'Mode-Abbrev-Table :mode modename))
+                                        'mode-abbrev-table :mode modename))
                        expansion)))))))
 
 
@@ -595,7 +595,7 @@
         (let ((mode (if (listp modename) (car modename) modename)))
           (maphash #'(lambda (key val)
                        (write-abbrev key val mode file))
-                   (variable-value 'Mode-Abbrev-Table :mode mode))))))
+                   (variable-value 'mode-abbrev-table :mode mode))))))
   (let ((tn (truename filename)))
     (setf (value abbrev-pathname-defaults) tn)
     (message "~A written." (namestring tn))))

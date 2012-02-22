@@ -702,8 +702,8 @@
   ;; commmands are defined.
   ;;
   (let* ((sym (find-symbol (concatenate 'string
-                                        (string-upcase cmd)
-                                        "-COMMAND")
+                                        (canonical-case cmd)
+                                        (symbol-name '#:-command))
                            :hemlock))
          (fun (and sym (fdefinition sym))))
     (when fun

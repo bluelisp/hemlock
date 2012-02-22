@@ -119,7 +119,7 @@
   nil)
 
 (defstruct (syntax-info
-             (:conc-name "SY-")
+             (:conc-name sy-)
              (:constructor make-syntax-info
                            (signature from-state to-state font-marks)))
   (signature :bogus-signature)
@@ -131,7 +131,7 @@
   (ticks -1)
   (line-number 1 :type (integer 1))
   (syntax-info nil :type (or null syntax-info))
-  (package "CL-USER" :type (or null string)))
+  (package (symbol-name :cl-user) :type (or null string)))
 
 ;;; Make Line-Chars the same as Line-%Chars on implementations without
 ;;; buffered lines.

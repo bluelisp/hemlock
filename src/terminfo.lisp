@@ -101,7 +101,7 @@
                (gethash ,symbol *capabilities* t)))
        (setf (gethash ,symbol *capabilities*) (cons #',thing ,index))
        (define-symbol-macro ,name (capability ,symbol *terminfo*))
-       (export ',name #.*package*))))
+       (export ',name #.(package-name *package*)))))
 
 (defcap auto-left-margin boolean 0)
 (defcap auto-right-margin boolean 1)

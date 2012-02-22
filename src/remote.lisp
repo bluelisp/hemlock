@@ -148,8 +148,9 @@ to aborting due to a throw)."
 ;;; the value away.
 ;;;
 (defmacro define-functions (values)
-  (let ((do-call (intern (format nil "~:@(do-~D-value-call~)" values)))
-        (return-values (intern (format nil "~:@(return-~D-value~:P~)" values)))
+  (let ((do-call (intern (format nil "~A~D~A" '#:do- values '#:-value-call)))
+        (return-values (intern (format nil "~A~D~A~P" '#:return- values
+                                       `#:-value values)))
         (vars nil))
     (dotimes (i values)
       (push (gensym) vars))
@@ -174,7 +175,7 @@ to aborting due to a throw)."
              ,@(let ((setf-forms nil))
                  (dotimes (i values)
                    (push `(setf (,(intern (format nil
-                                                  "~:@(remote-wait-value~D~)"
+                                                  "~A~D" '#:remote-wait-value
                                                   (1+ i)))
                                  result)
                                 ,(nth i vars))

@@ -335,7 +335,7 @@
                    (dired-info-pathname (value dired-information)))
                   '(:relative))))
     (dired-command nil
-                   (truename (make-pathname :directory (nconc dirs '(:UP)))))))
+                   (truename (make-pathname :directory (nconc dirs '(:up)))))))
 
 
 
@@ -553,11 +553,11 @@
   "Can be either t, nil, or :update.  T means always query before clobbering an
    existing file, nil means don't query before clobbering an existing file, and
    :update means only ask if the existing file is newer than the source."
-  :value T)
+  :value t)
 
 (defhvar "Dired Rename File Confirm"
   "When non-nil, dired will query before clobbering an existing file."
-  :value T)
+  :value t)
 
 (defcommand "Dired Copy File" (p)
   "Copy the file under the point"

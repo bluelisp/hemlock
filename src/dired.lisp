@@ -11,16 +11,16 @@
 ;;; Written by Bill Chiles.
 ;;;
 
-(defpackage "DIRED"
-  (:shadow "RENAME-FILE" "DELETE-FILE")
-  (:use "CL")
-  (:export "COPY-FILE" "RENAME-FILE" "FIND-FILE" "DELETE-FILE"
-           "MAKE-DIRECTORY"
-           "*UPDATE-DEFAULT*" "*CLOBBER-DEFAULT*" "*RECURSIVE-DEFAULT*"
-           "*REPORT-FUNCTION*" "*ERROR-FUNCTION*" "*YESP-FUNCTION*"
-           "PATHNAMES-FROM-PATTERN"))
+(defpackage :dired
+  (:shadow #:rename-file #:delete-file)
+  (:use :cl)
+  (:export #:copy-file #:rename-file #:find-file #:delete-file
+           #:make-directory
+           #:*update-default* #:*clobber-default* #:*recursive-default*
+           #:*report-function* #:*error-function* #:*yesp-function*
+           #:pathnames-from-pattern))
 
-(in-package "DIRED")
+(in-package #:dired)
 
 
 ;;;; Exported parameters.
@@ -439,7 +439,7 @@
 
 ;;; DELETE-FILE
 ;;;    If spec is a directory, but recursive is nil, just pass the directory
-;;; down through, letting LISP:DELETE-FILE signal an error if the directory
+;;; down through, letting 'cl:delete-file signal an error if the directory
 ;;; is not empty.
 ;;;
 (defun delete-file (spec &key (recursive *recursive-default*)

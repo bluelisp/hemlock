@@ -563,7 +563,7 @@
        ((null package)
         if-does-not-exist-value)
        ((and (eq package (find-package :cl))
-             (equal name "NIL"))
+             (equal name (symbol-name nil)))
         nil)
        ((find-symbol name package))
        (t
@@ -584,12 +584,17 @@
                                    (package (package-name package))
                                    (string package)
                                    (null (or (package-at-point)
-                                             "COMMON-LISP")))
+                                             (symbol-name :common-lisp))))
                    :name name)))
 
 (defun casify-char (char)
   "Convert CHAR accoring to readtable-case."
+  #-scl
   (char-upcase char)
+  #+scl
+  (if (eq ext:*case-mode* :upper)
+      (char-upcase char)
+      (char-downcase char))
   ;; fixme: need to do this on the slave side
   #+nil
   (ecase (readtable-case *readtable*)
@@ -635,7 +640,7 @@
   (multiple-value-bind (sname pname) (tokenize-symbol-thoroughly string)
     (when (plusp (length sname))
       (make-slave-symbol sname
-                         (cond ((equal pname "") "KEYWORD")
+                         (cond ((equal pname "") (symbol-name :keyword))
                                (pname (canonicalize-slave-package-name pname))
                                (t package))))))
 
@@ -649,7 +654,7 @@
     (region-to-string (region mark1 mark2))))
 
 (defun canonicalize-slave-package-name (str)
-  (cl-ppcre:regex-replace "^SB!" (string-upcase str) "SB-"))
+  (cl-ppcre:regex-replace "^SB!" (canonical-case str) "SB-"))
 
 (defun package-at-point ()
   (hi::tag-package (hi::line-tag (mark-line (current-point)))))

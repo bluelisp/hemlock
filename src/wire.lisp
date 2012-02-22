@@ -59,7 +59,7 @@
 
 (defstruct (stream-device
              (:include device)
-             (:conc-name "DEVICE-")
+             (:conc-name device-)
              (:constructor make-stream-device (stream)))
   (stream (error "missing argument") :type stream))
 

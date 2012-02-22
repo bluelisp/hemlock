@@ -676,17 +676,17 @@
   (setf *original-terminal-io* *terminal-io*)
   (macrolet ((frob (symbol new-value)
                `(setf ,(intern (concatenate 'simple-string
-                                            "*ORIGINAL-"
+                                            (symbol-name '#:*original-)
                                             (subseq (string symbol) 1)))
                  ,symbol
                  ,symbol ,new-value)))
     (frob *terminal-io* (connect-stream slave-info))
     (frob *standard-input* (make-synonym-stream '*terminal-io*))
-    (frob *standard-output* (make-synonym-stream '*terminal-io*))
-    (frob *error-output* (make-synonym-stream '*terminal-io*))
-    (frob *debug-io* (make-synonym-stream '*terminal-io*))
-    (frob *query-io* (make-synonym-stream '*terminal-io*))
-    ;; (frob *trace-output* (make-synonym-stream '*terminal-io*))
+    (frob *standard-output* *standard-input*)
+    (frob *error-output* *standard-input*)
+    (frob *debug-io* *standard-input*)
+    (frob *query-io* *standard-input*)
+    (frob *trace-output* *standard-input*)
     )
   (setf *background-io* (connect-stream background-info))
   (setf cl-user::*io* *terminal-io*)
@@ -719,7 +719,7 @@
 (defun editor-died ()
   (macrolet ((frob (symbol)
                (let ((orig (intern (concatenate 'simple-string
-                                                "*ORIGINAL-"
+                                                (symbol-name '#:*original-)
                                                 (subseq (string symbol) 1)))))
                  `(when ,orig
                     (setf ,symbol ,orig)))))

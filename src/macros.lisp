@@ -74,18 +74,20 @@
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
 
+;;; Convert the symbol name 'string to the standard character case for the
+;;; lisp implementation which is uppercase for standard CL.
+(defun canonical-case (string)
+  #-scl
+  (nstring-upcase string)
+  #+scl
+  (if (eq ext:*case-mode* :upper)
+      (nstring-upcase string)
+      (nstring-downcase string)))
+
 (defun bash-string-to-symbol (name suffix)
-  (intern (nsubstitute #\- #\space
-                       #-scl
-                       (nstring-upcase
-                        (concatenate 'simple-string
-                                     name (symbol-name suffix)))
-                       #+scl
-                       (let ((base (concatenate 'simple-string
-                                                name (symbol-name suffix))))
-                         (if (eq ext:*case-mode* :upper)
-                             (nstring-upcase base)
-                             (nstring-downcase base))))))
+  (intern (nsubstitute #\- #\space (canonical-case
+                                    (concatenate 'simple-string
+                                                 name (symbol-name suffix))))))
 
 ;;; string-to-variable  --  Exported
 ;;;
@@ -94,13 +96,7 @@
 (defun string-to-variable (string)
   "Returns the symbol name of a Hemlock variable from the corresponding string
    name."
-  (intern (nsubstitute #\- #\space
-                       #-scl
-                       (the simple-string (string-upcase string))
-                       #+scl
-                       (if (eq ext:*case-mode* :upper)
-                           (string-upcase string)
-                           (string-downcase string)))
+  (intern (nsubstitute #\- #\space (canonical-case string))
           (find-package :hemlock)))
 
 ); eval-when
@@ -110,13 +106,7 @@
 ;;;    Mash a string into a Keyword.
 ;;;
 (defun string-to-keyword (string)
-  (intern (nsubstitute #\- #\space
-                       #-scl
-                       (the simple-string (string-upcase string))
-                       #+scl
-                       (if (eq ext:*case-mode* :upper)
-                           (string-upcase string)
-                           (string-downcase string)))
+  (intern (nsubstitute #\- #\space (canonical-case (string-upcase string)))
           (find-package :keyword)))
 
 

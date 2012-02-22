@@ -274,7 +274,7 @@
 (defun start-of-search-line (line)
   "Set LINE to the begining line of the block of text to parse."
   (with-mark ((mark (mark line 0)))
-    (funcall (value 'Parse-Start-Function) mark)
+    (funcall (value parse-start-function) mark)
     (setq line (mark-line mark))))
 
 ;;;
@@ -283,7 +283,7 @@
 (defun end-of-search-line (line)
   "Set LINE to the ending line of the block of text to parse."
   (with-mark ((mark (mark line 0)))
-    (funcall (value 'Parse-End-Function) mark)
+    (funcall (value parse-end-function) mark)
     (setq line (mark-line mark))))
 
 

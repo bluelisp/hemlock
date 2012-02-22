@@ -495,7 +495,7 @@
 
 (defstruct (connection-device
              (:include hemlock.wire:device)
-           (:conc-name "DEVICE-")
+           (:conc-name device-)
            (:constructor %make-connection-device (connection)))
   (connection (error "missing argument") :type connection)
   (reading 0 :type integer)

@@ -78,17 +78,17 @@
            (list form))
           (t
            (ecase (car form)
-             ((IF)
+             ((if)
               (destructuring-bind (cond cons &optional alt) (cdr form)
-                (let ((L1 (gensym "L."))
-                      (L2 (gensym "L.")))
-                  (append (list `(IF (not ,cond) ,L1))
+                (let ((l1 (gensym "L."))
+                      (l2 (gensym "L.")))
+                  (append (list `(if (not ,cond) ,l1))
                           (me cons)
-                          (list `(GO ,L2))
-                          (list L1)
+                          (list `(go ,l2))
+                          (list l1)
                           (and alt (me alt))
-                          (list L2)))))
-             ((WHILE)
+                          (list l2)))))
+             ((while)
               (destructuring-bind (cond &rest body) (cdr form)
                 (let ((exit (gensym "EXIT."))
                       (loop (gensym "LOOP.")))
@@ -97,16 +97,16 @@
                           (me `(progn ,@body))
                           (list `(go ,loop))
                           (list exit)))))
-             ((COND)
+             ((cond)
               (cond ((null (cdr form)) nil)
                     (t
                      (me
                       `(if ,(caadr form) (progn ,@(cdadr form))
                         (cond ,@(cddr form)))))))
-             ((CONSUME RETURN) (list form))
-             ((PROGN) (mapcan #'me (cdr form)))
-             ((GO) (list form))
-             ((CALL) (list form))))))
+             ((consume return) (list form))
+             ((progn) (mapcan #'me (cdr form)))
+             ((go) (list form))
+             ((call) (list form))))))
 
   (defun ass (stmts)
     (let ((ip 0)
@@ -281,25 +281,25 @@
       (exit)
       (loop
           (ecase (fetch)
-            (:IF
+            (:if
              (let ((cond (fetch))
                    (target (fetch)))
                (when (funcall cond char)
                  (setf ip target))))
-            (:CONSUME
+            (:consume
              (save)
              (return-from step** state))
-            (:RETURN
+            (:return
              '(print (list :return state) *trace-output*)
              (exit)
              ;;(print (list :dada state))
              )
-            (:CALL
+            (:call
              (let ((new-fun (fetch)))
                '(print (list :call new-fun) *trace-output*)
                (save)
                (sync new-fun 0)))
-            (:GO
+            (:go
              (setf ip (fetch))))))))
 
 (defun dodo (string)

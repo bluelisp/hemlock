@@ -1050,7 +1050,7 @@ to the appropriate home directory."
 			       :external)))
 	       (package (and first-colon
 			     (find-package (if (plusp first-colon)
-					       (string-upcase
+					       (canonical-case
 						(subseq string 0 first-colon))
 					       :keyword))))
 	       (hash (make-hash-table :test #'equal))
@@ -1164,7 +1164,7 @@ to the appropriate home directory."
   (declare (ignore chord))
   (print-in-lines editor
 		  (with-output-to-string (s)
-		    (describe (find-symbol (string-upcase
+		    (describe (find-symbol (canonical-case
 					    (editor-word editor))) s))))
 
 (defcommand "Linedit Complete" (p) "" ""

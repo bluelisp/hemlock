@@ -198,7 +198,7 @@
 
 (defun unwedge-process-buffer ()
   (buffer-end (current-point))
-  (deliver-signal-to-process :SIGINT (value process-connection))
+  (deliver-signal-to-process :sigint (value process-connection))
   (editor-error "Aborted."))
 
 (defhvar "Unwedge Interactive Input Fun"
@@ -516,13 +516,13 @@
     (delete-connection (value process-connection))))
 
 (defcommand "Stop Main Process" (p)
-  "Stops the process in the current buffer.  With an argument use :SIGSTOP
-   instead of :SIGTSTP."
-  "Stops the process in the current buffer.  With an argument use :SIGSTOP
-  instead of :SIGTSTP."
+  "Stops the process in the current buffer.  With an argument use :sigstop
+   instead of :sigtstp."
+  "Stops the process in the current buffer.  With an argument use :sigstop
+  instead of :sigtstp."
   (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-process (if p :SIGSTOP :SIGTSTP) (value process-connection)))
+  (deliver-signal-to-process (if p :sigstop :sigtstp) (value process-connection)))
 
 (defcommand "Continue Main Process" (p)
   "Continues the process in the current buffer."
@@ -530,11 +530,11 @@
   (declare (ignore p))
   (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-process :SIGCONT (value process-connection)))
+  (deliver-signal-to-process :sigcont (value process-connection)))
 
 (defun kill-process (process)
   "Self-explanatory."
-  (deliver-signal-to-process :SIGKILL process))
+  (deliver-signal-to-process :sigkill process))
 
 (defun process-kill (process signal frob)
   (declare (ignore process signal frob))
@@ -563,7 +563,7 @@
     (editor-error "Not in a process buffer."))
   (buffer-end (current-point))
   (buffer-end (value buffer-input-mark))
-  (deliver-signal-to-subprocess :SIGINT (value process-connection)))
+  (deliver-signal-to-subprocess :sigint (value process-connection)))
 
 (defcommand "Kill Buffer Subprocess" (p)
   "Kill the subprocess currently executing in this shell."
@@ -571,7 +571,7 @@
   (declare (ignore p))
   (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess :SIGKILL (value process-connection)))
+  (deliver-signal-to-subprocess :sigkill (value process-connection)))
 
 (defcommand "Quit Buffer Subprocess" (p)
   "Quit the subprocess currently executing int his shell."
@@ -579,14 +579,14 @@
   (declare (ignore p))
   (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess :SIGQUIT (value process-connection)))
+  (deliver-signal-to-subprocess :sigquit (value process-connection)))
 
 (defcommand "Stop Buffer Subprocess" (p)
   "Stop the subprocess currently executing in this shell."
   "Stop the subprocess currently executing in this shell."
   (unless (hemlock-bound-p 'process-connection :buffer (current-buffer))
     (editor-error "Not in a process buffer."))
-  (deliver-signal-to-subprocess (if p :SIGSTOP :SIGTSTP) (value process-connection)))
+  (deliver-signal-to-subprocess (if p :sigstop :sigtstp) (value process-connection)))
 
 (defun deliver-signal-to-subprocess (signal process)
   "Delivers a signal to a subprocess of a shell."

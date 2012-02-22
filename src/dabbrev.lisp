@@ -7,7 +7,7 @@
 ;;; Written by Luke Gorrie <luke@bluetail.com> in February 2002.
 ;;; This code has been placed in the public domain.
 
-(in-package "HEMLOCK")
+(in-package :hemlock)
 
 ;;; ----------------------------------------------------------------------
 ;;; Internal state for continuing expansions. This is only maintained

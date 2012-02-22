@@ -18,7 +18,7 @@
 			     (values nil (string-downcase prefix))))
     (hemlock::eval-in-slave
      `(%fuzzy-complete-symbol/request
-       ,(or packname (package-at-point) "CL")
+       ,(or packname (package-at-point) :cl)
        ,symname))))
 
 (defun %fuzzy-complete-symbol/request (packname symname)
@@ -766,7 +766,7 @@ Return the package or nil."
   (ignore-errors
    #+fixme (find-package (let ((*package* *swank-io-package*))
                     (read-from-string string)))
-    (find-package (string-upcase string))))
+    (find-package (canonical-case string))))
 
 (defun package-names (package)
   "Return the name and all nicknames of PACKAGE in a fresh list."
@@ -804,7 +804,7 @@ keywords: :BOUNDP, :FBOUNDP, :CONSTANT, :GENERIC-FUNCTION,
 ;;;
 
 (defstruct (fuzzylist-entry
-	    (:conc-name "FUZZ-")
+	    (:conc-name fuzz-)
 	    (:constructor internal-make-fuzzylist-entry
 			  (completed-string
 			   score

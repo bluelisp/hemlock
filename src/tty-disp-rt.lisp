@@ -53,7 +53,7 @@
 ;;;
 (defun get-terminal-attributes (&optional (fd 1))
   (cffi:with-foreign-object (ws 'osicat-posix::winsize)
-    (osicat-posix:ioctl fd osicat-posix:TIOCGWINSZ ws)
+    (osicat-posix:ioctl fd osicat-posix:tiocgwinsz ws)
     (cffi:with-foreign-slots ((osicat-posix::row osicat-posix::col)
                               ws osicat-posix::winsize)
       (values osicat-posix::row osicat-posix::col 4800))))
@@ -378,4 +378,4 @@
   "Pause hemlock and pop out to the Unix Shell."
   (without-hemlock
    (unix:unix-kill (unix:unix-getpid) :sigstop))
-  T)
+  t)

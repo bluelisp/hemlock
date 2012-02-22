@@ -216,17 +216,17 @@
           (unless (find-pattern def-mark pattern)
             (if (and (or (eq type :function) (eq type :unknown-function))
                      (> name-len 7)
-                     (string= name "COMMAND" :start1 (- name-len 7)))
+                     (string= name (symbol-name '#:command) :start1 (- name-len 7)))
                 (let ((prev-search-str *last-go-to-def-string*))
                   (unless (find-pattern def-mark
                                         (get-definition-pattern :command name))
                     (editor-error "~A is not defined with ~S or ~S, ~
                                    but this is the defined-in file."
-                                  (string-upcase name) prev-search-str
+                                  name prev-search-str
                                   *last-go-to-def-string*)))
                 (editor-error "~A is not defined with ~S, ~
                                but this is the defined-in file."
-                              (string-upcase name) *last-go-to-def-string*)))
+                              name *last-go-to-def-string*)))
           (if (eq buffer (current-buffer))
               (push-buffer-mark (copy-mark point)))
           (move-mark point def-mark))))
@@ -236,7 +236,7 @@
           (unless (find-pattern m pattern)
             (editor-error
              "~A is not compiled and not defined in current buffer with ~S"
-             (string-upcase name) *last-go-to-def-string*))
+             name *last-go-to-def-string*))
           (let ((point (current-point)))
             (push-buffer-mark (copy-mark point))
             (move-mark point m))))))))

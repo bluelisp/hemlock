@@ -1364,7 +1364,7 @@
   "When non-nil, the default, Hemlock will show the next message in a group
    when you scroll off the end of one.  Otherwise Hemlock will editor error
    that you are at the end of the buffer."
-  :value T)
+  :value t)
 
 (defcommand "Netnews Message Scroll Down" (p &optional (buffer (current-buffer))
                                              (window (current-window)))
@@ -1503,7 +1503,7 @@
 (defhvar "Netnews Exit Confirm"
   "When non-nil, the default, \"Netnews Exit\" will ask you if you really
    want to.  If this variable is NIL, you will not be prompted."
-  :value T)
+  :value t)
 
 (defcommand "Netnews Exit" (p &optional no-prompt-p
                               (headers-buf (nn-get-headers-buffer)))
