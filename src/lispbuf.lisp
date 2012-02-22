@@ -15,10 +15,16 @@
 (defmacro in-lisp (&body body)
   "Evaluates body inside HANDLE-LISP-ERRORS.  *package* is bound to the package
    named by \"Current Package\" if it is non-nil."
-  (let ((name (gensym)) (package (gensym)))
+  (let ((current-package-name (gensym))
+        (package-at-point-name (gensym))
+        (package (gensym)))
     `(handle-lisp-errors
-      (let* ((,name (package-at-point))
-             (,package (and ,name (find-package ,name))))
+      (let* ((,current-package-name (value current-package))
+             (,package-at-point-name (package-at-point))
+             (,package (or (and ,current-package-name
+                                (find-package ,current-package-name))
+                           (and ,package-at-point-name
+                                (find-package ,package-at-point-name)))))
         (progv (if ,package '(*package*)) (if ,package (list ,package))
           ,@body)))))
 
@@ -98,10 +104,9 @@
         :value 0))
     (let ((*standard-output*
            (variable-value 'eval-output-stream :buffer buffer)))
-      (format *standard-output* *eval-welcome-message*)
-      #+nil (show-prompt)
-      ;; hack:
-      (format *standard-output* "CL-USER> "))
+      (fresh-line)
+      (format t *eval-welcome-message*)
+      (show-prompt))
     (move-mark (variable-value 'buffer-input-mark :buffer buffer) point)))
 
 (defmode "Eval" :major-p nil :setup-function 'setup-eval-mode)
