@@ -112,8 +112,7 @@
 (defcommand "Slave Apropos Ignoring Point"
             (p &optional (str
                           (hemlock-interface::prompt-for-string
-                           :prompt "Apropos string: "
-                           :default default)))
+                           :prompt "Apropos string: ")))
   "" ""
   (declare (ignore p))
   (slave-apropos str))
