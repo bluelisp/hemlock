@@ -39,9 +39,23 @@
      (t
       (message "no matches")))))
 
-(defcommand "Fuzzy Complete Symbol" (&optional p)
+(defcommand "Fuzzy Complete Symbol" (p)
   "" ""
   (fuzzy-complete-symbol p))
+
+(defcommand "Editor Fuzzy Complete Symbol" (p)
+  "" ""
+  (let ((prefix (symbol-string-at-point)))
+    (multiple-value-bind (packname symname)
+		 (let ((p (position #\: prefix)))
+		   (if p
+		       (values (subseq prefix 0 p)
+			       (string-downcase (subseq prefix (1+ p))))
+		       (values nil (string-downcase prefix))))
+      (let* ((packname (or packname (package-at-point) "cl"))
+	     (matches (let ((*buffer-package* packname))
+			(fuzzy-completions symname packname))))
+	(%fuzzy-complete-symbol/results matches)))))
 
 (defun %fuzzy-insert-completion (completion)
   (let ((point (current-point)))

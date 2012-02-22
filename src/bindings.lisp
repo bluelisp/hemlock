@@ -320,6 +320,7 @@
 (bind-key "Editor Macroexpand Expression" #k"control-m" :mode "Editor")
 (bind-key "Editor Describe Function Call" #k"control-meta-A" :mode "Editor")
 (bind-key "Editor Describe Symbol" #k"control-meta-S" :mode "Editor")
+(bind-key "Editor Fuzzy Complete Symbol" #k"control-c meta-i" :mode "Editor")
 
 
 ;;;; Typescript.
