@@ -391,11 +391,10 @@
     ;;  (next-dis-line))
     ;;
     ;; Write every remaining line.
-    (let* ((device (device-hunk-device hunk))
-           (force-output (device-force-output device)))
+    (let ((device (device-hunk-device hunk)))
       (loop
        (tty-semi-dumb-line-redisplay device hunk (car dl))
-       (when force-output (funcall force-output))
+       (device-force-output device)
        (next-dis-line)
        (when (eq prev last-changed) (return))))))
 
