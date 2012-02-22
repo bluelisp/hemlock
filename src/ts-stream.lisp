@@ -25,9 +25,11 @@
 
 (defconstant ts-stream-output-buffer-size 512)
 
-(defclass ts-stream (hi::trivial-gray-stream-mixin
-                     hi::fundamental-character-output-stream
-                     hi::fundamental-character-input-stream)
+(defclass ts-stream (#-scl hi::trivial-gray-stream-mixin
+                     #-scl hi::fundamental-character-output-stream
+                     #-scl hi::fundamental-character-input-stream
+                     #+scl ext:character-input-stream
+                     #+scl ext:character-output-stream)
   ((wire
     :initarg  :wire
     :initform nil
@@ -79,7 +81,11 @@
     :type fixnum)))
 
 (defun make-ts-stream (wire typescript)
-  (make-instance 'ts-stream :wire wire :typescript typescript))
+  (make-instance 'ts-stream
+		 #+scl #+scl :in-buffer lisp::*empty-string*
+		 #+scl #+scl :out-buffer lisp::*empty-string*
+                 :wire wire
+                 :typescript typescript))
 
 
 ;;;; Conditions.

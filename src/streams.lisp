@@ -17,8 +17,9 @@
 
 (in-package :hemlock-internals)
 
-(defclass hemlock-output-stream (hi::trivial-gray-stream-mixin
-                                 hi::fundamental-character-output-stream)
+(defclass hemlock-output-stream (#-scl hi::trivial-gray-stream-mixin
+                                 #-scl hi::fundamental-character-output-stream
+                                 #+scl ext:character-output-stream)
   ((mark
     :initform nil
     :accessor hemlock-output-stream-mark
@@ -77,7 +78,9 @@
    :None  -- The screen is brought up to date after each stream operation.
    :Line  -- The screen is brought up to date when a newline is written.
    :Full  -- The screen is not updated except explicitly via Force-Output."
-  (modify-hemlock-output-stream (make-instance 'hemlock-output-stream) mark
+  (modify-hemlock-output-stream (make-instance 'hemlock-output-stream
+                                               #+scl #+scl :out-buffer lisp::*empty-string*)
+                                mark
                                 buffered))
 
 
@@ -219,7 +222,7 @@
 
 
 (defclass hemlock-region-stream (#-scl fundamental-character-input-stream
-                                 #+scl character-input-stream)
+                                 #+scl ext:character-input-stream)
   ;;
   ;; The region we read from.
   ((region :initarg :region
@@ -237,6 +240,7 @@
   "Returns an input stream that will return successive characters from the
   given Region when asked for input."
   (make-instance 'hemlock-region-stream
+                 #+scl #+scl :in-buffer lisp::*empty-string*
                  :region region
                  :mark (copy-mark (region-start region) :right-inserting)))
 
@@ -285,6 +289,16 @@
 #+excl
 (defmethod excl:stream-read-char-no-hang ((stream hemlock-region-stream))
   (stream-read-char stream))
+
+#+scl
+(defmethod stream-file-position ((stream hemlock-region-stream) &optional pos)
+  (let ((start (region-start (hemlock-region-stream-region stream)))
+        (mark (hemlock-region-stream-mark stream)))
+    (cond (pos
+           (move-mark mark start)
+           (character-offset mark pos))
+          (t
+           (count-characters (region start mark))))))
 
 #||
 (defmethod excl::stream-file-position ((stream hemlock-output-stream) &optional pos)

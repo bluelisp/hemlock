@@ -48,7 +48,7 @@
     (numbers (required-argument) :type (simple-array (signed-byte 16) (*)))
     (strings (required-argument) :type (simple-array t (*)))))
 
-#+CMU
+#+(or CMU scl)
 (declaim (ext:start-block capability %capability))
 
 (defun %capability (name terminfo)
@@ -67,7 +67,7 @@
 (defun capability (name &optional (terminfo *terminfo*))
   (%capability name terminfo))
 
-#+CMU
+#+(or CMU scl)
 (declaim (ext:end-block))
 
 (define-compiler-macro capability (&whole form
@@ -879,7 +879,7 @@
 
 (defun stream-fileno (stream)
   (typecase stream
-    #+CMU
+    #+(or CMU scl)
     (sys:fd-stream
      (sys:fd-stream-fd stream))
     (two-way-stream
@@ -893,7 +893,7 @@
     (otherwise nil)))
 
 (defun stream-baud-rate (stream)
-  #+CMU
+  #+(or CMU scl)
   (alien:with-alien ((termios (alien:struct unix:termios)))
     (declare (optimize (ext:inhibit-warnings 3)))
     (when (unix:unix-tcgetattr (stream-fileno stream) termios)

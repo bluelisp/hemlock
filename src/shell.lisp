@@ -60,8 +60,9 @@
 ;;;    alias pushd 'pushd \!* ; echo ""`pwd`"/"'
 ;;;
 
-(defclass shell-filter-stream (hi::trivial-gray-stream-mixin
-                               hi::fundamental-character-output-stream)
+(defclass shell-filter-stream (#-scl hi::trivial-gray-stream-mixin
+                               #-scl hi::fundamental-character-output-stream
+                               #+scl ext:character-output-stream)
   ((buffer
     :initform nil
     :initarg :buffer
@@ -75,6 +76,8 @@
 
 (defun make-shell-filter-stream (buffer hemlock-stream)
   (make-instance 'shell-filter-stream
+		 #+scl #+scl :in-buffer lisp::*empty-string*
+		 #+scl #+scl :out-buffer lisp::*empty-string*
                  :buffer buffer
                  :hemlock-stream hemlock-stream))
 

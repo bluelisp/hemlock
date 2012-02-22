@@ -405,6 +405,10 @@
 (defmethod stream-fd ((stream system:fd-stream))
   (system:fd-stream-fd stream))
 
+#+scl
+(defmethod stream-fd ((stream stream))
+  (system:fd-stream-fd stream))
+
 #+openmcl
 (defmethod stream-fd ((stream ccl::basic-stream))
   (ccl::ioblock-device (ccl::stream-ioblock stream t)))
