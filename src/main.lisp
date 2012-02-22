@@ -236,7 +236,7 @@ GB
      in a modeline.  When the pathname is too long, the :buffer-pathname
      modeline-field function chops off leading directory specifications until
      the pathname fits.  \"...\" indicates a truncated pathname."
-    :value nil
+    :value 30
     :hooks (list 'maximum-modeline-pathname-length-hook)))
 
 (defvar *background-image* :auto
