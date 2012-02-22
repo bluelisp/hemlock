@@ -31,20 +31,17 @@
     #-(or EXCL CMU sbcl openmcl) progn
     ,@body))
 
+#-(or CMU scl)
 (defmacro fixnump (object)
-  #+CMU   `(ext:fixnump ,object)
-  #+scl   `(ext:fixnump ,object)
   #+EXCL  `(excl:fixnump ,object)
   #+CLISP `(sys::fixnump ,object)
-  #-(or CMU EXCL CLISP scl) `(typep ,object 'fixnum))
+  #-(or EXCL CLISP) `(typep ,object 'fixnum))
 
+#-(or cmu scl)
 (defun file-writable (pathname)
   "File-writable accepts a pathname and returns T if the current
   process can write it, and NIL otherwise. Also if the file does
   not exist return T."
-  #+(or CMU scl)
-  (ext:file-writable pathname)
-  #-(or cmu scl)
   (handler-case (let ((io (open pathname
                                 :direction :output
                                 :if-exists :append

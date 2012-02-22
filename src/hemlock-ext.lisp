@@ -5,6 +5,7 @@
 (defconstant hi::char-code-limit 256)
 (defconstant char-code-limit 256)
 
+#-scl
 (defmacro file-comment (&rest ignore)
   (declare (ignore ignore))
   nil)
@@ -15,9 +16,11 @@
 
 ;;; These are just stubs for now:
 
+#-scl
 (defun quit ()
   )
 
+#-scl
 (defun sap-ref-8 (vec index)
   (declare (ignore vec index))
   (error "SAP-REF-8 called.") )
@@ -27,6 +30,7 @@
 (defun hi::get-terminal-name ()
   "vt100")
 
+#-scl
 (defun default-directory ()
   (let* ((p (hemlock::buffer-default-directory (current-buffer)))
          (p (and p (namestring p))))
@@ -347,12 +351,15 @@
   returned."
   (position character string :start start :end end))
 
+#-scl
 (defun delq (item list)
   (delete item list))
 
+#-scl
 (defun memq (item list)
   (member item list))
 
+#-scl
 (defun assq (item alist)
   (assoc item alist))
 
@@ -362,6 +369,7 @@
 
 ;;;; complete-file
 
+#-scl
 (defun complete-file (pathname &key (defaults *default-pathname-defaults*)
                       ignore-types)
   (let ((files (complete-file-directory pathname defaults)))
@@ -400,6 +408,7 @@
 
 ;;; COMPLETE-FILE-DIRECTORY-ARG -- Internal.
 ;;;
+#-scl
 (defun complete-file-directory (pathname defaults)
   (let* ((namestring
           (namestring
@@ -421,6 +430,7 @@
 
 ;;; Ambiguous-Files  --  Public
 ;;;
+#-scl
 (defun ambiguous-files (pathname
                         &optional (defaults *default-pathname-defaults*))
   "Return a list of all files which are possible completions of Pathname.

@@ -28,6 +28,7 @@
     (multiple-value-bind (output warnings-p failure-p)
         (compile-file source-file :output-file output-file
                       #+sbcl #+sbcl :external-format :iso-8859-1
+                      #+scl #+scl :external-format :iso-8859-1
                       #+clisp #+clisp :external-format (ext:make-encoding :charset 'charset:iso-8859-1 :line-terminator :unix))
       (when warnings-p
         (warn
@@ -46,6 +47,7 @@
     (setf (asdf:component-property c 'asdf::last-loaded-as-source)
           (and (load source
                      #+sbcl #+sbcl :external-format :iso-8859-1
+                     #+scl #+scl :external-format :iso-8859-1
                      #+clisp #+clisp :external-format (ext:make-encoding :charset 'charset:iso-8859-1 :line-terminator :unix))
                (get-universal-time)))))
 
@@ -64,7 +66,8 @@
                                #+CMU   "cmu"
                                #+EXCL  "acl"
                                #+SBCL  "sbcl"
-                               #-(or CLISP CMU EXCL SBCL)
+                               #+scl   "scl"
+                               #-(or CLISP CMU EXCL SBCL scl)
                                (string-downcase (lisp-implementation-type))))
                  :defaults *hemlock-base-directory*))
 
@@ -73,7 +76,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:alexandria
+     :depends-on (#-scl :alexandria
                   :bordeaux-threads
                   :conium
                   :trivial-gray-streams
@@ -83,7 +86,7 @@
                   :iolib
                   :iolib.os
                   :cl-ppcre
-                  :command-line-arguments)
+                  #-scl :command-line-arguments)
     :components
     ((:module core-1
               :pathname #.(merge-pathnames

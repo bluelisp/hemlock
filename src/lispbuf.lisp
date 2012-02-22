@@ -492,19 +492,24 @@
 
 (defun editor-compile-region (region &optional quiet)
   (unless quiet (message "Compiling region ..."))
-  (in-lisp
-   (with-input-from-region (stream region)
-     (with-pop-up-display (*error-output* :height 19)
-       ;; JDz: We don't record source locations and what not, but this
-       ;; is portable.  CMUCL specific implementation removed because
-       ;; it does not work on HEMLOCK-REGION-STREAM (but it can be
-       ;; added back later if CMUCL starts using user-extensible
-       ;; streams internally.)
-       (funcall (compile nil `(lambda ()
-                                ,@(loop for form = (read stream nil stream)
-                                        until (eq form stream)
-                                        collect form))))))))
-
+  (let ((pathname (buffer-pathname (current-buffer))))
+    (in-lisp
+     (with-input-from-region (stream region)
+       (with-pop-up-display (*error-output* :height 19)
+         ;; JDz: We don't record source locations and what not, but this
+         ;; is portable.  CMUCL specific implementation removed because
+         ;; it does not work on HEMLOCK-REGION-STREAM (but it can be
+         ;; added back later if CMUCL starts using user-extensible
+         ;; streams internally.)
+         #-scl
+         (funcall (compile nil `(lambda ()
+                                  ,@(loop for form = (read stream nil stream)
+                                      until (eq form stream)
+                                      collect form))))
+         #+scl
+         ;; TODO: add position information to the source-info.
+         (c::compile-from-stream stream :source-info pathname)
+         )))))
 
 (defcommand "Editor Evaluate Defun" (p)
   "Evaluates the current or next top-level form in the editor Lisp.

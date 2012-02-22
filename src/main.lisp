@@ -274,6 +274,7 @@ GB
   `(push #'(lambda () ,@forms)
          *after-editor-initializations-funs*))
 
+#-(or cmu scl)
 (defparameter *command-line-spec*
   (flet ((keywordize (sym value)
            (push (intern (string-upcase value) :keyword)
@@ -303,6 +304,7 @@ GB
                       :action ,(let ((b b))
                                  (alexandria:curry #'quick-backend b))))))))
 
+#-(or cmu scl)
 (defun show-cmd-line-help ()
   (format t "This is hemlock ~A.~%Usage:~%~%" *hemlock-version*)
   (format t "   ~A [OPTIONS] file...~%~%"
@@ -320,6 +322,7 @@ GB
 ;; Free Software available under an MIT-style license. See LICENSE
 ;; Copyright (c) 2003-2009 ITA Software, Inc.  All rights reserved.
 ;; Original author: Francois-Rene Rideau
+#-(or cmu scl)
 (defun show-option-help
        (specification &key (stream *standard-output*) sort-names)
   ;; TODO: be clever when trying to align stuff horizontally
@@ -347,6 +350,7 @@ GB
                       (cl-ppcre:split " " negation-documentation)))))))
 
 
+#-(or cmu scl)
 (defun main (&optional (arg-list (get-command-line-arguments)))
   (multiple-value-bind (keys rest)
                        (process-command-line-options
@@ -524,7 +528,7 @@ GB
                        (merge-pathnames ".hemlock/hemlock.lisp" home)
                        ;; Also support one of the traditional pathnames for
                        ;; CMUCL compatibility:
-                       (merge-pathnames ".hemlock-init" home))))))
+                       (merge-pathnames ".hemlock-init.lisp" home))))))
       (dolist (name names)
         (when (probe-file name)
           (load name :verbose t)

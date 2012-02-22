@@ -524,6 +524,14 @@
   (:use :common-lisp
         :hemlock-interface)
   (:shadow #:char-code-limit)
+  #+(or scl cmu)
+  (:import-from :ext #:complete-file #:default-directory
+                #:ambiguous-files
+                #:file-comment
+                #:delq #:memq #:assq
+                #:fixnump
+                #:file-writable
+                )
   ;;
   (:export
    #:file-comment
@@ -578,15 +586,25 @@
    ))
 
 (defpackage :hemlock-internals
-  (:use :common-lisp :hemlock-interface :command-line-arguments :iterate)
+  (:use :common-lisp :hemlock-interface
+        #-(or cmu scl) :command-line-arguments
+        :iterate)
   (:nicknames :hi)
   (:shadow #:char-code-limit #:show-option-help)
-  (:use trivial-gray-streams)
+  #-scl
+  (:use :trivial-gray-streams)
+  #+scl
+  (:import-from :ext
+                #:stream-write-char #:stream-line-column #:stream-line-length
+                #:stream-clear-output #:stream-force-output
+                #:stream-finish-output #:stream-read-char #:stream-unread-char
+                #:stream-read-char-no-hang #:stream-listen
+                #:stream-clear-input #:stream-file-position)
   (:import-from :hemlock-ext
                 #:delq #:memq #:assq #:concat)
   ;;
   (:export
-   #:*FAST*                             ;hmm not sure about this one
+   #:*fast*                             ;hmm not sure about this one
 
    ;; rompsite.lisp
    #:show-mark #:*input-transcript* #:fun-defined-from-pathname

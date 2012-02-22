@@ -61,7 +61,7 @@
 (setf (character-attribute :paragraph-delimiter #\space) 1)
 (setf (character-attribute :paragraph-delimiter #\linefeed) 1)
 (setf (character-attribute :paragraph-delimiter
-                           #+CMU #\formfeed #+(or sbcl EXCL CLISP OpenMCL) #\page) 1)
+                           #+CMU #\formfeed #+(or sbcl EXCL CLISP OpenMCL scl) #\page) 1)
 (setf (character-attribute :paragraph-delimiter #\tab) 1)
 (setf (character-attribute :paragraph-delimiter #\newline) 1)
 
