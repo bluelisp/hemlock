@@ -90,6 +90,9 @@
     (reg #\Rubout #k"Backspace")
     (reg hemlock.terminfo:key-backspace #k"Control-h")
     (reg hemlock.terminfo:key-dc #k"Delete")
+    
+    (reg hemlock.terminfo:key-home #k"Home")
+    
     ;; Misc.
     ;;
     ;; Not #\return, because then C-j turns into return aka C-m.
