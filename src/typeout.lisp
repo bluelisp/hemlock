@@ -24,12 +24,31 @@
 (defun invoke-with-pop-up-display (cont buffer-name height)
   (declare (ignore height))
   (let ((buf (make-unique-buffer buffer-name :modes '("Typeout"))))
-    (change-to-buffer buf)
-    (with-output-to-mark (stream (buffer-point buf))
-      (funcall cont stream))
-    (goto-buffer-start)
-    (setf (buffer-modified buf) nil
-          (buffer-writable buf) nil)))
+    (cond ((eq (current-window) *echo-area-window*)
+           ;; Can't pop-up in the echo area window, so choose another.
+           (let ((window (find-if-not #'(lambda (w) (eq w *echo-area-window*))
+                                      *window-list*)))
+             (setf (current-window) window)
+             (change-to-buffer buf)
+             (with-output-to-mark (stream (buffer-point buf))
+               (funcall cont stream)
+               (finish-output stream))
+             (goto-buffer-start)
+             (setf (buffer-modified buf) nil
+                   (buffer-writable buf) nil)
+             ;; Switch back to the echo window and buffer.
+             (setf (current-window) *echo-area-window*)
+             (change-to-buffer *echo-area-buffer*)
+             ))
+          (t
+           (change-to-buffer buf)
+           (with-output-to-mark (stream (buffer-point buf))
+             (funcall cont stream)
+             (finish-output stream))
+           (goto-buffer-start)
+           (setf (buffer-modified buf) nil
+                 (buffer-writable buf) nil)
+           ))))
 
 (declaim (special *random-typeout-ml-fields* *buffer-names*))
 
