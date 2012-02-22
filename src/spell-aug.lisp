@@ -15,7 +15,7 @@
 ;;; code relies on implementation dependent code found in Spell-RT.Lisp.
 
 
-(in-package "SPELL")
+(in-package :spell)
 
 
 ;;;; Converting Flags to Masks
@@ -86,12 +86,6 @@
             (if eofp (return))))))
 
 
-;;; This is used to break up an 18 bit string table index into two parts
-;;; for storage in a word descriptor unit.  See the documentation at the
-;;; top of Spell-Correct.Lisp.
-;;;
-(defconstant whole-index-low-byte (byte 16 0))
-
 (defun spell-add-entry (line &optional
                              (word-end (or (position #\/ line :test #'char=)
                                            (length line))))
@@ -109,13 +103,14 @@
          (string-ptr *string-table-size*)
          (desc-ptr *descriptors-size*)
          (desc-ptr+1 (1+ desc-ptr))
-         (desc-ptr+2 (1+ desc-ptr+1)))
+         (desc-ptr+2 (1+ desc-ptr+1))
+         (desc-ptr+3 (1+ desc-ptr+2)))
     (declare (fixnum string-ptr))
     (when (not hash-loc) (error "Dictionary Overflow!"))
-    (when (> 3 *free-descriptor-elements*) (grow-descriptors))
+    (when (> 4 *free-descriptor-elements*) (grow-descriptors))
     (when (> word-end *free-string-table-bytes*) (grow-string-table))
-    (decf *free-descriptor-elements* 3)
-    (incf *descriptors-size* 3)
+    (decf *free-descriptor-elements* 4)
+    (incf *descriptors-size* 4)
     (decf *free-string-table-bytes* word-end)
     (incf *string-table-size* word-end)
     (setf (dictionary-ref hash-loc) desc-ptr)
@@ -126,10 +121,9 @@
     (setf (descriptor-ref desc-ptr+1)
           (ldb whole-index-low-byte string-ptr))
     (setf (descriptor-ref desc-ptr+2)
-          (dpb (the fixnum (ldb whole-index-high-byte string-ptr))
-               stored-index-high-byte
-               0))
-    (add-flags desc-ptr+2 line word-end)
+          (ldb whole-index-high-byte string-ptr))
+    (setf (descriptor-ref desc-ptr+3) 0)
+    (add-flags desc-ptr+3 line word-end)
     (string-table-replace line string-ptr word-end))
   t)
 
@@ -165,8 +159,8 @@
                            (spell-try-word entry entry-len)
         (when index
           (if flagp
-              (setf (descriptor-ref (+ 2 index))
-                    (logandc2 (descriptor-ref (+ 2 index)) flagp))
+              (setf (descriptor-ref (+ 3 index))
+                    (logandc2 (descriptor-ref (+ 3 index)) flagp))
               (let* ((hash (string-hash entry entry-len))
                      (hash-and-len (dpb (the fixnum (ldb new-hash-byte hash))
                                         stored-hash-byte
@@ -189,7 +183,7 @@
 (defun spell-root-flags (index)
   "Return the flags associated with the root word corresponding to a
    dictionary entry at index."
-  (let ((desc-word (descriptor-ref (+ 2 index)))
+  (let ((desc-word (descriptor-ref (+ 3 index)))
         (result ()))
     (declare (fixnum desc-word))
     (dolist (ele flag-names-to-masks result)
@@ -207,11 +201,10 @@
                       (the fixnum *free-descriptor-elements*)))
          (new-size (truncate (* old-size 1.1)))
          (new-bytes (* new-size 2))
-         (new-sap (allocate-bytes new-bytes)))
+         (new-sap (make-array new-bytes :element-type '(unsigned-byte 8))))
     (declare (fixnum new-size old-size))
     (sap-replace new-sap *descriptors* 0 0
                  (* 2 (the fixnum *descriptors-size*)))
-    (deallocate-bytes (system-address *descriptors*) (* 2 old-size))
     (setf *free-descriptor-elements*
           (- new-size (the fixnum *descriptors-size*)))
     (setf *descriptors* new-sap)))
@@ -222,10 +215,9 @@
   (let* ((old-size (+ (the fixnum *string-table-size*)
                       (the fixnum *free-string-table-bytes*)))
          (new-size (truncate (* old-size 1.1)))
-         (new-sap (allocate-bytes new-size)))
+         (new-sap (make-array new-size :element-type '(unsigned-byte 8))))
     (declare (fixnum new-size old-size))
     (sap-replace new-sap *string-table* 0 0 *string-table-size*)
     (setf *free-string-table-bytes*
           (- new-size (the fixnum *string-table-size*)))
-    (deallocate-bytes (system-address *string-table*) old-size)
     (setf *string-table* new-sap)))

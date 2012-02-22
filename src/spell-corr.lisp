@@ -38,29 +38,29 @@
 ;;;      This next section will discuss the storage of the dictionary
 ;;; information.  There are three data structures that "are" the
 ;;; dictionary: a hash table, descriptors table, and a string table.  The
-;;; hash table is a vector of type '(unsigned-byte 16), whose elements
+;;; hash table is a vector of type '(unsigned-byte 24), whose elements
 ;;; point into the descriptors table.  This is a cyclic hash table to
-;;; facilitate dumping it to a file.  The descriptors table (also of type
-;;; '(unsigned-byte 16)) dedicates three elements to each entry in the
+;;; facilitate dumping it to a file.  The descriptors table (of type
+;;; '(unsigned-byte 16)) dedicates four elements to each entry in the
 ;;; dictionary.  Each group of three elements has the following organization
 ;;; imposed on them:
-;;;    ----------------------------------------------
-;;;    |  15..5  hash code  |      4..0 length      |
-;;;    ----------------------------------------------
-;;;    |           15..0 character index            |
-;;;    ----------------------------------------------
-;;;    |  15..14 character index  |  13..0 flags    |
-;;;    ----------------------------------------------
+;;;    -----------------------------------------------
+;;;    |       15..5  hash code      |  4..0 length  |
+;;;    -----------------------------------------------
+;;;    |           15...0 character index            |
+;;;    -----------------------------------------------
+;;;    |           31..16 character index            |
+;;;    -----------------------------------------------
+;;;    |  Unused    |      13..0 flags               |
+;;;    -----------------------------------------------
 ;;; "Length" is the number of characters in the entry; "hash code" is some
 ;;; eleven bits from the hash code to allow for quicker lookup, "flags"
 ;;; indicate possible suffixes for the basic entry, and "character index"
 ;;; is the index of the start of the entry in the string table.
-;;;      This was originally adopted due to the Perq's word size (can you guess?
-;;; 16 bits, that's right).  Note the constraint that is placed on the number
-;;; of the entries, 21845, because the hash table could not point to more
-;;; descriptor units (16 bits of pointer divided by three).  Since a value of
-;;; zero as a hash table element indicates an empty location, the zeroth element
-;;; of the descriptors table must be unused (it cannot be pointed to).
+;;;  
+;;; A value of zero as a hash table element indicates an empty location,
+;;; the zeroth element of the descriptors table must be unused (it cannot
+;;; be pointed to).
 
 
 ;;;      The following is a short discussion with examples of the correct
@@ -156,7 +156,7 @@
 ;;; "M" FLAG:
 ;;;         ... => ...'S  as in DOG => DOG'S
 
-(in-package "SPELL")
+(in-package :spell)
 
 
 ;;;; Some Constants
@@ -201,13 +201,8 @@
 
 
 ;;; The next two constants are used to extract information from an entry's
-;;; descriptor unit.  The first is the two most significant bits of 18
-;;; bits that hold an index into the string table where the entry is
-;;; located.  If this is confusing, regard the diagram of the descriptor
-;;; units above.
+;;; descriptor unit.
 ;;;
-(defconstant whole-index-high-byte (byte 2 16))
-(defconstant stored-index-high-byte (byte 2 14))
 (defconstant stored-length-byte (byte 5 0))
 
 
@@ -260,16 +255,17 @@
 (defvar *string-table*)
 (defvar *string-table-size*)
 
+;;; This is used to break up an 32 bit string table index into two parts
+;;; for storage in a word descriptor unit.  See the documentation at the
+;;; top of spell-corr.Lisp.
+;;;
+(defconstant whole-index-low-byte (byte 16 0))
+(defconstant whole-index-high-byte (byte 16 16))
 
 (eval-when (:compile-toplevel :execute)
 
-;;; DICTIONARY-REF and DESCRIPTOR-REF are references to implementation
-;;; dependent structures.  *dictionary* and *descriptors* are "system
-;;; area pointers" as a result of the way the binary file is opened for
-;;; fast access.
-;;;
 (defmacro dictionary-ref (idx)
-  `(sapref *dictionary* ,idx))
+  `(aref *dictionary* ,idx))
 
 (defmacro descriptor-ref (idx)
   `(sapref *descriptors* ,idx))
@@ -283,10 +279,9 @@
 ;;; These 18 bits are the index into the string table.
 ;;;
 (defmacro descriptor-string-start (idx)
-  `(dpb (the fixnum (ldb stored-index-high-byte
-                         (the fixnum (descriptor-ref (+ 2 ,idx)))))
+  `(dpb (the fixnum (descriptor-ref (+ ,idx 2)))
         whole-index-high-byte
-        (the fixnum (descriptor-ref (1+ ,idx)))))
+        (the fixnum (descriptor-ref (+ ,idx 1)))))
 
 ) ;eval-when
 
@@ -336,13 +331,12 @@
 (defun spell-root-word (index)
   "Return the root word corresponding to a dictionary entry at index."
   (let* ((start (descriptor-string-start index))
-         (len (the fixnum (ldb stored-length-byte
+                 (len (the fixnum (ldb stored-length-byte
                                (the fixnum (descriptor-ref index)))))
          (result (make-string len)))
     (declare (fixnum start len)
              (simple-string result))
-    (sap-replace result (the system-area-pointer *string-table*)
-                 start 0 len)
+    (sap-replace result *string-table* start 0 len)
     result))
 
 
@@ -413,15 +407,15 @@
         (check-closeness correcting-buffer word-len-+1 result)))
     result))
 
-;;; SPELL-TRY-WORD The literal 4 is not a constant defined somewhere since it
+;;; SPELL-TRY-WORD The literal 1 is not a constant defined somewhere since it
 ;;; is part of the definition of the function of looking up words.
-;;; TRY-WORD-ENDINGS relies on the guarantee that word-len is at least 4.
+;;; TRY-WORD-ENDINGS relies on the guarantee that word-len is at least 1.
 ;;;
 (defun spell-try-word (word word-len)
   "See if the word or an appropriate root is in the spelling dicitionary.
    Word-len must be inclusively in the range 2..max-entry-length."
   (or (lookup-entry word word-len)
-      (if (>= (the fixnum word-len) 4)
+      (if (>= (the fixnum word-len) 1)
           (try-word-endings word word-len))))
 
 
@@ -455,7 +449,7 @@
 
 (defvar *rooting-buffer* (make-string max-entry-length))
 
-;;; TRY-WORD-ENDINGS takes a word that is at least of length 4 and
+;;; TRY-WORD-ENDINGS takes a word that is at least of length 1 and
 ;;; returns multiple values on success (the index where the word's root's
 ;;; descriptor starts and :used-flag), otherwise nil.  It looks at
 ;;; characters from the end to the beginning of the word to determine if it
@@ -496,10 +490,12 @@
          (return nil)
 
     S
+         (when (< char-idx 1) (return nil))
          (setf char-idx (1- char-idx))
          (setf char (schar word char-idx))
          (if (char= char #\Y)
-             (if (set-member-p (schar word (1- char-idx)) *aeiou*)
+             (if (and (> char-idx 0)
+                      (set-member-p (schar word (1- char-idx)) *aeiou*))
                  (try-root word (1+ char-idx) S-mask)
                  (return nil))
              (if (not (set-member-p char *sxzh*))
@@ -517,38 +513,45 @@
          (return nil)
 
     S-FLAG
+         (when (< char-idx 1) (return nil))
          (setf char-idx (1- char-idx))
          (setf char (schar word char-idx))
          (if (set-member-p char *sxzh*)
              (try-root word (1+ char-idx) S-mask))
          (if (and (char= char #\I)
-                  (not (set-member-p (schar word (1- char-idx)) *aeiou*)))
+                  (not (and (> char-idx 0)
+                            (set-member-p (schar word (1- char-idx)) *aeiou*))))
              (try-modified-root word rooting-buffer (1+ char-idx)
                                 S-mask char-idx #\Y))
          (return nil)
 
     D-R-Z-FLAG
-         (if (char/= (schar word (1- char-idx)) #\E) (return nil))
+         (when (< char-idx 1) (return nil))
+         (if (char/= (schar word (1- char-idx)) #\E)
+             (return nil))
          (try-root word char-idx flag-mask)
          (if (<= (setf char-idx (- char-idx 2)) 0) (return nil))
          (setf char (schar word char-idx))
          (if (char= char #\Y)
-             (if (set-member-p (schar word (1- char-idx)) *aeiou*)
+             (if (and (> char-idx 0)
+                      (set-member-p (schar word (1- char-idx)) *aeiou*))
                  (try-root word (1+ char-idx) flag-mask)
                  (return nil))
              (if (char/= (schar word char-idx) #\E)
                  (try-root word (1+ char-idx) flag-mask)))
          (if (and (char= char #\I)
-                  (not (set-member-p (schar word (1- char-idx)) *aeiou*)))
+                  (not (and (> char-idx 0)
+                            (set-member-p (schar word (1- char-idx)) *aeiou*))))
              (try-modified-root word rooting-buffer (1+ char-idx)
                                 flag-mask char-idx #\Y))
          (return nil)
 
     P-FLAG
-         (if (or (char/= (schar word (1- char-idx)) #\E)
+         (if (or (< char-idx 4)
+                 (char/= (schar word (1- char-idx)) #\E)
                  (char/= (schar word (- char-idx 2)) #\N))
              (return nil))
-         (if (<= (setf char-idx (- char-idx 3)) 0) (return nil))
+         (setf char-idx (- char-idx 3))
          (setf char (schar word char-idx))
          (if (char= char #\Y)
              (if (set-member-p (schar word (1- char-idx)) *aeiou*)
@@ -556,7 +559,8 @@
                  (return nil)))
          (try-root word (1+ char-idx) P-mask)
          (if (and (char= char #\I)
-                  (not (set-member-p (schar word (1- char-idx)) *aeiou*)))
+                  (not (and (> char-idx 0)
+                            (set-member-p (schar word (1- char-idx)) *aeiou*))))
              (try-modified-root word rooting-buffer (1+ char-idx)
                                 P-mask char-idx #\Y))
          (return nil)
@@ -574,6 +578,7 @@
          (return nil)
 
     N-X-FLAG
+         (if (< char-idx 3) (return nil))
          (setf char-idx (1- char-idx))
          (setf char (schar word char-idx))
          (cond ((char= char #\E)
@@ -598,10 +603,11 @@
                (t (return nil)))
 
     T-FLAG
-         (if (or (char/= (schar word (1- char-idx)) #\S)
+         (if (or (< char-idx 3)
+                 (char/= (schar word (1- char-idx)) #\S)
                  (char/= (schar word (- char-idx 2)) #\E))
-             (return nil)
-             (setf char-idx (1- char-idx)))
+             (return nil))
+         (setf char-idx (1- char-idx))
          (try-root word char-idx T-mask)
          (if (<= (setf char-idx (- char-idx 2)) 0) (return nil))
          (setf char (schar word char-idx))
@@ -618,18 +624,21 @@
          (return nil)
 
     H-FLAG
+         (if (< char-idx 1) (return))
          (setf char-idx (1- char-idx))
          (setf char (schar word char-idx))
          (if (char/= char #\T) (return nil))
-         (if (char/= (schar word (1- char-idx)) #\Y)
+         (if (and (> char-idx 0) (char/= (schar word (1- char-idx)) #\Y))
              (try-root word char-idx H-mask))
-         (if (and (char= (schar word (1- char-idx)) #\E)
+         (if (and (> char-idx 1)
+                  (char= (schar word (1- char-idx)) #\E)
                   (char= (schar word (- char-idx 2)) #\I))
              (try-modified-root word rooting-buffer (1- char-idx)
                                 H-mask (- char-idx 2) #\Y))
          (return nil)
 
     Y-FLAG
+         (if (< char-idx 1) (return))
          (setf char-idx (1- char-idx))
          (setf char (schar word char-idx))
          (if (char= char #\L)
@@ -637,6 +646,7 @@
          (return nil)
 
     V-FLAG
+         (if (< char-idx 2) (return))
          (setf char-idx (- char-idx 2))
          (setf char (schar word char-idx))
          (if (or (char/= char #\I) (char/= (schar word (1+ char-idx)) #\V))
@@ -658,7 +668,7 @@
   (not (zerop
         (the fixnum
              (logand
-              (the fixnum (descriptor-ref (+ 2 (the fixnum descriptor-start))))
+              (the fixnum (descriptor-ref (+ 3 (the fixnum descriptor-start))))
               (the fixnum flag-mask))))))
 
 
@@ -678,7 +688,7 @@
          ((= ,idx1 ,end1) t)
        (declare (fixnum ,idx1 ,idx2))
        (unless (= (the fixnum (char-code (schar ,string1 ,idx1)))
-                  (the fixnum (string-sapref ,string2 ,idx2)))
+                  (the fixnum (aref ,string2 ,idx2)))
          (return nil)))))
 
 ;;; FOUND-ENTRY-P determines if entry is what is described at idx.
@@ -744,7 +754,7 @@
 ;;;; Binary File Reading
 
 (defparameter default-binary-dictionary
-  "library:spell-dictionary.bin")
+  "words.bin" #+nil "spell-dictionary.bin")
 
 ;;; This is the first thing in a spell binary dictionary file to serve as a
 ;;; quick check of its proposed contents.  This particular number is
@@ -757,10 +767,9 @@
 ;;;
 (defconstant magic-file-id-loc 0)
 (defconstant dictionary-size-loc 1)
-(defconstant descriptors-size-loc 2)
-(defconstant string-table-size-low-byte-loc 3)
-(defconstant string-table-size-high-byte-loc 4)
-(defconstant file-header-bytes 10)
+(defconstant descriptors-size-loc 3)
+(defconstant string-table-size-loc 5)
+(defconstant file-header-bytes 14)
 
 ;;; Initially, there are no free descriptor elements and string table bytes,
 ;;; but when these structures are grown, they are grown by more than that
@@ -776,33 +785,25 @@
 ;;;
 (defun read-dictionary (&optional (f default-binary-dictionary))
   (when *dictionary-read-p*
-    (setf *dictionary-read-p* nil)
-    (deallocate-bytes (system-address *dictionary*)
-                      (* 2 (the fixnum *dictionary-size*)))
-    (deallocate-bytes (system-address *descriptors*)
-                      (* 2 (the fixnum
-                                (+ (the fixnum *descriptors-size*)
-                                   (the fixnum *free-descriptor-elements*)))))
-    (deallocate-bytes (system-address *string-table*)
-                      (+ (the fixnum *string-table-size*)
-                         (the fixnum *free-string-table-bytes*))))
+    (setf *dictionary-read-p* nil))
   (setf *free-descriptor-elements* 0)
   (setf *free-string-table-bytes* 0)
-  (let* ((fd (open-dictionary f))
-         (header-info (read-dictionary-structure fd file-header-bytes)))
+  (let* ((stream (open-dictionary f))
+         (header-info (read-dictionary-structure stream file-header-bytes)))
     (unless (= (sapref header-info magic-file-id-loc) magic-file-id)
-      (deallocate-bytes (system-address header-info) file-header-bytes)
       (error "File is not a dictionary: ~S." f))
-    (setf *dictionary-size* (sapref header-info dictionary-size-loc))
-    (setf *descriptors-size* (sapref header-info descriptors-size-loc))
-    (setf *string-table-size* (sapref header-info string-table-size-low-byte-loc))
-    (setf (ldb (byte 12 16) (the fixnum *string-table-size*))
-          (the fixnum (sapref header-info string-table-size-high-byte-loc)))
-    (deallocate-bytes (system-address header-info) file-header-bytes)
-    (setf *dictionary*
-          (read-dictionary-structure fd (* 2 (the fixnum *dictionary-size*))))
+    (setf *dictionary-size*
+          (logior (sapref header-info dictionary-size-loc)
+                  (ash (sapref header-info (1+ dictionary-size-loc)) 16)))
+    (setf *descriptors-size*
+          (logior (sapref header-info descriptors-size-loc)
+                  (ash (sapref header-info (1+ descriptors-size-loc)) 16)))
+    (setf *string-table-size*
+          (logior (sapref header-info string-table-size-loc)
+                  (ash (sapref header-info (1+ string-table-size-loc)) 16)))
+    (setf *dictionary* (read-dictionary-structure-u32 stream *dictionary-size*))
     (setf *descriptors*
-          (read-dictionary-structure fd (* 2 (the fixnum *descriptors-size*))))
-    (setf *string-table* (read-dictionary-structure fd *string-table-size*))
+          (read-dictionary-structure stream (* 2 (the fixnum *descriptors-size*))))
+    (setf *string-table* (read-dictionary-structure stream *string-table-size*))
     (setf *dictionary-read-p* t)
-    (close-dictionary fd)))
+    (close-dictionary stream)))

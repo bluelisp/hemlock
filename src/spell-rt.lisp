@@ -13,49 +13,29 @@
 ;;; correcting code in Spell-Correct.Lisp, Spell-Augment.Lisp, and
 ;;; Spell-Build.Lisp.
 
-(defpackage "SPELL"
-  (:use "LISP" "EXTENSIONS" "SYSTEM")
+(defpackage :spell
+  (:use :cl :extensions :system)
   (:export spell-try-word spell-root-word spell-collect-close-words
            maybe-read-spell-dictionary correct-spelling max-entry-length
            spell-read-dictionary spell-add-entry spell-root-flags
            spell-remove-entry))
 
-(in-package "SPELL")
+(in-package :spell)
 
 
-;;;; System Area Referencing and Setting
+;;;; Spell structure referencing and setting
 
 (eval-when (:compile-toplevel :execute)
 
-;;; MAKE-SAP returns pointers that *dictionary*, *descriptors*, and
-;;; *string-table* are bound to.  Address is in the system area.
-;;;
-(defmacro make-sap (address)
-  `(system:int-sap ,address))
-
-(defmacro system-address (sap)
-  `(system:sap-int ,sap))
-
-
-(defmacro allocate-bytes (count)
-  `(system:allocate-system-memory ,count))
-
-(defmacro deallocate-bytes (address byte-count)
-  `(system:deallocate-system-memory (int-sap ,address) ,byte-count))
-
-
 (defmacro sapref (sap offset)
-  `(system:sap-ref-16 ,sap (* ,offset 2)))
+  `(let ((index (* ,offset 2)))
+     (logior (aref ,sap index)
+             (ash (aref ,sap (+ index 1)) 8))))
 
 (defsetf sapref (sap offset) (value)
-  `(setf (system:sap-ref-16 ,sap (* ,offset 2)) ,value))
-
-
-(defmacro sap-replace (dst-string src-string src-start dst-start dst-end)
-  `(%primitive byte-blt ,src-string ,src-start ,dst-string ,dst-start ,dst-end))
-
-(defmacro string-sapref (sap index)
-  `(system:sap-ref-8 ,sap ,index))
+  `(let ((index (* ,offset 2)))
+     (setf (aref ,sap index) (logand ,value #xff))
+     (setf (aref ,sap (+ index 1)) (ash ,value -8))))
 
 
 
@@ -66,37 +46,46 @@
 ;;; doing a SUBSEQ of entry.
 ;;;
 (defmacro string-hash (string length)
-  `(ext:truly-the lisp::index
-                  (%primitive sxhash-simple-substring
-                              ,string
-                              (the fixnum ,length))))
+  #+(or cmu scl)
+  `(lisp::%sxhash-simple-substring ,string ,length)
+  #-(or cmu scl)
+  `(sxhash (subseq string 0 length)))
 
 ) ;eval-when
 
+(defun sap-replace (dst-string src-string src-start dst-start dst-end)
+  (do ((i src-start (1+ i))
+       (j dst-start (1+ j)))
+      ((>= j dst-end))
+    (let ((code (if (stringp src-string)
+                    (char-code (schar src-string i))
+                    (aref src-string i))))
+      (if (stringp dst-string)
+          (setf (schar dst-string j) (code-char code))
+          (setf (aref dst-string j) code)))))
 
 
 ;;;; Binary Dictionary File I/O
 
 (defun open-dictionary (f)
-  (let* ((filename (ext:unix-namestring f))
-         (kind (unix:unix-file-kind filename)))
-    (unless kind (error "Cannot find dictionary -- ~S." filename))
-    (multiple-value-bind (fd err)
-                         (unix:unix-open filename unix:o_rdonly 0)
-      (unless fd
-        (error "Opening ~S failed: ~A." filename err))
-      (multiple-value-bind (winp dev-or-err) (unix:unix-fstat fd)
-        (unless winp (error "Opening ~S failed: ~A." filename dev-or-err))
-        fd))))
+  (open f :direction :input :element-type '(unsigned-byte 8)))
 
-(defun close-dictionary (fd)
-  (unix:unix-close fd))
+(defun close-dictionary (stream)
+  (close stream))
 
-(defun read-dictionary-structure (fd bytes)
-  (let* ((structure (allocate-bytes bytes)))
-    (multiple-value-bind (read-bytes err)
-                         (unix:unix-read fd structure bytes)
-      (when (or (null read-bytes) (not (= bytes read-bytes)))
-        (deallocate-bytes (system-address structure) bytes)
-        (error "Reading dictionary structure failed: ~A." err))
-      structure)))
+(defun read-dictionary-structure (stream bytes)
+  (let* ((structure (make-array bytes :element-type '(unsigned-byte 8)))
+         (count (read-sequence structure stream)))
+    (unless (= bytes count)
+      (error "Reading dictionary structure failed."))
+    structure))
+
+(defun read-dictionary-structure-u32 (stream size)
+  (let ((structure (make-array size :element-type '(unsigned-byte 32))))
+    (dotimes (i size)
+      (let ((value (logior (read-byte stream)
+                           (ash (read-byte stream) 8)
+                           (ash (read-byte stream) 16)
+                           (ash (read-byte stream) 24))))
+        (setf (aref structure i) value)))
+    structure))
