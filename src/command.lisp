@@ -357,7 +357,7 @@
   "Refreshes everything in the window, centering current line.
    Given an argument, scroll that many lines."
   (let ((window (current-window)))
-    (cond ((not p) (center-window window (current-point)))
+    (cond ((not p) (center-window window (window-point window)))
           ((zerop p) (line-to-top-of-window-command nil))
           ((line-offset (window-display-start window)
                         (if (plusp p) (1- p) (1+ p))
