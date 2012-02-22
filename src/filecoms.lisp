@@ -900,7 +900,7 @@
     `(let ((,svar ,stream))
        (cond ((null ,svar) *standard-output*)
              ((eq ,svar t) *terminal-io*)
-             (T ,@(if check-type `((check-type ,svar ,check-type)))
+             (t ,@(if check-type `((check-type ,svar ,check-type)))
                 ,svar)))))
 
 (defun print-directory (pathname &key stream pattern all verbose return-list)
