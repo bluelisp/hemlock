@@ -471,8 +471,7 @@ GB
 
 (defun process-command-line-argument (x)
   (catch 'editor-top-level-catcher
-    (process-command-line-argument/2 x))
-  (invoke-hook hemlock::entry-hook))
+    (process-command-line-argument/2 x)))
 
 (defun process-command-line-argument/2 (x)
   (typecase x
