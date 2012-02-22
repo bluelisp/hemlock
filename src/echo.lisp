@@ -157,9 +157,11 @@
       (insert-string point default)
       (insert-string point "] "))))
 
+
 (defun parse-for-something ()
   (display-prompt-nicely)
   (let ((start-window (current-window))
+        (start-buffer (current-buffer))
         (point (buffer-point *echo-area-buffer*)))
     (move-mark *parse-starting-mark* point)
     (insert-string point (or *parse-default-string* *parse-default*))
@@ -167,7 +169,8 @@
     (unwind-protect
      (use-buffer *echo-area-buffer*
        (recursive-edit nil))
-     (setf (current-window) start-window))))
+      (setf (current-window) start-window)
+      (change-to-buffer start-buffer))))
 
 
 
