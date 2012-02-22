@@ -378,7 +378,7 @@
          (found (find trial-pathname (the list *buffer-list*)
                      :key #'buffer-pathname :test #'equal)))
     (cond ((not found)
-           (let ((kind (iolib.os::get-file-kind (namestring trial-pathname) t)))
+           (let ((kind (iolib.os::get-file-kind trial-pathname t)))
              (case kind
                (:directory
                 (dired-guts nil nil trial-pathname))
@@ -895,6 +895,7 @@
 
 ;;; PRINT-DIRECTORY is exported from the EXTENSIONS package.
 ;;;
+#-(or cmu scl)
 (defmacro out-synonym-of (stream &optional check-type)
   (let ((svar (gensym)))
     `(let ((,svar ,stream))
@@ -903,7 +904,8 @@
              (t ,@(if check-type `((check-type ,svar ,check-type)))
                 ,svar)))))
 
-(defun print-directory (pathname &key stream pattern all verbose return-list)
+#-(or cmu scl)
+(defun print-directory (pathname stream &key pattern all verbose return-list)
   "Like Directory, but prints a terse, multi-column directory listing
    instead of returning a list of pathnames.  When :all is supplied and
    non-nil, then Unix dot files are included too (as ls -a).  When :verbose
@@ -915,6 +917,7 @@
         (print-directory-verbose pathname all pattern return-list)
         (print-directory-formatted pathname all pattern return-list))))
 
+#-(or cmu scl)
 (defun %directory (directory &optional all pattern)
   (when pattern
     (message "file name patterns not yet implemented in dired: ~S" pattern))
@@ -931,6 +934,7 @@
         #'string<
         :key #'iolib.pathnames:file-path-file))
 
+#-(or cmu scl)
 (defun write-file-mode (mode)
   (macrolet ((frob (bit name &optional sbit sname negate)
                `(if ,(if negate
@@ -953,6 +957,7 @@
     (frob 1 #\w)
     (frob 0 #\x)))
 
+#-(or cmu scl)
 (defun print-directory-verbose (pathname all pattern return-list)
   (let* ((contents (%directory pathname all pattern))
          (result nil)
@@ -1012,8 +1017,10 @@
     (message "Dired: ~D files read" n)
     (nreverse result)))
 
+#-(or cmu scl)
 (defconstant unix-to-universal-time 2208988800)
 
+#-(or cmu scl)
 (defun decode-universal-time-for-files (time current-year)
   (multiple-value-bind (sec min hour day month year)
                        (decode-universal-time (+ time unix-to-universal-time))
@@ -1024,6 +1031,7 @@
                    (1- month))
             day (= current-year year) year hour min)))
 
+#-(or cmu scl)
 (defun print-directory-formatted (pathname all pattern return-list)
   (declare (ignore pattern))
   (let ((width (or (hi::stream-line-length *standard-output*) 80))
@@ -1092,7 +1100,7 @@
               :must-exist nil)))
     (setf (value pathname-defaults) (merge-pathnames pn dpn))
     (with-pop-up-display (s)
-      (print-directory pn :stream s :all p))))
+      (print-directory pn s :all p))))
 
 (defcommand "Verbose Directory" (p)
   "Do a directory into a pop-up window.  If an argument is supplied, then
@@ -1108,7 +1116,7 @@
               :must-exist nil)))
     (setf (value pathname-defaults) (merge-pathnames pn dpn))
     (with-pop-up-display (s)
-      (print-directory pn :stream s :verbose t :all p))))
+      (print-directory pn s :verbose t :all p))))
 
 
 
