@@ -90,7 +90,7 @@
                  (boolean 'terminfo-booleans)
                  (integer 'terminfo-numbers)
                  (string 'terminfo-strings)))
-        (symbol (intern (string name) "KEYWORD")))
+        (symbol (intern (string name) :keyword)))
     `(progn
        (eval-when (:compile-toplevel)
          ;; Mark capability as valid for the compiler-macro; needed when
