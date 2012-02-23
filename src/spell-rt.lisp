@@ -49,9 +49,9 @@
   #+(or cmu scl)
   `(lisp::%sxhash-simple-substring ,string ,length)
   #-(or cmu scl)
-  `(if (= length (length string))
-       (sxhash string)
-       (sxhash (subseq string 0 length))))
+  `(if (= ,length (length ,string))
+       (sxhash ,string)
+       (sxhash (subseq ,string 0 ,length))))
 
 ) ;eval-when
 
