@@ -14,7 +14,7 @@
 ;;; Spell-Build.Lisp.
 
 (defpackage :spell
-  (:use :cl :extensions :system)
+  (:use :cl)
   (:export spell-try-word spell-root-word spell-collect-close-words
            maybe-read-spell-dictionary correct-spelling max-entry-length
            spell-read-dictionary spell-add-entry spell-root-flags
@@ -49,7 +49,9 @@
   #+(or cmu scl)
   `(lisp::%sxhash-simple-substring ,string ,length)
   #-(or cmu scl)
-  `(sxhash (subseq string 0 length)))
+  `(if (= length (length string))
+       (sxhash string)
+       (sxhash (subseq string 0 length))))
 
 ) ;eval-when
 
