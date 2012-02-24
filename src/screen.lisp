@@ -165,6 +165,7 @@
             (incf count (if (zerop temp) 1 temp))
             (unless (line-offset mark 1) (return count)))))))
 
+(defvar *more-prompt-action* :normal)
 
 ;;; RANDOM-TYPEOUT-CLEANUP  --  Internal
 ;;;
@@ -185,7 +186,6 @@
 ;;; *more-prompt-action* is bound in random typeout streams before
 ;;; redisplaying.
 ;;;
-(defvar *more-prompt-action* :normal)
 (defvar *random-typeout-ml-fields*
   (list (make-modeline-field
          :name :more-prompt
