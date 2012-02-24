@@ -346,7 +346,7 @@
        (pushnew (subseq ,word 0 ,word-len) ,closeness-list :test #'string=)))
 ) ;eval-when
 
-(defconstant spell-alphabet
+(defparameter *spell-alphabet*
   (list #\A #\B #\C #\D #\E #\F #\G #\H
         #\I #\J #\K #\L #\M #\N #\O #\P
         #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z))
@@ -373,7 +373,7 @@
     ;; Misspelled because one letter is different.
     (dotimes (i word-len)
       (do ((save-char (schar correcting-buffer i))
-           (alphabet spell-alphabet (cdr alphabet)))
+           (alphabet *spell-alphabet* (cdr alphabet)))
           ((null alphabet)
            (setf (schar correcting-buffer i) save-char))
         (setf (schar correcting-buffer i) (car alphabet))
@@ -399,7 +399,7 @@
     (replace correcting-buffer word
              :start1 1 :end1 word-len-+1 :end2 word-len)
     (dotimes (i word-len-+1)
-      (do ((alphabet spell-alphabet (cdr alphabet)))
+      (do ((alphabet *spell-alphabet* (cdr alphabet)))
           ((null alphabet)
            (rotatef (schar correcting-buffer i)
                     (schar correcting-buffer (1+ i))))
