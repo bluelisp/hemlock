@@ -15,12 +15,17 @@
 
 (defpackage :spell
   (:use :cl)
+  #+sbcl (:shadow cl:defconstant)
   (:export spell-try-word spell-root-word spell-collect-close-words
            maybe-read-spell-dictionary correct-spelling max-entry-length
            spell-read-dictionary spell-add-entry spell-root-flags
            spell-remove-entry))
 
 (in-package :spell)
+
+#+sbcl
+(defmacro defconstant (symbol value &rest rest)
+  `(sb-int:defconstant-eqx ,symbol ,value #'equal ,@rest))
 
 
 ;;;; Spell structure referencing and setting
