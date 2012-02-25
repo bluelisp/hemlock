@@ -4,9 +4,6 @@
 ;;; This code was written as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
-(hemlock-ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/ts-buf.lisp,v 1.1 2004-07-09 13:38:54 gbaumann Exp $")
-;;;
 ;;; **********************************************************************
 ;;;
 ;;; This file contains code for processing input to and output from slaves

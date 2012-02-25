@@ -4,9 +4,6 @@
 ;;; This code was written as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
-(hemlock-ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/user/eval-server.lisp,v 1.1 2004-07-09 13:38:56 gbaumann Exp $")
-;;;
 ;;; **********************************************************************
 ;;;
 ;;; This file contains code for connecting to eval servers and some command

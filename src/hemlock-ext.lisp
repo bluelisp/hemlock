@@ -5,11 +5,6 @@
 (defconstant hi::char-code-limit 256)
 (defconstant char-code-limit 256)
 
-#-scl
-(defmacro file-comment (&rest ignore)
-  (declare (ignore ignore))
-  nil)
-
 (defun skip-whitespace (&optional (stream *standard-input*))
   (peek-char t stream))
 

@@ -527,7 +527,6 @@
   #+(or scl cmu)
   (:import-from :ext #:complete-file ; #:default-directory
                 #:ambiguous-files
-                #:file-comment
                 #:delq #:memq #:assq
                 #:fixnump
                 #:file-writable
@@ -535,7 +534,6 @@
                 )
   ;;
   (:export
-   #:file-comment
    #:without-interrupts
    #:without-gcing
    #:define-setf-method

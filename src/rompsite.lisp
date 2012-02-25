@@ -4,18 +4,12 @@
 ;;; This code was written as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
-(in-package :hi)
-
-#+CMU
-(ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/src/core/rompsite.lisp,v 1.3 2004-12-15 12:16:45 crhodes Exp $")
-;;;
 ;;; **********************************************************************
 ;;;
 ;;; "Site dependent" stuff for the editor while on the IBM RT PC machine.
 ;;;
 
-
+(in-package :hi)
 
 ;;; WITHOUT-HEMLOCK -- Public.
 ;;;

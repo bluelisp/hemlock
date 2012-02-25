@@ -4,10 +4,6 @@
 ;;; This code was written as part of the CMU Common Lisp project at
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
-#+(or CMU scl)
-(ext:file-comment
-  "$Header: /home/david/phemlock/cvsroot/phemlock/spell-build.lisp,v 1.1 2004-07-09 13:39:14 gbaumann Exp $")
-;;;
 ;;; **********************************************************************
 ;;;
 ;;;    Written by Bill Chiles
