@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;; ---------------------------------------------------------------------------
 ;;;     Title: experimental syntax highlighting
 ;;;   Created: 2004-07-09

@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 
 (defpackage :hemlock.wire
   (:use :common-lisp)

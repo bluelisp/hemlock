@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;; ---------------------------------------------------------------------------
 ;;;     Title: Lisp Implementation Dependent Stuff for Hemlock
 ;;;   Created: 2002-11-07

@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; **********************************************************************
 ;;; This code was written as part of the CMU Common Lisp project at
@@ -37,7 +37,7 @@
    to indent that number of spaces using \"Spaces per Tab\"."
   :value t)
 
-(define-file-option "indent-with-tabs" (buffer value)
+(define-file-option "indent-tabs-mode" (buffer value)
   (let ((value (ignore-errors (let ((*read-eval* nil))
                                 (read-from-string value)))))
     (message "*I1: ~S~%" value)

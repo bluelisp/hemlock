@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; $Header: /home/david/phemlock/cvsroot/phemlock/src/user/rcs.lisp,v 1.1 2004-07-09 13:38:35 gbaumann Exp $
 ;;;

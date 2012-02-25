@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
+;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
 ;;; ---------------------------------------------------------------------------
 ;;;     Title: Prelimiary Undo
 ;;;   Created: 2004-12-26
