@@ -413,15 +413,18 @@
   (declare (ignore p))
   (clear-echo-area)
   (write-string "C-U " *echo-area-stream*)
+  (finish-output *echo-area-stream*)
   (let* ((key-event (get-key-event *editor-input*))
          (char (hemlock-ext:key-event-char key-event)))
     (if char
         (case char
           (#\-
            (write-char #\- *echo-area-stream*)
+           (finish-output *echo-area-stream*)
            (universal-argument-loop (get-key-event *editor-input*) -1))
           (#\+
            (write-char #\+ *echo-area-stream*)
+           (finish-output *echo-area-stream*)
            (universal-argument-loop (get-key-event *editor-input*) -1))
           (t
            (universal-argument-loop key-event 1)))
@@ -435,6 +438,7 @@
   (when p (editor-error "Must type minus sign first."))
   (clear-echo-area)
   (write-string "C-U -" *echo-area-stream*)
+  (finish-output *echo-area-stream*)
   (universal-argument-loop (get-key-event *editor-input*) -1))
 
 (defcommand "Argument Digit" (p)
@@ -445,6 +449,7 @@
   (declare (ignore p))
   (clear-echo-area)
   (write-string "C-U " *echo-area-stream*)
+  (finish-output *echo-area-stream*)
   (universal-argument-loop *last-key-event-typed* 1))
 
 (defun universal-argument-loop (key-event sign &optional (multiplier 1))
@@ -464,6 +469,7 @@
         (cond (digit
                (setf read-some-digit-p t)
                (write-char char *echo-area-stream*)
+               (finish-output *echo-area-stream*)
                (setf result (+ digit (* 10 result)))
                (setf key-event (get-key-event *editor-input*))
                (setf stripped-key-event (if key-event
@@ -472,6 +478,7 @@
                (setf digit (if char (digit-char-p char))))
               ((or (eq key-event #k"C-u") (eq key-event #k"C-U"))
                (write-string " C-U " *echo-area-stream*)
+               (finish-output *echo-area-stream*)
                (universal-argument-loop
                 (get-key-event *editor-input*) 1
                 (prefix sign multiplier read-some-digit-p result))

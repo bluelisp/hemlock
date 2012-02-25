@@ -654,7 +654,8 @@
       ((null dir))
     (declare (fixnum count))
     (format stream "~3D  " count)
-    (write-line (car dir) stream)))
+    (write-line (car dir) stream))
+  (finish-output stream))
 
 (defun page-directory (buffer)
   "Return a list of strings where each is the first non-blank line

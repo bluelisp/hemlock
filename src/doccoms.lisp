@@ -200,6 +200,7 @@
               (let ((res (get-command hi::*prompt-key* :current)))
                 (hemlock-ext:print-pretty-key-event key-event *echo-area-stream*)
                 (write-char #\space *echo-area-stream*)
+                (finish-output *echo-area-stream*)
                 (cond ((commandp res)
                        (with-pop-up-display (s)
                          (hemlock-ext:print-pretty-key (copy-seq hi::*prompt-key*) s)

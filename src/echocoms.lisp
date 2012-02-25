@@ -70,6 +70,7 @@
       (let ((strings (find-all-completions input *parse-string-tables*)))
         (with-pop-up-display (s :height (+ (length strings) 2))
           (write-line help s)
+          (finish-output s)
           (cond (strings
                  (write-line "Possible completions of what you have typed:" s)
                  (dolist (string strings)

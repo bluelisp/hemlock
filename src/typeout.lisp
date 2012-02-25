@@ -31,8 +31,7 @@
              (setf (current-window) window)
              (change-to-buffer buf)
              (with-output-to-mark (stream (buffer-point buf))
-               (funcall cont stream)
-               (finish-output stream))
+               (funcall cont stream))
              (goto-buffer-start)
              (setf (buffer-modified buf) nil
                    (buffer-writable buf) nil)
@@ -43,8 +42,7 @@
           (t
            (change-to-buffer buf)
            (with-output-to-mark (stream (buffer-point buf))
-             (funcall cont stream)
-             (finish-output stream))
+             (funcall cont stream))
            (goto-buffer-start)
            (setf (buffer-modified buf) nil
                  (buffer-writable buf) nil)

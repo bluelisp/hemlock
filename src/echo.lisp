@@ -95,6 +95,7 @@
 
 (defun clear-echo-area ()
   "You guessed it."
+  (clear-output *echo-area-stream*)
   (delete-region *echo-area-region*)
   (setf (buffer-modified *echo-area-buffer*) nil))
 
@@ -123,6 +124,7 @@
                   (unless (displayed-p mark *echo-area-window*)
                     (clear-echo-area))))
            (apply #'format *echo-area-stream* string args)
+           (force-output *echo-area-stream*)
            (setf (buffer-modified *echo-area-buffer*) nil))))
   (force-output *echo-area-stream*)
   (setq *last-message-time* (get-internal-real-time))
@@ -148,9 +150,11 @@
   (declare (ignore default))
   (clear-echo-area)
   (let ((point (buffer-point *echo-area-buffer*)))
-    (if (listp prompt)
-        (apply #'format *echo-area-stream* prompt)
-        (insert-string point prompt))
+    (cond ((listp prompt)
+           (apply #'format *echo-area-stream* prompt)
+           (finish-output *echo-area-stream*))
+          (t
+           (insert-string point prompt)))
     #+(or)                              ;we insert the default directly now
     (when default
       (insert-character point #\[)
@@ -552,12 +556,14 @@
                                                        *echo-area-stream*
                                                        t)
                            (write-char #\space *echo-area-stream*)
+                           (force-output *echo-area-stream*)
                            (return (values (copy-seq key) res)))
                           ((not (eq res :prefix))
                            (vector-pop key)
                            (go FLAME)))))
                 (hemlock-ext:print-pretty-key key-event *echo-area-stream* t)
                 (write-char #\space *echo-area-stream*)
+                (force-output *echo-area-stream*)
                 (go TOP)
                 FLAME
                 (beep)

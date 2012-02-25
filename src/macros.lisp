@@ -502,7 +502,8 @@
            (modify-hemlock-output-stream ,var ,mark ,buffered)
            (setq ,var (make-hemlock-output-stream ,mark ,buffered)))
        (unwind-protect
-         (progn ,@forms)
+         (multiple-value-prog1 ,@forms
+           (finish-output ,var))
          (setf (hemlock-output-stream-mark ,var) nil)
          (push ,var *free-hemlock-output-streams*)))))
 
@@ -579,6 +580,7 @@
     (beep)
     (if internalp (write-string "Internal error: " *echo-area-stream*))
     (princ condition *echo-area-stream*)
+    (finish-output *echo-area-stream*)
     (let* ((*editor-input* *real-editor-input*)
            (key-event (get-key-event *editor-input*)))
       (if (eq key-event #k"?")

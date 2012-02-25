@@ -91,7 +91,8 @@
     (clear-echo-area)
     (format *echo-area-stream*
             "~@[~A ~]~:[Reverse I-Search~;I-Search~]: ~A"
-            failure (eq direction :forward) string)))
+            failure (eq direction :forward) string)
+    (finish-output *echo-area-stream*)))
 
 (defun i-search (direction)
   (setf (last-command-type) nil)
