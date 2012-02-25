@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 ;;;
 ;;; **********************************************************************
 ;;; This code was wr<itten as part of the CMU Common Lisp project at

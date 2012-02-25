@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 ;;;
 ;;; Slave Apropos (as opposed to "hemlock com>mand name apropos" aka Apropos)
 

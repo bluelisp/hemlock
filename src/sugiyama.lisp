@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 
 (defpackage :sugiyama
   (:use :cl :iterate :alexandria :qt :hemlock-interface)

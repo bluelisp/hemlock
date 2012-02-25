@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 
 (in-package :hi)
 #+sbcl (declaim (optimize (speed 2)))

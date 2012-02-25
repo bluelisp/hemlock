@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 ;;;
 ;;; **********************************************************************
 ;;; This code was written as part of the CMU Common Lisp project at
@@ -1235,7 +1235,7 @@
 
 (defun insert-lisp-indentation (m)
   (delete-horizontal-space m)
-  (funcall (value indent-with-tabs) m (lisp-indentation m)))
+  (indent-to-column m (lisp-indentation m)))
 
 
 
@@ -1628,8 +1628,7 @@
            (undo-region (copy-region string-region))
            (hack (make-empty-region)))
       ;; Generate prefix.
-      (funcall (value indent-with-tabs)
-               (region-end hack) (1+ (mark-column mark)))
+      (indent-to-column (region-end hack) (1+ (mark-column mark)))
       ;; Skip opening double quote and fill string starting on its own line.
       (mark-after mark)
       (insert-character mark #\newline)

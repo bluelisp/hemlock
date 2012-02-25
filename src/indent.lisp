@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 ;;;
 ;;; **********************************************************************
 ;;; This code was written as part of the CMU Common Lisp project at
@@ -32,34 +32,41 @@
    mark is at the beginning of a line."
   (insert-string mark (make-string column :initial-element #\space)))
 
-
 (defhvar "Indent with Tabs"
   "Function that takes a mark and a number of spaces and inserts tabs and spaces
    to indent that number of spaces using \"Spaces per Tab\"."
-  :value #'indent-using-tabs)
+  :value t)
 
-(define-file-option "indent-tabs-mode" (buffer value)
-  (let* ((value (ignore-errors (let ((*read-eval* nil))
-                                 (read-from-string value)))))
+(define-file-option "indent-with-tabs" (buffer value)
+  (let ((value (ignore-errors (let ((*read-eval* nil))
+                                (read-from-string value)))))
+    (message "*I1: ~S~%" value)
     (defhvar "Indent with Tabs" "override by file-option"
       :buffer buffer
-      :value (if value #'indent-using-tabs #'indent-using-spaces))
-    (when (and (not value) (eq (value indent-function) #'tab-to-tab-stop))
-      (defhvar "Indent Function" "override by file-option"
-        :buffer buffer
-        :value #'spaces-to-tab-stop))))
+      :value value)))
 
-(defun tab-to-tab-stop (mark)
-  (insert-character mark #\tab))
+(defun indent-to-column (mark column)
+  "Insert white space at MARK so that it moves to COLUMN.  This assumes mark is
+   at the beginning of a line.  When 'indent-with-tabs is true it uses tabs a
+   maximum number of tabs and a minimum number os spaces to move mark to column,
+   otherwise spaces are used."
+  (if (value indent-with-tabs)
+      (indent-using-tabs mark column)
+      (indent-using-spaces mark column)))
 
-(defun spaces-to-tab-stop (mark)
-  (indent-using-spaces mark (* (ceiling (1+ (mark-column mark)) 8) 8)))
+(defun indent-to-tab-stop (mark)
+  (cond ((value indent-with-tabs)
+	 (insert-character mark #\tab))
+	(t
+	 (let ((tab-size (value spaces-per-tab)))
+	   (indent-using-spaces mark (* (ceiling (1+ (mark-column mark))
+						 tab-size)
+					tab-size))))))
 
 (defhvar "Indent Function"
   "Indentation function which is invoked by \"Indent\" command.
    It takes a :left-inserting mark that may be moved."
-  :value #'tab-to-tab-stop)
-
+  :value #'indent-to-tab-stop)
 
 (defun generic-indent (mark)
   (let* ((line (mark-line mark))
@@ -71,7 +78,7 @@
     (let ((indentation (mark-column mark)))
       (line-start mark line)
       (delete-horizontal-space mark)
-      (funcall (value indent-with-tabs) mark indentation))))
+      (indent-to-column mark indentation))))
 
 
 (defcommand "Indent New Line" (p)
@@ -150,8 +157,7 @@
   "Centers current line using \"Fill Column\".  If an argument is supplied,
    it is used instead of the \"Fill Column\"."
   "Centers current line using fill-column."
-  (let* ((indent-function (value indent-with-tabs))
-         (region (if (region-active-p)
+  (let* ((region (if (region-active-p)
                      (current-region)
                      (region (current-point) (current-point))))
          (end (region-end region)))
@@ -164,7 +170,7 @@
                (spaces (- (or p (value fill-column)) len)))
           (if (and (plusp spaces)
                    (not (zerop len)))
-              (funcall indent-function temp (ceiling spaces 2)))
+              (indent-to-column temp (ceiling spaces 2)))
           (unless (line-offset temp 1) (return))
           (line-start temp))))))
 
@@ -297,6 +303,6 @@
               (t (find-attribute mark1 :whitespace #'zerop)
                  (let ((new-column (+ p (mark-column mark1))))
                    (delete-characters mark1 (- (mark-charpos mark1)))
-                   (if (plusp new-column)
-                       (funcall (value indent-with-tabs) mark1 new-column)))))
+                   (when (plusp new-column)
+                     (indent-to-column mark1 new-column)))))
         (line-offset mark1 1 0)))))

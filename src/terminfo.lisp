@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: Lisp; indent-with-tabs: nil -*-
 
 ;;; Copyright © 2001 Paul Foley (mycroft@actrix.gen.nz)
 ;;;
