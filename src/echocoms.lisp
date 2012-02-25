@@ -79,9 +79,8 @@
                  (write-line
  "There are no possible completions of what you have typed." s))))))
      ((and (eq *parse-type* :file) (not (zerop (length input))))
-      (let ((pns #-CMU(ambiguous-files (region-to-string *parse-input-region*)
-                                  *parse-default*)
-                 #+CMU(list (region-to-string *parse-input-region*))))
+      (let ((pns (ambiguous-files (region-to-string *parse-input-region*)
+                                  *parse-default*)))
         (declare (list pns))
         (with-pop-up-display(s :height (+ (length pns) 2))
           (write-line help s)
