@@ -144,7 +144,8 @@
       (with-writable-buffer (buffer)
         (insert-string (buffer-point buffer) str)))
     (when stream
-      (write-string str stream))))
+      (write-string str stream)
+      (finish-output stream))))
 
 (defun note-disconnected (connection)
   (connection-note-event connection :disconnected)
@@ -298,6 +299,7 @@
 ;;;; PIPELIKE-CONNECTION
 ;;;;
 
+#-(and scl linux)
 (defun find-a-pty ()
   (block t
     (dolist (char '(#\p #\q) (error "no pty found"))
@@ -323,6 +325,34 @@
                     (values master-fd
                             slave-fd
                             slave-name)))))))))))
+
+#+(and scl linux)
+(defun find-a-pty ()
+  (multiple-value-bind (master errno)
+      (unix:unix-getpt)
+    (unless master
+      (error "~@<Getpt failed: ~A~@:>" (unix:get-unix-error-msg errno)))
+    (multiple-value-bind (winp errno)
+        (unix:unix-grantpt master)
+      (unless winp
+        (unix:unix-close master)
+        (error "~@<Grantpt failed: ~A~@:>" (unix:get-unix-error-msg errno))))
+    (multiple-value-bind (winp errno)
+        (unix:unix-unlockpt master)
+      (unless winp
+        (unix:unix-close master)
+        (error "~@<unlockpt failed: ~A~@:>" (unix:get-unix-error-msg errno))))
+    (multiple-value-bind (name errno)
+        (unix:unix-ptsname master)
+      (unless name
+        (unix:unix-close master)
+        (error "~@<ptsname failed: ~A~@:>" (unix:get-unix-error-msg errno)))
+      (multiple-value-bind (slave errno)
+          (unix:unix-open name unix:o_rdwr 0)
+        (unless slave
+          (unix:unix-close master)
+          (error "~@<Error opening slave pty: ~A~@:>" (unix:get-unix-error-msg errno)))
+        (values master slave name)))))
 
 (defun make-process-with-pty-connection
     (command &key name (buffer nil bufferp) stream)
