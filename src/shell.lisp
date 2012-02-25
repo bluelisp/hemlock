@@ -76,8 +76,7 @@
 
 (defun make-shell-filter-stream (buffer hemlock-stream)
   (make-instance 'shell-filter-stream
-		 #+scl #+scl :in-buffer lisp::*empty-string*
-		 #+scl #+scl :out-buffer lisp::*empty-string*
+                 #+scl #+scl :out-buffer (lisp::make-stream-buffer 'base-char)
                  :buffer buffer
                  :hemlock-stream hemlock-stream))
 
@@ -96,11 +95,64 @@
                  (hi::stream-write-char stream (elt seq i)))
       (shell-filter-string-out stream seq start end)))
 
-(defmethod hi::stream-line-column ((stream shell-filter-stream))
-  (hi::stream-line-column (shell-filter-stream-hemlock-stream stream)))
+#+scl
+(defmethod ext:stream-write-chars
+    ((stream shell-filter-stream) seq start end waitp)
+  (declare (ignore waitp))
+  (check-type seq string)
+  (if (position #\return seq)
+      (iter:iter (iter:for i from start below end)
+                 (hi::stream-write-char stream (elt seq i)))
+      (shell-filter-string-out stream seq start end))
+  (- end start))
+
+#+scl
+(defmethod hi::stream-finish-output ((stream shell-filter-stream))
+  (finish-output (shell-filter-stream-hemlock-stream stream)))
+
+#+scl
+(defmethod hi::stream-force-output ((stream shell-filter-stream))
+  (force-output (shell-filter-stream-hemlock-stream stream)))
+
+#+scl
+(defmethod hi::stream-clear-output ((stream shell-filter-stream))
+  (clear-output (shell-filter-stream-hemlock-stream stream)))
 
 (defmethod hi::stream-line-length ((stream shell-filter-stream))
   (hi::stream-line-length (shell-filter-stream-hemlock-stream stream)))
+
+(defmethod hi::stream-line-column ((stream shell-filter-stream))
+  #-scl (hi::stream-line-column (shell-filter-stream-hemlock-stream stream))
+  #+scl (ext:line-column (shell-filter-stream-hemlock-stream stream))
+  )
+
+#+scl
+(defmethod file-length ((stream shell-filter-stream))
+  (ext:flush-output stream)
+  (file-length (shell-filter-stream-hemlock-stream stream)))
+
+#+scl
+(defmethod ext:stream-file-position ((stream shell-filter-stream) &optional position)
+  (file-position (shell-filter-stream-hemlock-stream stream) position))
+
+#+scl
+(defmethod interactive-stream-p ((stream shell-filter-stream))
+  (interactive-stream-p (shell-filter-stream-hemlock-stream stream)))
+
+#+scl
+(defmethod (setf interactive-stream-p) (value (stream shell-filter-stream))
+  (let ((stream (shell-filter-stream-hemlock-stream stream)))
+    (setf (interactive-stream-p stream) value)))
+
+#+scl
+(defmethod file-string-length ((stream shell-filter-stream) object)
+  (let ((stream (shell-filter-stream-hemlock-stream stream)))
+    (file-string-length stream object)))
+
+#+scl
+(defmethod ext:stream-pathname ((stream shell-filter-stream))
+  (let ((stream (shell-filter-stream-hemlock-stream stream)))
+    (ext:stream-pathname stream)))
 
 #+(or)
 (defmethod print-object ((object shell-filter-stream) stream)
@@ -114,8 +166,8 @@
    :None  -- The screen is brought up to date after each stream operation.
    :Line  -- The screen is brought up to date when a newline is written.
    :Full  -- The screen is not updated except explicitly via Force-Output."
-  (modify-shell-filter-stream (make-instance 'shell-filter-stream) mark
-                                buffered))
+  (modify-shell-filter-stream (make-instance 'shell-filter-stream)
+                              mark buffered))
 
 
 #+(or)
@@ -124,14 +176,24 @@
                (member (mark-kind mark) '(:right-inserting :left-inserting)))
     (error "~S is not a permanent mark." mark))
   (setf (shell-filter-stream-mark stream) mark)
+  ;;
+  ;; Free the current stream buffers, resetting the buffer pointers.
+  #+scl (lisp::free-stream-buffers stream)
+  ;;
   (case buffered
     (:none
+     #+scl
+     (setf (ext:stream-out-buffer stream) (lisp::make-stream-buffer 'base-char 0))
      (setf (old-lisp-stream-out stream) #'hemlock-output-unbuffered-out
            (old-lisp-stream-sout stream) #'hemlock-output-unbuffered-sout))
     (:line
+     #+scl
+     (setf (ext:stream-out-buffer stream) (lisp::make-stream-buffer 'base-char 0))
      (setf (old-lisp-stream-out stream) #'hemlock-output-line-buffered-out
            (old-lisp-stream-sout stream) #'hemlock-output-line-buffered-sout))
     (:full
+     #+scl
+     (setf (ext:stream-out-buffer stream) (lisp::make-stream-buffer 'base-char))
      (setf (old-lisp-stream-out stream) #'hemlock-output-buffered-out
            (old-lisp-stream-sout stream) #'hemlock-output-buffered-sout))
     (t

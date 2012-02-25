@@ -82,8 +82,6 @@
 
 (defun make-ts-stream (wire typescript)
   (make-instance 'ts-stream
-		 #+scl #+scl :in-buffer lisp::*empty-string*
-		 #+scl #+scl :out-buffer lisp::*empty-string*
                  :wire wire
                  :typescript typescript))
 
@@ -348,6 +346,7 @@
 ;;;
 ;;; Can't do much, 'cause the wire is shared.
 ;;;
+#-scl ; SCL has a default method that is more suitable.
 (defmethod close ((stream ts-stream) &key abort)
   (unless abort
     (force-output stream))

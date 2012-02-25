@@ -595,9 +595,10 @@
   (:use :trivial-gray-streams)
   #+scl
   (:import-from :ext
-                #:stream-write-char #:stream-line-column #:stream-line-length
-                #:stream-clear-output #:stream-force-output
-                #:stream-finish-output #:stream-read-char #:stream-unread-char
+                #:stream-write-char #:stream-write-chars #:stream-line-column
+                #:stream-line-length #:stream-clear-output #:stream-pathname
+                #:stream-force-output #:stream-finish-output
+                #:stream-read-char #:stream-unread-char
                 #:stream-read-char-no-hang #:stream-listen
                 #:stream-clear-input #:stream-file-position)
   (:import-from :hemlock-ext
