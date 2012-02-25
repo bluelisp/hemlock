@@ -32,7 +32,7 @@
 (defun undefined-variable-error (name)
   (if (eq (symbol-package name) (find-package :hemlock))
       (error "Undefined Hemlock variable ~A." name)
-      (error "Hemlock variables must be in the \"HEMLOCK\" package, but~%~
+      (error "Hemlock variables must be in the :hemlock package, but~%~
              ~S is in the ~S package."
              name (package-name (symbol-package name)))))
 
@@ -100,7 +100,8 @@
 
 ;;; %VALUE  --  Internal
 ;;;
-;;;    This function is called by the expansion of Value.
+;;;    This function is called by the expansion of Value.  The value for the
+;;; current buffer is returned.
 ;;;
 (defun %value (name)
   (let ((obj (get name 'hemlock-variable-value)))
