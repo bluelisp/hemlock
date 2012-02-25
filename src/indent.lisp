@@ -37,10 +37,10 @@
    to indent that number of spaces using \"Spaces per Tab\"."
   :value t)
 
+;;; Note the name of this option has been chosen to be compatible with Emacs.
 (define-file-option "indent-tabs-mode" (buffer value)
   (let ((value (ignore-errors (let ((*read-eval* nil))
                                 (read-from-string value)))))
-    (message "*I1: ~S~%" value)
     (defhvar "Indent with Tabs" "override by file-option"
       :buffer buffer
       :value value)))
