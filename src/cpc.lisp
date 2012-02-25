@@ -48,16 +48,16 @@ format. The cases are as follows:
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
     (let* ((symbol-set  (symbol-completion-set 
-			 name package-name package internal-p
-			 (make-compound-prefix-matcher #\-)))
-	   (package-set (package-completion-set 
-			 name package-name package internal-p
-			 (make-compound-prefix-matcher '(#\. #\-))))
-	   (completion-set
-	    (format-completion-set (nconc symbol-set package-set) 
-				   internal-p package-name)))
+                         name package-name package internal-p
+                         (make-compound-prefix-matcher #\-)))
+           (package-set (package-completion-set 
+                         name package-name package internal-p
+                         (make-compound-prefix-matcher '(#\. #\-))))
+           (completion-set
+            (format-completion-set (nconc symbol-set package-set) 
+                                   internal-p package-name)))
       (when completion-set
-	(list completion-set (longest-compound-prefix completion-set))))))
+        (list completion-set (longest-compound-prefix completion-set))))))
 
 
 ;;;;; Find completion set
@@ -65,19 +65,19 @@ format. The cases are as follows:
 (defun symbol-completion-set (name package-name package internal-p matchp)
   "Return the set of completion-candidates as strings."
   (mapcar (completion-output-symbol-converter name)
-	  (and package
-	       (mapcar #'symbol-name
-		       (find-matching-symbols name
-					      package
-					      (and (not internal-p)
-						   package-name)
-					      matchp)))))
+          (and package
+               (mapcar #'symbol-name
+                       (find-matching-symbols name
+                                              package
+                                              (and (not internal-p)
+                                                   package-name)
+                                              matchp)))))
 
 (defun package-completion-set (name package-name package internal-p matchp)
   (declare (ignore package internal-p))
   (mapcar (completion-output-package-converter name)
-	  (and (not package-name)
-	       (find-matching-packages name matchp))))
+          (and (not package-name)
+               (find-matching-packages name matchp))))
 
 (defmacro do-symbols* ((var &optional (package '*package*) result-form) &body body)
   "Just like do-symbols, but makes sure a symbol is visited only once."
@@ -158,13 +158,13 @@ Return these values:
   (multiple-value-bind (name package-name internal-p)
       (tokenize-symbol string)
     (if package-name
-	(let ((package (guess-package (if (equal package-name "")
-					  (symbol-name :keyword)
-					  package-name))))
-	  (values name package-name package internal-p))
-	(let ((package (guess-package default-package-name)))
-	  (values name package-name (or package *buffer-package*) internal-p))
-	)))
+        (let ((package (guess-package (if (equal package-name "")
+                                          (symbol-name :keyword)
+                                          package-name))))
+          (values name package-name package internal-p))
+        (let ((package (guess-package default-package-name)))
+          (values name package-name (or package *buffer-package*) internal-p))
+        )))
 
 
 
@@ -239,19 +239,19 @@ a compound-prefix of `target'.
 
 DELIMETER may be a character, or a list of characters."
   (let ((delimeters (etypecase delimeter
-		      (character (list delimeter))
-		      (cons      (assert (every #'characterp delimeter))
-			         delimeter))))
+                      (character (list delimeter))
+                      (cons      (assert (every #'characterp delimeter))
+                                 delimeter))))
     (lambda (prefix target)
       (declare (type simple-string prefix target))
       (loop for ch across prefix
-	    with tpos = 0
-	    always (and (< tpos (length target))
-			(let ((delimeter (car (member ch delimeters :test test))))
-			  (if delimeter
-			      (setf tpos (position delimeter target :start tpos))
-			      (funcall test ch (aref target tpos)))))
-	    do (incf tpos)))))
+            with tpos = 0
+            always (and (< tpos (length target))
+                        (let ((delimeter (car (member ch delimeters :test test))))
+                          (if delimeter
+                              (setf tpos (position delimeter target :start tpos))
+                              (funcall test ch (aref target tpos)))))
+            do (incf tpos)))))
 
 
 ;;;;; Extending the input string by completion

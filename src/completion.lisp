@@ -741,10 +741,10 @@
 
 (defun completelist-write-line (entry s)
   (format s "~A ~40T~A~%"
-	  (fuzz-completed-string entry)
-	  ;; (fuzz-score entry)
-	  ;; (fuzz-chunks entry)
-	  (fuzz-classification-string entry)))
+          (fuzz-completed-string entry)
+          ;; (fuzz-score entry)
+          ;; (fuzz-chunks entry)
+          (fuzz-classification-string entry)))
 
 (defcommand "Completelist Help" (p)
   "Show this help."

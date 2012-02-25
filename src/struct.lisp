@@ -398,8 +398,8 @@
 
 (defun make-random-typeout-stream (mark)
   (make-instance 'random-typeout-stream
-		 #+scl #+scl :in-buffer lisp::*empty-string*
-		 #+scl #+scl :out-buffer lisp::*empty-string*
+                 #+scl #+scl :in-buffer lisp::*empty-string*
+                 #+scl #+scl :out-buffer lisp::*empty-string*
                  :mark mark))
 
 (defmethod print-object ((object random-typeout-stream) stream)

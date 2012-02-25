@@ -56,12 +56,12 @@
 
 (defun indent-to-tab-stop (mark)
   (cond ((value indent-with-tabs)
-	 (insert-character mark #\tab))
-	(t
-	 (let ((tab-size (value spaces-per-tab)))
-	   (indent-using-spaces mark (* (ceiling (1+ (mark-column mark))
-						 tab-size)
-					tab-size))))))
+         (insert-character mark #\tab))
+        (t
+         (let ((tab-size (value spaces-per-tab)))
+           (indent-using-spaces mark (* (ceiling (1+ (mark-column mark))
+                                                 tab-size)
+                                        tab-size))))))
 
 (defhvar "Indent Function"
   "Indentation function which is invoked by \"Indent\" command.

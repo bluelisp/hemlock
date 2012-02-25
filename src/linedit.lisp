@@ -29,33 +29,33 @@
 
 (defclass linedit-device (tty-device)
   ((hbuf :accessor hbuf
-	 :initform nil
-	 :initarg :hbuf)
+         :initform nil
+         :initarg :hbuf)
    (start :initform 0
-	  :accessor get-start)
+          :accessor get-start)
    (dirty-p :initform t
-	    :accessor dirty-p)
+            :accessor dirty-p)
    (old-point :initform 0
-	      :accessor old-point)
+              :accessor old-point)
    (old-point-col :initform 0
-		  :accessor old-point-col)
+                  :accessor old-point-col)
    (old-point-row :initform 1
-		  :accessor old-point-row)
+                  :accessor old-point-row)
    (old-string :initform ""
-	       :accessor old-string)
+               :accessor old-string)
    (old-markup :initform 0
-	       :accessor old-markup)
+               :accessor old-markup)
    (completer :reader editor-completer
-	      :initform 'lisp-complete
-	      :initarg :complete)
+              :initform 'lisp-complete
+              :initarg :complete)
    (history :reader editor-history
-	    :initform (make-instance 'linedit-history)
-	    :initarg :history)
+            :initform (make-instance 'linedit-history)
+            :initarg :history)
    (prompt :accessor editor-prompt
-	   :initform ""
-	   :initarg :prompt)
+           :initform ""
+           :initarg :prompt)
    (cm-mode :initform nil
-	    :accessor in-cm-mode-p)))
+            :accessor in-cm-mode-p)))
 
 (defun ensure-in-cm-mode (device)
   (unless (in-cm-mode-p device)
@@ -87,28 +87,28 @@
 (flet
     ((% (device window call-next-method)
        (ecase *linedit-redisplay-mode*
-	 (:full-tty-redisplay
-	  (ensure-in-cm-mode device)
-	  (funcall call-next-method))
-	 (:partial-tty-redisplay
-	  ;; This is conceptually the reverse of linedit redisplay.
-	  ;; Instead of only displaying the linedit buffer, we display
-	  ;; everything _except_ for the linedit buffer.
-	  (ensure-in-cm-mode device)
-	  (cond
-	    ((eq (window-buffer window) (hbuf device))
-	     (let ((hunk (window-hunk window)))
-	       (let ((y (hi::tty-hunk-modeline-pos hunk)))
-		 (modeline-init hunk)
-		 (funcall (tty-device-clear-to-eol device) hunk 0 y)
-		 (device-write-string
-		  (make-string (tty-device-columns device)
-			       :initial-element #\space))
-		 (modeline-end hunk))
-	       (mark-window-display-as-done window)))
-	    (t (funcall call-next-method))))
-	 ((:no-redisplay :linedit-redisplay)
-	  (dumb-linedit-redisplay device window)))))
+         (:full-tty-redisplay
+          (ensure-in-cm-mode device)
+          (funcall call-next-method))
+         (:partial-tty-redisplay
+          ;; This is conceptually the reverse of linedit redisplay.
+          ;; Instead of only displaying the linedit buffer, we display
+          ;; everything _except_ for the linedit buffer.
+          (ensure-in-cm-mode device)
+          (cond
+            ((eq (window-buffer window) (hbuf device))
+             (let ((hunk (window-hunk window)))
+               (let ((y (hi::tty-hunk-modeline-pos hunk)))
+                 (modeline-init hunk)
+                 (funcall (tty-device-clear-to-eol device) hunk 0 y)
+                 (device-write-string
+                  (make-string (tty-device-columns device)
+                               :initial-element #\space))
+                 (modeline-end hunk))
+               (mark-window-display-as-done window)))
+            (t (funcall call-next-method))))
+         ((:no-redisplay :linedit-redisplay)
+          (dumb-linedit-redisplay device window)))))
   (defmethod device-dumb-redisplay ((device linedit-device) window)
     (% device window #'call-next-method))
   (defmethod device-smart-redisplay ((device linedit-device) window)
@@ -137,20 +137,20 @@
      (when (and (eq window *current-window*) (hbuf device))
        ;; window ignored from here on
        (let ((buffer (hbuf device)))
-	 (linedit-redisplay
-	  device
-	  :prompt (editor-prompt device)
-	  :line (region-to-string (buffer-region buffer))
-	  :point (let ((mark (buffer-point buffer)))
-		   (+ (mark-charpos mark)
-		      (let ((line (line-previous (mark-line mark))))
-			(if line
-			    (iter
-			      (while line)
-			      (summing (1+ (line-length line)))
-			      (setf line (line-previous line)))
-			    0))))
-	  :fonts (compute-linedit-font-marks buffer (editor-prompt device)))))))
+         (linedit-redisplay
+          device
+          :prompt (editor-prompt device)
+          :line (region-to-string (buffer-region buffer))
+          :point (let ((mark (buffer-point buffer)))
+                   (+ (mark-charpos mark)
+                      (let ((line (line-previous (mark-line mark))))
+                        (if line
+                            (iter
+                              (while line)
+                              (summing (1+ (line-length line)))
+                              (setf line (line-previous line)))
+                            0))))
+          :fonts (compute-linedit-font-marks buffer (editor-prompt device)))))))
 
   ;; tell the redisplay algorithm that we did our job, otherwise it
   ;; retries forever:
@@ -160,18 +160,18 @@
   "Lines of a buffer"
   (iter::top-level-check)
   (let* ((step ''line-next)
-	 (on-var
-	  (iter::make-var-and-default-binding 'line :type '(or line null)))
-	 (setqs (iter::do-dsetq var on-var))
-	 (test `(if (null ,on-var) (go ,iter::*loop-end*))))
+         (on-var
+          (iter::make-var-and-default-binding 'line :type '(or line null)))
+         (setqs (iter::do-dsetq var on-var))
+         (test `(if (null ,on-var) (go ,iter::*loop-end*))))
     (setq iter::*loop-end-used?* t)
     (iter::return-driver-code
      :initial `((setq ,on-var (mark-line
-			       (region-start
-				(buffer-region ,buffer)))))
+                               (region-start
+                                (buffer-region ,buffer)))))
      :next (list test
-		 setqs
-		 (iter::generate-function-step-code on-var step))
+                 setqs
+                 (iter::generate-function-step-code on-var step))
      :variable var)))
 
 ;; the prompt used to be 7 in bold, but all those
@@ -187,33 +187,33 @@
 (defun compute-linedit-font-marks (buffer prompt)
   (let ((offset (length prompt)))
     (list* (list 0 *prompt-color* *prompt-bold*)
-	   (iter (for line in-buffer-lines buffer)
-		       (collect (list offset *default-color* nil))
-		       (line-tag line)	;update tag/syntax cache 
-		       (when (line-next line)
-			 (line-tag (line-next line)))
-		       (dolist (mark (reverse
-				      (sy-font-marks
-				       (tag-syntax-info
-					(line-tag line)))))
-			 (collect (list (+ offset (mark-charpos mark))
-					(font-mark-font mark)
-					nil)))
-		       (incf offset (1+ (line-length line)))))))
+           (iter (for line in-buffer-lines buffer)
+                       (collect (list offset *default-color* nil))
+                       (line-tag line)	;update tag/syntax cache 
+                       (when (line-next line)
+                         (line-tag (line-next line)))
+                       (dolist (mark (reverse
+                                      (sy-font-marks
+                                       (tag-syntax-info
+                                        (line-tag line)))))
+                         (collect (list (+ offset (mark-charpos mark))
+                                        (font-mark-font mark)
+                                        nil)))
+                       (incf offset (1+ (line-length line)))))))
 
 (defmethod device-init ((device tty-device))
   (setup-input)
   ;; similar to ordinary tty initialization, but without init-cm-string:
   (let* ((init-string (termcap :init-string))
-	 (init-file (termcap :init-file))
-	 (init-file-string (if init-file (get-init-file-string init-file))))
+         (init-file (termcap :init-file))
+         (init-file-string (if init-file (get-init-file-string init-file))))
     (device-write-string
      (concatenate 'simple-string
-		  (or init-string "")
-		  (or init-file-string "")
-		  ;; Transmit-mode: this makes arrow-keys give sequences matching
-		  ;; the terminfo db.
-		  hemlock.terminfo:keypad-xmit)))
+                  (or init-string "")
+                  (or init-file-string "")
+                  ;; Transmit-mode: this makes arrow-keys give sequences matching
+                  ;; the terminfo db.
+                  hemlock.terminfo:keypad-xmit)))
   (redisplay-all))
 
 (defmethod device-exit ((device linedit-device))
@@ -310,18 +310,18 @@
   (bind-key "Linedit Complete" #k"control-i" :buffer buffer)
   (bind-key "Linedit Complete" #k"tab" :buffer buffer)
   (bind-key "Linedit Describe Symbol" #k"control-c control-d d"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Describe Symbol" #k"control-c control-d control-d"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Apropos" #k"control-c ?"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Apropos" #k"control-c control-d a"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Apropos" #k"control-c control-d control-a"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Fuzzy Complete" #k"control-c meta-i" :buffer buffer)
   (bind-key "Linedit Test" #k"control-c control-d control-t"
-	    :buffer buffer)
+            :buffer buffer)
   (bind-key "Linedit Find Definitions" #k"meta-." :buffer buffer)
   (defhvar "Indent with Tabs" ""
     :buffer buffer
@@ -338,7 +338,7 @@
 
 (defun word-delimiter-p (char)
   (declare (simple-string *word-delimiters*)
-	   (character char))
+           (character char))
   (find char *word-delimiters*))
 
 (defun at-delimiter-p (string index)
@@ -353,9 +353,9 @@
   (let ((state (gensym)))
     `(do-symbols (,var ,package)
        (multiple-value-bind (,var ,state)
-	   (find-symbol (symbol-name ,var) ,package)
-	 (when (eq ,state :internal)
-	   ,@forms)))))
+           (find-symbol (symbol-name ,var) ,package)
+         (when (eq ,state :internal)
+           ,@forms)))))
 
 
 
@@ -367,10 +367,10 @@
   (iter
     (for i from 1)
     (let ((buf (make-buffer (format nil "*linedit-~D*" i)
-			    :modes modes)))
+                            :modes modes)))
       (when buf
-	(push buf *linedit-buffers*)
-	(return buf)))))
+        (push buf *linedit-buffers*)
+        (return buf)))))
 
 (defun initialize-linedit (instance string point modes)
   (setf (hbuf instance) (make-linedit-buffer modes))
@@ -386,15 +386,15 @@
     (&key (prompt (editor-prompt (current-device)))
           (modes (buffer-modes (current-buffer))))
   (let* ((dev (current-device))
-	 (original-buffer (hbuf dev))
-	 (original-prompt (editor-prompt dev))
-	 (*inner-linedit-p* t))
+         (original-buffer (hbuf dev))
+         (original-prompt (editor-prompt dev))
+         (*inner-linedit-p* t))
     (change-to-linedit-buffer (make-linedit-buffer modes))
     (install-linedit-mode (hbuf dev))
     (setf (editor-prompt dev) prompt)
     (multiple-value-prog1
-	(catch 'inner-linedit-result
-	  (command-loop))
+        (catch 'inner-linedit-result
+          (command-loop))
       (change-to-linedit-buffer original-buffer)
       (setf (editor-prompt dev) original-prompt))))
 
@@ -403,7 +403,7 @@
 
 (defmethod (setf get-string) (string (editor linedit-device))
   (let ((r (buffer-region (hbuf editor)))
-	(old-point (get-point editor)))
+        (old-point (get-point editor)))
     (delete-region r)
     (insert-string (region-start r) string)
     (setf (get-point editor) (min old-point (length string))))
@@ -413,12 +413,12 @@
   (let ((mark (buffer-point (hbuf editor))))
     (+ (mark-charpos mark)
        (let ((line (line-previous (mark-line mark))))
-	 (if line
-	     (iter
-	       (while line)
-	       (summing (line-length line))
-	       (setf line (line-previous line)))
-	     0)))))
+         (if line
+             (iter
+               (while line)
+               (summing (line-length line))
+               (setf line (line-previous line)))
+             0)))))
 
 (defmethod (setf get-point) (point (editor linedit-device))
   (when (<= 0 point (length (get-string editor)))
@@ -448,29 +448,29 @@
 ;;; FIXME: Explicit line-wrap needed
 (defmethod print-in-columns ((backend linedit-device) list &key width)
   (let ((max-col (truncate (backend-columns backend) width))
-	(col 0)
-	(line 0)
-	(pad nil))
+        (col 0)
+        (line 0)
+        (pad nil))
     (newline backend)
     (dolist (item list)
       (incf col)
       ;; Padding
       (when pad
-	(device-write-string pad)
-	(setf pad nil))
+        (device-write-string pad)
+        (setf pad nil))
       ;; Item
       (device-write-string item)
       ;; Maybe newline
       (cond ((= col max-col)
-	     (newline backend)
-	     (setf col 0)
-	     (when (= (1+ (incf line)) (backend-lines backend))
-	       (setf line 0)
-	       (unless (page backend)
-		 (return-from print-in-columns nil))))
-	    (t 
-	     (setf pad (make-string (- width (length item)) 
-				    :initial-element #\space)))))
+             (newline backend)
+             (setf col 0)
+             (when (= (1+ (incf line)) (backend-lines backend))
+               (setf line 0)
+               (unless (page backend)
+                 (return-from print-in-columns nil))))
+            (t 
+             (setf pad (make-string (- width (length item)) 
+                                    :initial-element #\space)))))
     ;; Optional newline
     (when pad
       (newline backend))))
@@ -483,11 +483,11 @@
       ((= i (length string)))
     (let ((c (schar string i)))
       (when (= lines (backend-lines backend))
-	(setf lines 0)
-	(unless (page backend)
-	  (return-from print-in-lines nil)))
+        (setf lines 0)
+        (unless (page backend)
+          (return-from print-in-lines nil)))
       (when (eql #\newline c)
-	(incf lines))
+        (incf lines))
       (device-write-string (string c))))
   (newline backend))
 
@@ -521,25 +521,25 @@
 (defun set-column-address (n current)
   ;; ti:column-address doesn't seem to be supported on revelant terminals.
   (cond ((< n current)
-	 (loop repeat (- current n) 
-	    do (device-write-string hemlock.terminfo:cursor-left)))
-	((> n current)
-	 (loop repeat (- n current) 
-	    do (device-write-string hemlock.terminfo:cursor-right)))))
+         (loop repeat (- current n) 
+            do (device-write-string hemlock.terminfo:cursor-left)))
+        ((> n current)
+         (loop repeat (- n current) 
+            do (device-write-string hemlock.terminfo:cursor-right)))))
 
 (defun find-row-and-col
     (region-string columns &optional (end (length region-string)))
   (let ((col 0)
-	(row 0))
+        (row 0))
     (iter
       (for c in-vector region-string)
       (repeat end)
       (cond
-	((or (eql c #\newline) (eql c #\return))
-	 (incf row (1+ (floor (1+ col) columns)))
-	 (setf col 0))
-	(t
-	 (incf col))))
+        ((or (eql c #\newline) (eql c #\return))
+         (incf row (1+ (floor (1+ col) columns)))
+         (setf col 0))
+        (t
+         (incf col))))
     (values ;; 1+ includes point in row calculations
      (+ row (floor (1+ col) columns))
      (rem col columns))))
@@ -587,39 +587,39 @@
 
 (defun mini-write-string (str start-col width fonts)
   (let ((col start-col)
-	(font *default-color*)
-	(boldp nil)
-	(previous-font -1)
-	(previous-boldp :unknown))
+        (font *default-color*)
+        (boldp nil)
+        (previous-font -1)
+        (previous-boldp :unknown))
     (iter
       (for i from 0)
       (for c in-vector str)
       (iter
-	(while fonts)
-	(let ((spec (car fonts)))
-	  (while (<= (car spec) i))
-	  (destructuring-bind (new-font new-boldp)
-	      (cdr spec)
-	    (setf font (1+ (mod (1- new-font) 8)))
-	    (setf boldp new-boldp)
-	    (pop fonts))))
+        (while fonts)
+        (let ((spec (car fonts)))
+          (while (<= (car spec) i))
+          (destructuring-bind (new-font new-boldp)
+              (cdr spec)
+            (setf font (1+ (mod (1- new-font) 8)))
+            (setf boldp new-boldp)
+            (pop fonts))))
       (progn
-	(unless (eq boldp previous-boldp)
-	  (if boldp
-	      (enter-bold-mode)
-	      (exit-attribute-mode)))
-	(unless (eql font previous-font)
-	  (setaf font))
-	(cond
-	  ((member c '(#\newline #\return))
-	   (device-write-string hemlock.terminfo:cursor-down)
-	   (setf col 0))
-	  ((< (char-code c) 32)
-	   (device-write-string (string #\?))
-	   (incf col))
-	  (t
-	   (device-write-string (string c))
-	   (incf col)))))
+        (unless (eq boldp previous-boldp)
+          (if boldp
+              (enter-bold-mode)
+              (exit-attribute-mode)))
+        (unless (eql font previous-font)
+          (setaf font))
+        (cond
+          ((member c '(#\newline #\return))
+           (device-write-string hemlock.terminfo:cursor-down)
+           (setf col 0))
+          ((< (char-code c) 32)
+           (device-write-string (string #\?))
+           (incf col))
+          (t
+           (device-write-string (string c))
+           (incf col)))))
     (when boldp (exit-attribute-mode))
     (unless (eql font *default-color*) (setaf *default-color*))
     (device-write-string hemlock.terminfo:cursor-visible)
@@ -629,42 +629,42 @@
   (let* ( ;; SBCL and CMUCL traditionally point *terminal-io* to /dev/tty,
          ;; and we do output on it assuming it goes to STDOUT. Binding
          ;; *terminal-io* is unportable, so do it only when needed.
-	 (columns (backend-columns backend))
-	 (old-point (old-point backend))
-	 (old-col (old-point-col backend))
-	 (old-row (old-point-row backend))
-	 (old (old-string backend))
-	 (new (concat prompt line))
-	 (point (+ point (length prompt))))
+         (columns (backend-columns backend))
+         (old-point (old-point backend))
+         (old-col (old-point-col backend))
+         (old-row (old-point-row backend))
+         (old (old-string backend))
+         (new (concat prompt line))
+         (point (+ point (length prompt))))
     (let* ((end (length new))
-	   (rows (find-row-and-col old columns)))
+           (rows (find-row-and-col old columns)))
       (when (dirty-p backend)
-	(setf old-point 0
-	      old-col 0
-	      old-row 0))
+        (setf old-point 0
+              old-col 0
+              old-row 0))
       (multiple-value-bind (point-row point-col)
-	  (find-row-and-col new columns point)
-	(let* ((diff 0 #+nil (mismatch new old))
-	       (start (min* old-point point diff end)))
-	  (multiple-value-bind (start-row start-col)
-	      (find-row-and-col new columns start)
-	    (multiple-value-bind (row col)
-		(find-row-and-col new columns)
-	      (multiple-value-bind (point-row point-col)
-		  (find-row-and-col new columns point)
-		(move-cursor
-		 :col 0
-		 :vertical old-row
-		 :current-col old-col
-		 :clear-to-eos t)
-		(mini-write-string new start-col columns fonts)
-		(move-cursor
-		 :col point-col
-		 :vertical (- row point-row)
-		 :current-col col)
-		(setf	(old-point-col backend) point-col
-			(old-point-row backend) point-row
-			(dirty-p backend) nil)))))))
+          (find-row-and-col new columns point)
+        (let* ((diff 0 #+nil (mismatch new old))
+               (start (min* old-point point diff end)))
+          (multiple-value-bind (start-row start-col)
+              (find-row-and-col new columns start)
+            (multiple-value-bind (row col)
+                (find-row-and-col new columns)
+              (multiple-value-bind (point-row point-col)
+                  (find-row-and-col new columns point)
+                (move-cursor
+                 :col 0
+                 :vertical old-row
+                 :current-col old-col
+                 :clear-to-eos t)
+                (mini-write-string new start-col columns fonts)
+                (move-cursor
+                 :col point-col
+                 :vertical (- row point-row)
+                 :current-col col)
+                (setf	(old-point-col backend) point-col
+                        (old-point-row backend) point-row
+                        (dirty-p backend) nil)))))))
     (device-force-output backend)
     (dispatch-events-no-hang)))
 
@@ -686,9 +686,9 @@
 (defun linedit-history-push (string linedit-history)
   (push string (%linedit-history-list linedit-history))
   (setf (%linedit-history-next linedit-history)
-	nil)
+        nil)
   (setf (%linedit-history-prev linedit-history)
-	(%linedit-history-list linedit-history)))
+        (%linedit-history-list linedit-history)))
 
 (defun linedit-history-previous (string linedit-history)
   (when (%linedit-history-prev linedit-history)
@@ -705,13 +705,13 @@
 
 (defun linedit-history-cycle (linedit-history)
   (flet ((wrap-linedit-history ()
-	   (unless (%linedit-history-prev linedit-history)
-	     (setf (%linedit-history-prev linedit-history)
-		   (nreverse (%linedit-history-next linedit-history))
-		   (%linedit-history-next linedit-history) nil))))
+           (unless (%linedit-history-prev linedit-history)
+             (setf (%linedit-history-prev linedit-history)
+                   (nreverse (%linedit-history-next linedit-history))
+                   (%linedit-history-next linedit-history) nil))))
     (wrap-linedit-history)
     (push (pop (%linedit-history-prev linedit-history))
-	  (%linedit-history-next linedit-history))
+          (%linedit-history-next linedit-history))
     (wrap-linedit-history)
     t))
 
@@ -720,10 +720,10 @@
 (defun reset-linedit-history-position (linedit-history)
   "Re-arrange prev and next so that we are back to the most recent item."
   (setf (%linedit-history-prev linedit-history)
-	(append (reverse (%linedit-history-next linedit-history))
-		(%linedit-history-prev linedit-history)))
+        (append (reverse (%linedit-history-next linedit-history))
+                (%linedit-history-prev linedit-history)))
   (setf (%linedit-history-next linedit-history)
-	nil))
+        nil))
 
 
 ;;;; stuff from editor.lisp, pending refactoring
@@ -740,38 +740,38 @@
 (defun read-history-file (editor)
   (handler-case
       (with-open-file (s (merge-pathnames ".linedit-history"
-					  (user-homedir-pathname))
-			 :external-format :utf-8
-			 :direction :input
-			 :if-does-not-exist nil)
-	(when s
-	  (let ((history (editor-history editor)))
-	    (iter
-	      (let ((count-line (read-line s nil)))
-		(while count-line)
-		(let* ((count (parse-integer count-line))
-		       (buf (make-string count)))
-		  (read-sequence buf s)
-		  (linedit-history-push buf history)
-		  (assert (eql #\newline (read-char s)))))))))
+                                          (user-homedir-pathname))
+                         :external-format :utf-8
+                         :direction :input
+                         :if-does-not-exist nil)
+        (when s
+          (let ((history (editor-history editor)))
+            (iter
+              (let ((count-line (read-line s nil)))
+                (while count-line)
+                (let* ((count (parse-integer count-line))
+                       (buf (make-string count)))
+                  (read-sequence buf s)
+                  (linedit-history-push buf history)
+                  (assert (eql #\newline (read-char s)))))))))
     (file-error (c)
       (format t "Ignoring error ~A while reading history.~%" c))))
 
 (defun save-to-history-file (str)
   (handler-case
       (with-open-file (s (merge-pathnames ".linedit-history"
-					  (user-homedir-pathname))
-			 :external-format :utf-8
-			 :direction :output
-			 :if-does-not-exist :create
-			 :if-exists :append)
-	(format s "~D~%~A~%" (length str) str))
+                                          (user-homedir-pathname))
+                         :external-format :utf-8
+                         :direction :output
+                         :if-does-not-exist :create
+                         :if-exists :append)
+        (format s "~D~%~A~%" (length str) str))
     (file-error (c)
       (format t "Ignoring error ~A while writing history.~%" c))))
 
 (defmacro with-editor-point-and-string (((point string) editor) &body forms)
   `(let ((,point (get-point ,editor))
-	 (,string (get-string ,editor)))
+         (,string (get-string ,editor)))
      ,@forms))
 
 (defun editor-word-start (editor)
@@ -779,54 +779,54 @@
 if the point is just after a word, or the point."
   (with-editor-point-and-string ((point string) editor)
     (if (or (not (at-delimiter-p string point))
-	    (not (and (plusp point) (at-delimiter-p string (1- point)))))
-	(1+ (or (position-if 'word-delimiter-p string :end point :from-end t) 
-		-1)) ; start of string
-	point)))
+            (not (and (plusp point) (at-delimiter-p string (1- point)))))
+        (1+ (or (position-if 'word-delimiter-p string :end point :from-end t) 
+                -1)) ; start of string
+        point)))
 
 (defun editor-previous-word-start (editor)
   "Returns the index of the first letter of current or previous word,
 if the point was at the start of a word or between words."
   (with-editor-point-and-string ((point string) editor)
     (let ((tmp (cond ((at-delimiter-p string point)
-		      (position-if-not 'word-delimiter-p string 
-				       :end point :from-end t))
-		     ((and (plusp point) (at-delimiter-p string (1- point)))
-		      (position-if-not 'word-delimiter-p string
-				       :end (1- point) :from-end t))
-		     (t point))))
+                      (position-if-not 'word-delimiter-p string 
+                                       :end point :from-end t))
+                     ((and (plusp point) (at-delimiter-p string (1- point)))
+                      (position-if-not 'word-delimiter-p string
+                                       :end (1- point) :from-end t))
+                     (t point))))
       ;; tmp is always in the word whose start we want (or NIL)
       (1+ (or (position-if 'word-delimiter-p string 
-			   :end (or tmp 0) :from-end t) 
-	      -1)))))
+                           :end (or tmp 0) :from-end t) 
+              -1)))))
 
 (defun editor-word-end (editor)
   "Returns the index just beyond the current word or the point if
 point is not inside a word."
   (with-editor-point-and-string ((point string) editor)
     (if (at-delimiter-p string point)
-	point
-	(or (position-if 'word-delimiter-p string :start point)
-	    (length string)))))
+        point
+        (or (position-if 'word-delimiter-p string :start point)
+            (length string)))))
 
 (defun editor-next-word-end (editor)
   "Returns the index just beyond the last letter of current or next
 word, if the point was between words."
   (with-editor-point-and-string ((point string) editor)
     (let ((tmp (if (at-delimiter-p string point)
-		   (or (position-if-not 'word-delimiter-p string
-					:start point)
-		       (length string))
-		   point)))
+                   (or (position-if-not 'word-delimiter-p string
+                                        :start point)
+                       (length string))
+                   point)))
       ;; tmp is always in the word whose end we want (or already at the end)
       (or (position-if 'word-delimiter-p string :start tmp)
-	  (length string)))))
+          (length string)))))
 
 (defun editor-word (editor)
   "Returns the current word the point is in or right after, or an
 empty string."
   (let ((start (editor-word-start editor))
-	(end (editor-word-end editor)))
+        (end (editor-word-end editor)))
     #+nil(dbg "~&editor-word: ~S - ~S~%" start end)
     (subseq (get-string editor) start end)))
 
@@ -836,10 +836,10 @@ empty string."
 (defun editor-replace-word (editor word)
   (with-editor-point-and-string ((point string) editor)
     (let ((start (editor-word-start editor))
-	  (end (editor-word-end editor)))
+          (end (editor-word-end editor)))
       (setf (get-string editor)
-	    (concat (subseq string 0 start) word (subseq string end))
-	    (get-point editor) (+ start (length word))))))
+            (concat (subseq string 0 start) word (subseq string end))
+            (get-point editor) (+ start (length word))))))
 
 (defun quoted-p (string index)
   (let ((quoted-p nil))
@@ -864,14 +864,14 @@ empty string."
 (defvar *linedit-buffers*)
 
 (defun linedit (&key (modes '("Fundamental"))
-		     initial-string
-		     initial-point
-		     (prompt ""))
+                     initial-string
+                     initial-point
+                     (prompt ""))
   "Reads a single line of input with line-editing."
   (let ((editor nil)
-	(*linedit-redisplay-mode* :linedit-redisplay)
-	(hemlock::*synchronous-evaluation-of-slave-requests-in-the-master* t)
-	(*linedit-buffers* nil))
+        (*linedit-redisplay-mode* :linedit-redisplay)
+        (hemlock::*synchronous-evaluation-of-slave-requests-in-the-master* t)
+        (*linedit-buffers* nil))
     (hemlock:with-editor (:backend-type :mini :load-user-init nil)
       (setf editor (current-device))
       (setf (editor-prompt editor) prompt)
@@ -879,26 +879,26 @@ empty string."
       (read-history-file editor)
       (change-to-buffer (hbuf editor))
       (let ((*invoke-hook*
-	     (lambda (command p)
-	       (handler-case
-		   (multiple-value-prog1
-		       (funcall (command-function command) p)
-		     (unless (eq *current-buffer* (hbuf editor))
-		       (change-to-buffer (hbuf editor))
-		       (editor-error
-			"Invalid buffer found, resetting.")))
-		 (editor-error (c)
-		   (handler-case
-		       (format *terminal-io* "~&~A~%" c)
-		     (error (d)
-		       (format *terminal-io*
-			       "~&error ~A while printing error ~A~%"
-			       (type-of d)
-			       (type-of c))))
-		   (setf (dirty-p editor) t))))))
-	(command-loop)))
+             (lambda (command p)
+               (handler-case
+                   (multiple-value-prog1
+                       (funcall (command-function command) p)
+                     (unless (eq *current-buffer* (hbuf editor))
+                       (change-to-buffer (hbuf editor))
+                       (editor-error
+                        "Invalid buffer found, resetting.")))
+                 (editor-error (c)
+                   (handler-case
+                       (format *terminal-io* "~&~A~%" c)
+                     (error (d)
+                       (format *terminal-io*
+                               "~&error ~A while printing error ~A~%"
+                               (type-of d)
+                               (type-of c))))
+                   (setf (dirty-p editor) t))))))
+        (command-loop)))
     (prog1
-	(get-finished-string editor)
+        (get-finished-string editor)
       (delete-linedit-buffers))))
 
 (defun formedit (&rest keys)
@@ -913,35 +913,35 @@ empty string."
   ;; FIXME: should check whether a tty is available, and fall back to
   ;; non-linedit usage otherwise.
   (let* ((prompt "")
-	 (prepl::*read-command*
-	  (lambda (stream)
-	    (declare (ignore stream))
-	    (block t
-	      (catch 'linedit-eof
-		(return-from t
-		  (with-input-from-string (s (formedit :prompt prompt))
-		    (prepl::read-command s))))
-	      (let ((*event-base* *main-event-base*)) ;...
-		(newline (current-device))
-		(dispatch-events-no-hang))
-	      prepl::*eof-command*)))
-	 (real-prompt-fun prepl::*prompt*)
-	 (prepl::*prompt*
-	  (lambda (&rest junk)
-	    (declare (ignore stream))
-	    (setf prompt
-		  (string-trim (list #\newline)
-			       (with-output-to-string (s)
-				 (let ((prepl::*prompt* real-prompt-fun))
-				   (prepl::prompt s)))))
-	    "")))
+         (prepl::*read-command*
+          (lambda (stream)
+            (declare (ignore stream))
+            (block t
+              (catch 'linedit-eof
+                (return-from t
+                  (with-input-from-string (s (formedit :prompt prompt))
+                    (prepl::read-command s))))
+              (let ((*event-base* *main-event-base*)) ;...
+                (newline (current-device))
+                (dispatch-events-no-hang))
+              prepl::*eof-command*)))
+         (real-prompt-fun prepl::*prompt*)
+         (prepl::*prompt*
+          (lambda (&rest junk)
+            (declare (ignore stream))
+            (setf prompt
+                  (string-trim (list #\newline)
+                               (with-output-to-string (s)
+                                 (let ((prepl::*prompt* real-prompt-fun))
+                                   (prepl::prompt s)))))
+            "")))
     (prepl:repl)))
 
 (defun advance-history (direction)
   (let* ((editor (current-device))
-	 (line (funcall direction
-			(get-string editor)
-			(editor-history editor))))
+         (line (funcall direction
+                        (get-string editor)
+                        (editor-history editor))))
     (cond
       (line
        (setf (get-string editor) line)
@@ -962,7 +962,7 @@ empty string."
 
 (defun pathname-directory-pathname (pathname)
   (make-pathname :name nil :type nil
-		 :defaults pathname))
+                 :defaults pathname))
 
 (defun underlying-directory-p (pathname)
   (case (file-kind pathname)
@@ -983,54 +983,54 @@ empty string."
   "Returns the supplied string, with a prefix of ~ or ~user expanded
 to the appropriate home directory."
   (if (and (> (length string) 0)
-	   (eql (schar string 0) #\~))
+           (eql (schar string 0) #\~))
       (flet ((chop (s) 
-	       (subseq s 0 (1- (length s)))))
-	(let* ((slash-index (loop for i below (length string)
-				  when (eql (schar string i) #\/) 
-				  return i))
-	       (suffix (and slash-index (subseq string slash-index)))
-	       (uname (subseq string 1 slash-index))
-	       (homedir (or (cdr (assoc :home (user-info uname)))
-			    (chop (namestring 
-				   (or (probe-file (user-homedir-pathname))
-				       (return-from tilde-expand-string 
-					 string)))))))
-	  (concatenate 'string homedir (or suffix ""))))
+               (subseq s 0 (1- (length s)))))
+        (let* ((slash-index (loop for i below (length string)
+                                  when (eql (schar string i) #\/) 
+                                  return i))
+               (suffix (and slash-index (subseq string slash-index)))
+               (uname (subseq string 1 slash-index))
+               (homedir (or (cdr (assoc :home (user-info uname)))
+                            (chop (namestring 
+                                   (or (probe-file (user-homedir-pathname))
+                                       (return-from tilde-expand-string 
+                                         string)))))))
+          (concatenate 'string homedir (or suffix ""))))
       string))
 
 (defun directory-complete (string)
   (declare (simple-string string))
   (let* ((common nil)
-	 (all nil)
-	 (max 0)
-	 (string (tilde-expand-string string))
-	 (dir (pathname-directory-pathname string))
-	 (namefun (if (relative-pathname-p string)
-		      #'namestring
-		      (lambda (x) (namestring (merge-pathnames x))))))
+         (all nil)
+         (max 0)
+         (string (tilde-expand-string string))
+         (dir (pathname-directory-pathname string))
+         (namefun (if (relative-pathname-p string)
+                      #'namestring
+                      (lambda (x) (namestring (merge-pathnames x))))))
     (unless (and (underlying-directory-p dir)
-		 (not (wild-pathname-p dir)))
+                 (not (wild-pathname-p dir)))
       (return-from directory-complete (values nil 0)))
     (with-directory-iterator (next dir)
       (loop for entry = (next)
-	    while entry
-	    do (let* ((full (funcall namefun entry))
-		      (diff (mismatch string full)))
-		 #+nil (dbg "~& completed: ~A, diff: ~A~%" full diff)
-		 (unless (and diff (< diff (length string)))
-		   #+nil(dbg "~& common ~A mismatch ~A~&" common 
-			(mismatch common full))
-		   (setf common (if common
-				    (subseq common 0 (mismatch common full))
-				    full)
-			 max (max max (length full))
-			 all (cons full all))))))
+            while entry
+            do (let* ((full (funcall namefun entry))
+                      (diff (mismatch string full)))
+                 #+nil (dbg "~& completed: ~A, diff: ~A~%" full diff)
+                 (unless (and diff (< diff (length string)))
+                   #+nil(dbg "~& common ~A mismatch ~A~&" common 
+                        (mismatch common full))
+                   (setf common (if common
+                                    (subseq common 0 (mismatch common full))
+                                    full)
+                         max (max max (length full))
+                         all (cons full all))))))
     #+nil(dbg "~&common: ~A~%" common)
     (if (or (null common)
-	    (<= (length common) (length string)))
-	(values all max)
-	(values (list common) (length common)))))
+            (<= (length common) (length string)))
+        (values all max)
+        (values (list common) (length common)))))
 
 ;;;; Functions for Lisp completion
 
@@ -1038,72 +1038,72 @@ to the appropriate home directory."
   (declare (simple-string string))
   (when (plusp (length string))
     (if (in-quoted-string-p editor)
-	(if (logical-pathname-p string)
-	    (logical-pathname-complete string)
-	    (directory-complete string))
-	(let* ((length (length string))
-	       (first-colon (position #\: string))
-	       (last-colon (position #\: string :from-end t))
-	       (state (and first-colon
-			   (if (< first-colon last-colon)
-			       :internal
-			       :external)))
-	       (package (and first-colon
-			     (find-package (if (plusp first-colon)
-					       (canonical-case
-						(subseq string 0 first-colon))
-					       :keyword))))
-	       (hash (make-hash-table :test #'equal))
-	       (common nil)
-	       (max-len 0))
+        (if (logical-pathname-p string)
+            (logical-pathname-complete string)
+            (directory-complete string))
+        (let* ((length (length string))
+               (first-colon (position #\: string))
+               (last-colon (position #\: string :from-end t))
+               (state (and first-colon
+                           (if (< first-colon last-colon)
+                               :internal
+                               :external)))
+               (package (and first-colon
+                             (find-package (if (plusp first-colon)
+                                               (canonical-case
+                                                (subseq string 0 first-colon))
+                                               :keyword))))
+               (hash (make-hash-table :test #'equal))
+               (common nil)
+               (max-len 0))
        
-	  (labels ((stringify (symbol)
-		     (if (upper-case-p (schar string 0))
-			 (string symbol)
-			 (string-downcase (string symbol))))
-		   (push-name (name)
-		     (setf common (if common
-				      (subseq name 0 (mismatch common name))
-				      name)
-			   max-len (max max-len (length name))
-			   (gethash name hash) name))
-		   (select-symbol (symbol match)
-		     (let ((name (stringify symbol))
-			   (end (length match)))
-		       (when (and (> (length name) end)	; Skip indetical
-				  (equal match (subseq name 0 end)))
-			 (push-name (concat string (subseq name end)))))))
-	    ;; Skip empty strings
-	    (when (plusp length)
-	      (if package
-		  ;; Symbols with explicit package prefixes.
-		  (let* ((start (1+ last-colon))
-			 (match (subseq string start)))
-		    (ecase state
-		      (:internal (do-internal-symbols (sym package)
-				   (select-symbol sym match)))
-		      (:external (do-external-symbols (sym package)
-				   (select-symbol sym match)))))
-		
-		  ;; Symbols without explicit package prefix + packges
-		  (dolist (package (list-all-packages))
-		    (if (eq *package* package)
-			(do-symbols (sym)
-			  (select-symbol sym string))
-			;; Package names
-			(dolist (name (cons (package-name package)
-					    (package-nicknames package)))
-			  (select-symbol name string))))))
+          (labels ((stringify (symbol)
+                     (if (upper-case-p (schar string 0))
+                         (string symbol)
+                         (string-downcase (string symbol))))
+                   (push-name (name)
+                     (setf common (if common
+                                      (subseq name 0 (mismatch common name))
+                                      name)
+                           max-len (max max-len (length name))
+                           (gethash name hash) name))
+                   (select-symbol (symbol match)
+                     (let ((name (stringify symbol))
+                           (end (length match)))
+                       (when (and (> (length name) end)	; Skip indetical
+                                  (equal match (subseq name 0 end)))
+                         (push-name (concat string (subseq name end)))))))
+            ;; Skip empty strings
+            (when (plusp length)
+              (if package
+                  ;; Symbols with explicit package prefixes.
+                  (let* ((start (1+ last-colon))
+                         (match (subseq string start)))
+                    (ecase state
+                      (:internal (do-internal-symbols (sym package)
+                                   (select-symbol sym match)))
+                      (:external (do-external-symbols (sym package)
+                                   (select-symbol sym match)))))
+                
+                  ;; Symbols without explicit package prefix + packges
+                  (dolist (package (list-all-packages))
+                    (if (eq *package* package)
+                        (do-symbols (sym)
+                          (select-symbol sym string))
+                        ;; Package names
+                        (dolist (name (cons (package-name package)
+                                            (package-nicknames package)))
+                          (select-symbol name string))))))
 
-	    ;; Return list of matches to caller
-	    (if (> (length common) (length string))
-		(values (list common) (length common))
-		(let (list)
-		  (maphash (lambda (key val)
-			     (declare (ignore val))
-			     (push key list))
-			   hash)
-		  (values list max-len))))))))
+            ;; Return list of matches to caller
+            (if (> (length common) (length string))
+                (values (list common) (length common))
+                (let (list)
+                  (maphash (lambda (key val)
+                             (declare (ignore val))
+                             (push key list))
+                           hash)
+                  (values list max-len))))))))
 
 
 ;;;;
@@ -1117,63 +1117,63 @@ to the appropriate home directory."
 (defun help (chord editor)
   (declare (ignore chord))
   (let ((pairs nil)
-	(max-id 0)
-	(max-f 0))
+        (max-id 0)
+        (max-f 0))
     (maphash (lambda (id function)
-	       (let ((f (string-downcase (symbol-name function))))
-		 (push (list id f) pairs)
-		 (setf max-id (max max-id (length id))
-		       max-f (max max-f (length f)))))
-	     (editor-commands editor))
+               (let ((f (string-downcase (symbol-name function))))
+                 (push (list id f) pairs)
+                 (setf max-id (max max-id (length id))
+                       max-f (max max-f (length f)))))
+             (editor-commands editor))
     (print-in-columns editor
-		      (mapcar (lambda (pair)
-				 (destructuring-bind (id f) pair
-				   (with-output-to-string (s)
-				     (write-string id s)
-				     (loop repeat (- (1+ max-id) (length id))
-					   do (write-char #\Space s))
-				     (write-string f s))))
-			      (nreverse pairs))
-		      :width (+ max-id max-f 2))))
+                      (mapcar (lambda (pair)
+                                 (destructuring-bind (id f) pair
+                                   (with-output-to-string (s)
+                                     (write-string id s)
+                                     (loop repeat (- (1+ max-id) (length id))
+                                           do (write-char #\Space s))
+                                     (write-string f s))))
+                              (nreverse pairs))
+                      :width (+ max-id max-f 2))))
 
 (defun complete (chord editor)
   (declare (ignore chord))
   (multiple-value-bind (completions max-len) (editor-complete editor)
     (if completions
-	(if (not (cdr completions))
-	    (editor-replace-word editor (car completions))
-	    (print-in-columns editor completions :width (+ max-len 2)))
-	(beep))))
+        (if (not (cdr completions))
+            (editor-replace-word editor (car completions))
+            (print-in-columns editor completions :width (+ max-len 2)))
+        (beep))))
 
 (defun apropos-word (chord editor)
   (declare (ignore chord))
   (let* ((word (editor-word editor))
-	 (apropi (apropos-list word)))
+         (apropi (apropos-list word)))
     (if (null apropi)
-	(beep)
-	(let* ((longest 0)
-	       (strings (mapcar (lambda (symbol)
-				  (declare (symbol symbol))
-				  (let ((str (prin1-to-string symbol)))
-				    (setf longest (max longest (length str)))
-				    (string-downcase str)))
-				apropi)))
-	  (print-in-columns editor strings :width (+ longest 2))))))
+        (beep)
+        (let* ((longest 0)
+               (strings (mapcar (lambda (symbol)
+                                  (declare (symbol symbol))
+                                  (let ((str (prin1-to-string symbol)))
+                                    (setf longest (max longest (length str)))
+                                    (string-downcase str)))
+                                apropi)))
+          (print-in-columns editor strings :width (+ longest 2))))))
 
 (defun describe-word (chord editor)
   (declare (ignore chord))
   (print-in-lines editor
-		  (with-output-to-string (s)
-		    (describe (find-symbol (canonical-case
-					    (editor-word editor))) s))))
+                  (with-output-to-string (s)
+                    (describe (find-symbol (canonical-case
+                                            (editor-word editor))) s))))
 
 (defcommand "Linedit Complete" (p) "" ""
   (complete nil (current-device)))
 
 (defun inner-formedit (prompt &optional (eof-error-p t) eof-value)
   (read-from-string (inner-linedit :prompt prompt)
-		    eof-error-p
-		    eof-value))
+                    eof-error-p
+                    eof-value))
 
 (defcommand "Linedit Describe Symbol"
     (p &optional (sym (hemlock::slave-symbol-at-point)))
@@ -1181,9 +1181,9 @@ to the appropriate home directory."
   (declare (ignore p))
   (newline (current-device))
   (let* ((marker 'eof)
-	 (sym (if sym
-		  (hemlock::resolve-slave-symbol sym)
-		  (inner-formedit "Describe symbol: " nil marker))))
+         (sym (if sym
+                  (hemlock::resolve-slave-symbol sym)
+                  (inner-formedit "Describe symbol: " nil marker))))
     (unless (eq sym marker)
       (describe sym)
       (newline (current-device)))))
@@ -1194,39 +1194,39 @@ to the appropriate home directory."
   (declare (ignore p))
   (newline (current-device))
   (let* ((marker 'eof)
-	 (sym (if sym
-		  (hemlock::resolve-slave-symbol sym)
-		  (inner-formedit "Apropos symbol: " nil marker))))
+         (sym (if sym
+                  (hemlock::resolve-slave-symbol sym)
+                  (inner-formedit "Apropos symbol: " nil marker))))
     (unless (eq sym marker)
       (print-in-lines (current-device)
-		      (with-output-to-string (*standard-output*)
-			(apropos sym)))
+                      (with-output-to-string (*standard-output*)
+                        (apropos sym)))
       (newline (current-device)))))
 
 (defcommand "Linedit Find Definitions" (p)
     "" ""
   (declare (ignore p))
   (let* ((default (hemlock::symbol-string-at-point))
-	 (default (if (and default
-			   ;; Fixme: MARK-SYMBOL isn't very good, meaning that
-			   ;; often we will get random forms rather than a
-			   ;; symbol.  Let's at least catch the case where the
-			   ;; result is more than a line long, and give up.
-			   (plusp (length default))
-			   (not (find #\newline default)))
-		      default
-		      (progn
-			(newline (current-device))
-			(write-line "Finding definitions")
-			(force-output)
-			(inner-linedit :prompt "Find definition for: ")))))
+         (default (if (and default
+                           ;; Fixme: MARK-SYMBOL isn't very good, meaning that
+                           ;; often we will get random forms rather than a
+                           ;; symbol.  Let's at least catch the case where the
+                           ;; result is more than a line long, and give up.
+                           (plusp (length default))
+                           (not (find #\newline default)))
+                      default
+                      (progn
+                        (newline (current-device))
+                        (write-line "Finding definitions")
+                        (force-output)
+                        (inner-linedit :prompt "Find definition for: ")))))
     (when (plusp (length default))
       (let ((slavesym (hemlock::parse-slave-symbol default)))
-	(tty-excursion (lambda ()
-			 (hemlock::find-definitions
-			  slavesym))
-		       :clear-screen-before-p :prompt
-		       :split-screen-p t)))))
+        (tty-excursion (lambda ()
+                         (hemlock::find-definitions
+                          slavesym))
+                       :clear-screen-before-p :prompt
+                       :split-screen-p t)))))
 
 ;; fixme: clear-screen-before-p, clear-screen-after-p seemed like a
 ;; really cool idea until I learned that on most terminals [except GNU
@@ -1236,53 +1236,53 @@ to the appropriate home directory."
               (clear-screen-after-p t)
               split-screen-p
               keep-current-split-p
-	      (nothing-to-do-message "nothing to do"))
+              (nothing-to-do-message "nothing to do"))
   (let ((device (current-device))
-	(nothing-to-do nil))
+        (nothing-to-do nil))
     (when clear-screen-before-p
       (device-write-string hemlock.terminfo:clear-screen)
       (when (eq clear-screen-before-p :prompt) (redisplay-all)))
     (ensure-in-cm-mode device)
     (unless keep-current-split-p
       (iter
-	(while (cddr *window-list*))
-	(delete-window (next-window (current-window)))))
+        (while (cddr *window-list*))
+        (delete-window (next-window (current-window)))))
     (when split-screen-p
       (setf (current-window)
-	    (make-window (window-display-start (current-window)))))
+            (make-window (window-display-start (current-window)))))
     (unwind-protect
-	(let ((*linedit-redisplay-mode* :partial-tty-redisplay))
-	  (redisplay-all)
-	  (block t
-	    (device-clear device)
-	    (funcall fun)
-	    (if (eq *current-buffer* (hbuf device))
-		(setf nothing-to-do t)
-		(let ((*invoke-hook*
-		       (lambda (command p)
-			 (multiple-value-prog1
-			  (funcall (command-function command) p)
-			  (when (eq *current-buffer* (hbuf device))
-			    (return-from t))))))
-		  (command-loop)))))
+        (let ((*linedit-redisplay-mode* :partial-tty-redisplay))
+          (redisplay-all)
+          (block t
+            (device-clear device)
+            (funcall fun)
+            (if (eq *current-buffer* (hbuf device))
+                (setf nothing-to-do t)
+                (let ((*invoke-hook*
+                       (lambda (command p)
+                         (multiple-value-prog1
+                          (funcall (command-function command) p)
+                          (when (eq *current-buffer* (hbuf device))
+                            (return-from t))))))
+                  (command-loop)))))
       (ensure-not-in-cm-mode device)
       (cond
        (clear-screen-after-p
-	(device-write-string hemlock.terminfo:clear-screen)
-	(when nothing-to-do
-	  (print-in-lines (current-device) nothing-to-do-message))
-	(redisplay-all))
+        (device-write-string hemlock.terminfo:clear-screen)
+        (when nothing-to-do
+          (print-in-lines (current-device) nothing-to-do-message))
+        (redisplay-all))
        (t
-	(when nothing-to-do
-	  (print-in-lines (current-device) nothing-to-do-message))
-	(newline device))))))
+        (when nothing-to-do
+          (print-in-lines (current-device) nothing-to-do-message))
+        (newline device))))))
 
 (defcommand "Linedit Test"
     (p &optional (sym (hemlock::slave-symbol-at-point)))
     "" ""
   (declare (ignore p))
   (tty-excursion (lambda ()
-		   (hemlock::find-file-command nil "/etc/passwd"))))
+                   (hemlock::find-file-command nil "/etc/passwd"))))
 
 ;; fixme: would be cooler if this didn't clear the screen.
 ;; TTY-EXCURSION would be more effective if Unix terminals weren't that
@@ -1292,13 +1292,13 @@ to the appropriate home directory."
     "" ""
   (declare (ignore p))
   (tty-excursion (lambda ()
-		   (hemlock::fuzzy-complete-symbol-command nil)
-		   (hemlock::refresh-screen-command nil))
-		 :nothing-to-do-message "No completions."
-		 :clear-screen-before-p :prompt
-		 :clear-screen-after-p t
-		 :keep-current-split-p nil
-		 :split-screen-p nil))
+                   (hemlock::fuzzy-complete-symbol-command nil)
+                   (hemlock::refresh-screen-command nil))
+                 :nothing-to-do-message "No completions."
+                 :clear-screen-before-p :prompt
+                 :clear-screen-after-p t
+                 :keep-current-split-p nil
+                 :split-screen-p nil))
 
 (defcommand "Linedit Isearch" (p)
     "" ""
@@ -1312,9 +1312,9 @@ to the appropriate home directory."
 
 (defun update-prompt-for-line-isearch (string direction failure)
   (setf (editor-prompt (current-device))
-	(format nil
-		"(~@[~A~]~:[reverse-i-search~;i-search~]:~A) "
-		failure (eq direction :forward) string)))
+        (format nil
+                "(~@[~A~]~:[reverse-i-search~;i-search~]:~A) "
+                failure (eq direction :forward) string)))
 
 
 ;;;; Incremental search over the line history
@@ -1330,35 +1330,35 @@ to the appropriate home directory."
       (setf (last-command-type) nil)
       (update-prompt-for-line-isearch "" direction nil)
       (let* ((point (current-point))
-	     (save-start (copy-mark point :temporary))
-	     (saved-buffer (get-string editor)))
-	(with-mark ((here point))
-	  (when (eq (catch 'exit-i-search
-		      (%line-isearch "" point here direction nil))
-		    :control-g)
-	    (setf (get-string editor)
-		  saved-buffer)
-	    (move-mark point save-start)
-	    (invoke-hook abort-hook)
-	    (setf (editor-prompt editor)
-		  saved-prompt)
-	    (editor-error ""))
-	  (if (region-active-p)
-	      (delete-mark save-start)
-	      (push-buffer-mark save-start)))))
+             (save-start (copy-mark point :temporary))
+             (saved-buffer (get-string editor)))
+        (with-mark ((here point))
+          (when (eq (catch 'exit-i-search
+                      (%line-isearch "" point here direction nil))
+                    :control-g)
+            (setf (get-string editor)
+                  saved-buffer)
+            (move-mark point save-start)
+            (invoke-hook abort-hook)
+            (setf (editor-prompt editor)
+                  saved-prompt)
+            (editor-error ""))
+          (if (region-active-p)
+              (delete-mark save-start)
+              (push-buffer-mark save-start)))))
     (reset-linedit-history-position (editor-history editor))))
 
 (defun %line-isearch (string point trailer direction failure)
   (do* ((curr-point point (copy-mark point :temporary))
-	(curr-trailer (copy-mark trailer :temporary)))
+        (curr-trailer (copy-mark trailer :temporary)))
        (nil)
     (let ((next-key-event (get-key-event *editor-input* t)))
       (case (%line-isearch-char-eval next-key-event
-				     string
-				     point
-				     trailer
-				     direction
-				     failure)
+                                     string
+                                     point
+                                     trailer
+                                     direction
+                                     failure)
         (:cancel
          (update-prompt-for-line-isearch string direction failure)
          (unless (zerop (length string))
@@ -1378,27 +1378,27 @@ to the appropriate home directory."
 ;;; necessary actions.
 ;;;
 (defun %line-isearch-char-eval (key-event
-				string
-				point
-				trailer
-				direction
-				failure)
+                                string
+                                point
+                                trailer
+                                direction
+                                failure)
   (cond ((let ((character (hemlock-ext:key-event-char key-event)))
            (and character (standard-char-p character)))
          (%line-isearch-printed-char key-event
-				     string
-				     point
-				     trailer
-				     direction
-				     failure))
+                                     string
+                                     point
+                                     trailer
+                                     direction
+                                     failure))
         ((or (logical-key-event-p key-event :forward-search)
              (logical-key-event-p key-event :backward-search))
          (%line-isearch-control-s-or-r key-event
-				       string
-				       point
-				       trailer
-				       direction
-				       failure))
+                                       string
+                                       point
+                                       trailer
+                                       direction
+                                       failure))
         ((logical-key-event-p key-event :cancel) :return-cancel)
         ((logical-key-event-p key-event :abort)
          (unless failure
@@ -1408,13 +1408,13 @@ to the appropriate home directory."
          :control-g)
         ((logical-key-event-p key-event :quote)
          (%line-isearch-printed-char (get-key-event *editor-input* t)
-				     string
-				     point
-				     trailer
-				     direction
-				     failure))
+                                     string
+                                     point
+                                     trailer
+                                     direction
+                                     failure))
         ((and (zerop (length string)) (logical-key-event-p key-event :exit))
-	 (if (eq direction :forward)
+         (if (eq direction :forward)
              (hemlock::forward-search-command nil)
              (hemlock::reverse-search-command nil))
          (throw 'exit-i-search nil))
@@ -1435,41 +1435,41 @@ to the appropriate home directory."
 ;;;
 (defun advance-history-for-isearch (str editor fun)
   (let* ((linedit-history (editor-history editor))
-	 (oldval (get-string editor))
-	 (val (funcall fun oldval linedit-history)))
+         (oldval (get-string editor))
+         (val (funcall fun oldval linedit-history)))
     (iter
       (while val)
       (until (and (search str val) (not (equal val oldval))))
       (setf val (funcall fun val linedit-history)))
     (and val
-	 (setf (get-string editor) val))))
+         (setf (get-string editor) val))))
 
 (defun history-backward-for-isearch (string)
   (advance-history-for-isearch string
-		   (current-device)
-		   #'linedit-history-previous))
+                   (current-device)
+                   #'linedit-history-previous))
 
 (defun history-forward-for-isearch (string)
   (advance-history-for-isearch string
-		   (current-device)
-		   #'linedit-history-next))
+                   (current-device)
+                   #'linedit-history-next))
 
 (defun %line-isearch-control-s-or-r (key-event string point trailer
-				     direction failure)
+                                     direction failure)
   (let ((forward-direction-p (eq direction :forward))
         (forward-character-p (logical-key-event-p key-event :forward-search)))
     (cond ((zerop (length string))
            (%line-isearch-empty-string point
-				       trailer
-				       direction
-				       forward-direction-p
-				       forward-character-p))
+                                       trailer
+                                       direction
+                                       forward-direction-p
+                                       forward-character-p))
           ((eq forward-direction-p forward-character-p)
            (cond (failure
-		  (update-prompt-for-line-isearch string
-						  direction
-						  "failed-")
-		  (%line-isearch string point trailer direction failure))
+                  (update-prompt-for-line-isearch string
+                                                  direction
+                                                  "failed-")
+                  (%line-isearch string point trailer direction failure))
                  (t
                   (%line-isearch-find-pattern string point (move-mark trailer point)
                                           direction))))
@@ -1507,7 +1507,7 @@ to the appropriate home directory."
 (defun %line-isearch-printed-char (key-event string point trailer direction failure)
   (let ((tchar (hemlock-ext:key-event-char key-event)))
     (unless tchar (editor-error "Not a text character -- ~S"
-				(hemlock-ext:key-event-char key-event)))
+                                (hemlock-ext:key-event-char key-event)))
     (when (interactive)
       (insert-character (buffer-point *echo-area-buffer*) tchar)
       (force-output *echo-area-stream*))
@@ -1528,10 +1528,10 @@ to the appropriate home directory."
 ;;;
 (defun %line-isearch-find-pattern (string point trailer direction &optional backup)
   (let ((found-offset (line-isearch-find-pattern
-		       direction
-		       trailer
-		       hemlock::*last-search-pattern*
-		       string)))
+                       direction
+                       trailer
+                       hemlock::*last-search-pattern*
+                       string)))
     (cond (found-offset
             (cond ((eq direction :forward)
                    (character-offset (move-mark point trailer) found-offset))
@@ -1557,15 +1557,15 @@ to the appropriate home directory."
   (iter
     (let ((found-offset (find-pattern trailer pattern)))
       (when found-offset
-	(return found-offset)))
+        (return found-offset)))
     (let (#+nil (backup (copy-mark point)))
       (ecase direction
-	(:forward
-	 (unless (history-forward-for-isearch string)
-	   (return nil))
-	 (goto-buffer-start))
-	(:backward
-	 (unless (history-backward-for-isearch string)
-	   (return nil))
-	 (goto-buffer-end)))
+        (:forward
+         (unless (history-forward-for-isearch string)
+           (return nil))
+         (goto-buffer-start))
+        (:backward
+         (unless (history-backward-for-isearch string)
+           (return nil))
+         (goto-buffer-end)))
       (move-mark trailer (current-point)))))

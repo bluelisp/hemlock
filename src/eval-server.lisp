@@ -1161,10 +1161,10 @@
                             )))
       #+scl
       (with-input-from-string (input-stream text)
-	(terpri error-output)
-	(c::compile-from-stream input-stream
-				:error-stream error-output
-				:source-info defined-from)))))
+        (terpri error-output)
+        (c::compile-from-stream input-stream
+                                :error-stream error-output
+                                :source-info defined-from)))))
 
 
 ;;; SERVER-COMPILE-FILE -- Public.
