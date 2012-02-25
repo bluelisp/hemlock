@@ -525,12 +525,13 @@
         :hemlock-interface)
   (:shadow #:char-code-limit)
   #+(or scl cmu)
-  (:import-from :ext #:complete-file #:default-directory
+  (:import-from :ext #:complete-file ; #:default-directory
                 #:ambiguous-files
                 #:file-comment
                 #:delq #:memq #:assq
                 #:fixnump
                 #:file-writable
+                #:print-directory
                 )
   ;;
   (:export
@@ -583,6 +584,7 @@
    #:default-directory
    #:set-file-permissions
    #:ambiguous-files
+   #:print-directory
    ))
 
 (defpackage :hemlock-internals

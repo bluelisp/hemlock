@@ -40,6 +40,11 @@
                (iolib.pathnames:invalid-file-path () nil)))
         p
         (isys:getcwd))))
+#+(or cmu scl)
+(defun default-directory ()
+  (let ((p (hemlock::buffer-default-directory (current-buffer))))
+    (or p (ext:default-directory))))
+
 
 (defun find-buffer (name)
   (getstring name hi::*buffer-names*))
@@ -369,7 +374,7 @@
 
 ;;;; complete-file
 
-#-scl
+#-(or cmu scl)
 (defun complete-file (pathname &key (defaults *default-pathname-defaults*)
                       ignore-types)
   (let ((files (complete-file-directory pathname defaults)))
@@ -408,7 +413,7 @@
 
 ;;; COMPLETE-FILE-DIRECTORY-ARG -- Internal.
 ;;;
-#-scl
+#-(or cmu scl)
 (defun complete-file-directory (pathname defaults)
   (let* ((namestring
           (namestring
@@ -430,7 +435,7 @@
 
 ;;; Ambiguous-Files  --  Public
 ;;;
-#-scl
+#-(or cmu scl)
 (defun ambiguous-files (pathname
                         &optional (defaults *default-pathname-defaults*))
   "Return a list of all files which are possible completions of Pathname.

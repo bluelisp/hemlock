@@ -154,11 +154,9 @@
 ;;; CALL-PRINT-DIRECTORY gives us a nice way to report PRINT-DIRECTORY errors
 ;;; to the user and to clean up the dired buffer.
 ;;;
-(defun call-print-directory (directory mark pattern dot-files-p)
+(defun call-print-directory (directory mark dot-files-p)
   (handler-case (with-output-to-mark (s mark :full)
-                  (print-directory directory
-                                   :stream s
-                                   :pattern pattern
+                  (print-directory directory s
                                    :all dot-files-p
                                    :verbose t
                                    :return-list t))
@@ -405,9 +403,10 @@
   (let ((point (buffer-point buffer)))
     (with-writable-buffer (buffer)
       (let* ((pathnames (call-print-directory
-                         directory
+			 (if pattern
+			     (merge-pathnames directory pattern)
+			     (merge-pathnames directory "*.*.~*~"))
                          point
-                         pattern
                          dot-files-p))
              (dired-files (make-array (length pathnames))))
         (declare (list pathnames) (simple-vector dired-files))
