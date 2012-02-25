@@ -905,7 +905,7 @@
                 ,svar)))))
 
 #-(or cmu scl)
-(defun print-directory (pathname stream &key pattern all verbose return-list)
+(defun print-directory (pathname stream &key all verbose return-list)
   "Like Directory, but prints a terse, multi-column directory listing
    instead of returning a list of pathnames.  When :all is supplied and
    non-nil, then Unix dot files are included too (as ls -a).  When :verbose
@@ -914,13 +914,13 @@
   (let ((*standard-output* (out-synonym-of stream))
         (pathname pathname))
     (if verbose
-        (print-directory-verbose pathname all pattern return-list)
-        (print-directory-formatted pathname all pattern return-list))))
+        (print-directory-verbose pathname all return-list)
+        (print-directory-formatted pathname all return-list))))
 
 #-(or cmu scl)
-(defun %directory (directory &optional all pattern)
-  (when pattern
-    (message "file name patterns not yet implemented in dired: ~S" pattern))
+(defun %directory (directory &optional all)
+  (setf directory (directory-namestring directory))
+  ;; TODO: handle patterns in the file, type, and version.
   (sort (remove-if (if all
                        (constantly nil)
                        (lambda (f)
@@ -958,8 +958,8 @@
     (frob 0 #\x)))
 
 #-(or cmu scl)
-(defun print-directory-verbose (pathname all pattern return-list)
-  (let* ((contents (%directory pathname all pattern))
+(defun print-directory-verbose (pathname all return-list)
+  (let* ((contents (%directory pathname all))
          (result nil)
          (n (length contents)))
     (format t "Directory of ~A:~%" (namestring pathname))
@@ -1032,8 +1032,7 @@
             day (= current-year year) year hour min)))
 
 #-(or cmu scl)
-(defun print-directory-formatted (pathname all pattern return-list)
-  (declare (ignore pattern))
+(defun print-directory-formatted (pathname all return-list)
   (let ((width (or (hi::stream-line-length *standard-output*) 80))
         (names ())
         (cnt 0)
