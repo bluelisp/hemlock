@@ -94,8 +94,11 @@
 
 (defmethod delete-connection :before ((connection iolib-connection))
   (with-slots (read-fd write-fd) connection
-    (when read-fd (isys:close read-fd))
-    (when write-fd (isys:close write-fd))))
+    (when read-fd
+      (isys:close read-fd))
+    (when write-fd
+      (unless (eql write-fd read-fd)
+        (isys:close write-fd)))))
 
 (defmethod connection-listen ((connection iolib-connection))
   (iolib.multiplex:fd-readablep (connection-read-fd connection)))
