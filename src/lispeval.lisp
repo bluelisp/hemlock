@@ -659,7 +659,6 @@
 (defun package-at-point ()
   (hi::tag-package (hi::line-tag (mark-line (current-point)))))
 
-#+(or)
 (defcommand "Set Buffer Package" (p)
   "Set the package to be used by Lisp evaluation and compilation commands
    while in this buffer.  When in a slave's interactive buffers, do NOT
@@ -677,6 +676,7 @@
            (hemlock.wire:remote (server-info-wire info)
              (server-set-package name))
            (hemlock.wire:wire-force-output (server-info-wire info)))
+          #+nil
           ((eq buffer *selected-eval-buffer*)
            (setf *package* (maybe-make-package name)))
           (t
