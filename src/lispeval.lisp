@@ -755,9 +755,14 @@
    If the current region is active, then evaluate it."
   "Evaluates the current or next top-level form."
   (declare (ignore p))
-  (if (region-active-p)
-      (evaluate-region-command nil)
-      (region-eval (defun-region (current-point)))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Evaluate Defun in the editor Lisp ...")
+           (editor-evaluate-defun-command nil))
+          ((region-active-p)
+           (evaluate-region-command nil))
+          (t
+           (region-eval (defun-region (current-point)))))))
 
 (defcommand "Re-evaluate Defvar" (p)
   "Evaluate the current or next top-level form if it is a DEFVAR.  Treat the
@@ -765,19 +770,24 @@
   "Evaluate the current or next top-level form if it is a DEFVAR.  Treat the
    form as if the variable is not bound."
   (declare (ignore p))
-  (let* ((form (defun-region (current-point)))
-         (start (region-start form)))
-    (with-mark ((var-start start)
-                (var-end start))
-      (mark-after var-start)
-      (form-offset var-start 1)
-      (form-offset (move-mark var-end var-start) 1)
-      (let ((exp (concatenate 'simple-string
-                              "(makunbound '"
-                              (region-to-string (region var-start var-end))
-                              ")")))
-        (eval-form-in-server (get-current-eval-server) exp)))
-    (region-eval form)))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Re-evaluate Defvar in the editor Lisp ...")
+           (editor-re-evaluate-defvar-command nil))
+          (t
+           (let* ((form (defun-region (current-point)))
+                  (start (region-start form)))
+             (with-mark ((var-start start)
+                         (var-end start))
+               (mark-after var-start)
+               (form-offset var-start 1)
+               (form-offset (move-mark var-end var-start) 1)
+               (let ((exp (concatenate 'simple-string
+                                       "(makunbound '"
+                                       (region-to-string (region var-start var-end))
+                                       ")")))
+                 (eval-form-in-server (get-current-eval-server) exp)))
+             (region-eval form)))))))
 
 ;;; We use Prin1-To-String in the client so that the expansion gets pretty
 ;;; printed.  Since the expansion can contain unreadable stuff, we can't expect
@@ -791,29 +801,39 @@
    With an argument, use MACROEXPAND instead of MACROEXPAND-1."
   "Show the macroexpansion of the current expression in the null environment.
    With an argument, use MACROEXPAND instead of MACROEXPAND-1."
-  (let ((point (current-point)))
-    (with-mark ((start point))
-      (pre-command-parse-check start)
-      (with-mark ((end start))
-        (unless (form-offset end 1) (editor-error))
-        (with-pop-up-display (s)
-          (write-string
-           (eval-form-in-server-1
-            (get-current-eval-server)
-            (format nil "(prin1-to-string (~S (read-from-string ~S)))"
-                    (if p 'macroexpand 'macroexpand-1)
-                    (region-to-string (region start end))))
-           s))))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Macroexpand Expression in the editor Lisp ...")
+           (editor-macroexpand-expression-command nil))
+          (t
+           (let ((point (current-point)))
+             (with-mark ((start point))
+               (pre-command-parse-check start)
+               (with-mark ((end start))
+                 (unless (form-offset end 1) (editor-error))
+                 (with-pop-up-display (s)
+                   (write-string
+                    (eval-form-in-server-1
+                     (get-current-eval-server)
+                     (format nil "(prin1-to-string (~S (read-from-string ~S)))"
+                             (if p 'macroexpand 'macroexpand-1)
+                             (region-to-string (region start end))))
+                    s)))))))))
 
 (defcommand "Evaluate Expression" (p)
   "Prompt for an expression to evaluate."
   "Prompt for an expression to evaluate."
   (declare (ignore p))
-  (let ((exp (prompt-for-string
-              :prompt "Eval: "
-              :help "Expression to evaluate.")))
-    (message "=> ~{~#[~;~A~:;~A, ~]~}"
-             (eval-form-in-server (get-current-eval-server) exp))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Evaluate Expression in the editor Lisp ...")
+           (editor-evaluate-expression-command nil))
+          (t
+           (let ((exp (prompt-for-string
+                       :prompt "Eval: "
+                       :help "Expression to evaluate.")))
+             (message "=> ~{~#[~;~A~:;~A, ~]~}"
+                      (eval-form-in-server (get-current-eval-server) exp)))))))
 
 (defcommand "Compile Defun" (p)
   "Compiles the current or next top-level form.
@@ -822,49 +842,73 @@
    the region."
   "Evaluates the current or next top-level form."
   (declare (ignore p))
-  (if (region-active-p)
-      (compile-region-command nil)
-      (region-compile (defun-region (current-point)))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Compiling in the editor Lisp ...")
+           (editor-compile-defun-command nil))
+          ((region-active-p)
+           (compile-region-command nil))
+          (t
+           (region-compile (defun-region (current-point)))))))
 
 (defcommand "Compile Region" (p)
   "Compiles lisp forms between the point and the mark."
   "Compiles lisp forms between the point and the mark."
   (declare (ignore p))
-  (region-compile (current-region)))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Compiling in the editor Lisp ...")
+           (editor-compile-region-command nil))
+          (t
+           (region-compile (current-region))))))
 
 (defcommand "Evaluate Region" (p)
   "Evaluates lisp forms between the point and the mark."
   "Evaluates lisp forms between the point and the mark."
   (declare (ignore p))
-  (region-eval (current-region)))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Evaluating region in the editor Lisp ...")
+           (editor-evaluate-region-command nil))
+          (t
+           (region-eval (current-region))))))
 
 (defcommand "Evaluate Buffer" (p)
   "Evaluates the text in the current buffer."
   "Evaluates the text in the current buffer redirecting *Standard-Output* to
   the echo area.  The prefix argument is ignored."
   (declare (ignore p))
-  (let ((b (current-buffer)))
-    (region-eval (buffer-region b)
-                 :context (format nil
-                                  "evaluation of buffer ``~A''"
-                                  (buffer-name b)))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Evaluating buffer in the editor Lisp ...")
+           (editor-evaluate-buffer-command nil))
+          (t
+           (let ((b (current-buffer)))
+             (region-eval (buffer-region b)
+                          :context (format nil "evaluation of buffer ``~A''"
+                                           (buffer-name b))))))))
 
 (defcommand "Load File" (p)
   "Prompt for a file to load into the current eval server."
   "Prompt for a file to load into the current eval server."
   (declare (ignore p))
-  (let ((name (truename (prompt-for-file
-                         :default
-                         (or (value load-pathname-defaults)
-                             (buffer-default-pathname (current-buffer)))
-                         :prompt "File to load: "
-                         :help "The name of the file to load"))))
-    (setv load-pathname-defaults name)
-    (string-eval (format nil "(load ~S)"
-                         (namestring
-                          (if (value remote-compile-file)
-                              (pathname-for-remote-access name)
-                              name))))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Load File in the editor Lisp ...")
+           (editor-load-file-command nil))
+          (t
+           (let ((name (truename (prompt-for-file
+                                  :default
+                                  (or (value load-pathname-defaults)
+                                      (buffer-default-pathname (current-buffer)))
+                                  :prompt "File to load: "
+                                  :help "The name of the file to load"))))
+             (setv load-pathname-defaults name)
+             (string-eval (format nil "(load ~S)"
+                                  (namestring
+                                   (if (value remote-compile-file)
+                                       (pathname-for-remote-access name)
+                                       name)))))))))
 
 (defcommand "Compile File" (p)
   "Prompts for file to compile.  Does not compare source and binary write
@@ -872,10 +916,15 @@
    needs to be saved."
   "Prompts for file to compile."
   (declare (ignore p))
-  (let ((pn (prompt-for-file :default
-                             (buffer-default-pathname (current-buffer))
-                             :prompt "File to compile: ")))
-    (file-compile pn)))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Compile File in the editor Lisp ...")
+           (editor-compile-file-command nil))
+          (t
+           (let ((pn (prompt-for-file :default
+                                      (buffer-default-pathname (current-buffer))
+                                      :prompt "File to compile: ")))
+             (file-compile pn))))))
 
 (defhvar "Compile Buffer File Confirm"
   "When set, \"Compile Buffer File\" prompts before doing anything."
@@ -891,29 +940,34 @@
    otherwise would not."
   "Compile the file in the current buffer if the fasl file isn't up to date.
    When p, always do it."
-  (let* ((buf (current-buffer))
-         (pn (buffer-pathname buf)))
-    (unless pn (editor-error "Buffer has no associated pathname."))
-    (cond ((buffer-modified buf)
-           (when (or (not (value compile-buffer-file-confirm))
-                     (prompt-for-y-or-n
-                      :default t :default-string "Y"
-                      :prompt (list "Save and compile file ~A? "
-                                    (namestring pn))))
-             (write-buffer-file buf pn)
-             (file-compile pn :buffer buf)))
-          ((older-or-non-existent-fasl-p pn p)
-           (when (or (not (value compile-buffer-file-confirm))
-                     (prompt-for-y-or-n
-                      :default t :default-string "Y"
-                      :prompt (list "Compile file ~A? " (namestring pn))))
-             (file-compile pn :buffer buf)))
-          ((or p
-               (prompt-for-y-or-n
-                :default t :default-string "Y"
-                :prompt
-                "Fasl file up to date, compile source anyway? "))
-           (file-compile pn :buffer buf)))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Compile Buffer File in the editor Lisp ...")
+           (editor-compile-buffer-file-command nil))
+          (t
+           (let* ((buf (current-buffer))
+                  (pn (buffer-pathname buf)))
+             (unless pn (editor-error "Buffer has no associated pathname."))
+             (cond ((buffer-modified buf)
+                    (when (or (not (value compile-buffer-file-confirm))
+                              (prompt-for-y-or-n
+                               :default t :default-string "Y"
+                               :prompt (list "Save and compile file ~A? "
+                                             (namestring pn))))
+                      (write-buffer-file buf pn)
+                      (file-compile pn :buffer buf)))
+                   ((older-or-non-existent-fasl-p pn p)
+                    (when (or (not (value compile-buffer-file-confirm))
+                              (prompt-for-y-or-n
+                               :default t :default-string "Y"
+                               :prompt (list "Compile file ~A? " (namestring pn))))
+                      (file-compile pn :buffer buf)))
+                   ((or p
+                        (prompt-for-y-or-n
+                         :default t :default-string "Y"
+                         :prompt
+                         "Fasl file up to date, compile source anyway? "))
+                    (file-compile pn :buffer buf))))))))
 
 (defcommand "Compile Group" (p)
   "Compile each file in the current group which needs it.
@@ -923,15 +977,20 @@
   buffer.  If a prefix argument is provided, then all the files are compiled.
   All modified files are saved beforehand."
   "Do a Compile-File in each file in the current group that seems to need it."
-  (save-all-files-command ())
-  (unless *active-file-group* (editor-error "No active file group."))
-  (dolist (file *active-file-group*)
-    (when (string-equal (pathname-type file) "lisp")
-      (let ((tn (probe-file file)))
-        (cond ((not tn)
-               (message "File ~A not found." (namestring file)))
-              ((older-or-non-existent-fasl-p tn p)
-               (file-compile tn)))))))
+  (let ((info (value current-eval-server)))
+    (cond ((not info)
+           (message "Compile Group in the editor Lisp ...")
+           (editor-compile-group-command nil))
+          (t
+           (save-all-files-command ())
+           (unless *active-file-group* (editor-error "No active file group."))
+           (dolist (file *active-file-group*)
+             (when (string-equal (pathname-type file) "lisp")
+               (let ((tn (probe-file file)))
+                 (cond ((not tn)
+                        (message "File ~A not found." (namestring file)))
+                       ((older-or-non-existent-fasl-p tn p)
+                        (file-compile tn))))))))))
 
 
 ;;;; Error hacking stuff.
