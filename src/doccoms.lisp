@@ -310,8 +310,9 @@
                        (prompt-for-variable
                         :help "Name of variable to describe."
                         :prompt "Variable: ")
-    (with-pop-up-display (s)
-      (show-variable s name var))))
+    (let ((buffer (current-buffer)))
+      (with-pop-up-display (s)
+        (show-variable s name var buffer)))))
 
 (defcommand "Describe and Show Variable" (p)
   "Describe in full and show all of variable's value.
@@ -322,20 +323,20 @@
                        (prompt-for-variable
                         :help "Name of variable to describe."
                         :prompt "Variable: ")
-    (with-pop-up-display (s)
-      (format s "Documentation for ~S:~%  ~A~&~%"
-              name (variable-documentation var))
-      (show-variable s name var))))
+    (let ((buffer (current-buffer)))
+      (with-pop-up-display (s)
+        (format s "Documentation for ~S:~%  ~A~&~%"
+                name (variable-documentation var))
+        (show-variable s name var buffer)))))
 
-(defun show-variable (s name var)
+(defun show-variable (s name var buffer)
   (when (hemlock-bound-p var :global)
     (format s "Global value of ~S:~%  ~S~%"
             name (variable-value var :global)))
-  (let ((buffer (current-buffer)))
-    (when (hemlock-bound-p var :buffer (current-buffer))
-      (format s "Value of ~S in buffer ~A:~%  ~S~%"
-              name (buffer-name buffer)
-              (variable-value var :buffer buffer))))
+  (when (hemlock-bound-p var :buffer buffer)
+    (format s "Value of ~S in buffer ~A:~%  ~S~%"
+            name (buffer-name buffer)
+            (variable-value var :buffer buffer)))
   (do-strings (mode-name val *mode-names*)
     (declare (ignore val))
     (when (hemlock-bound-p var :mode mode-name)
