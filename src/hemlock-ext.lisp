@@ -25,7 +25,7 @@
 (defun hi::get-terminal-name ()
   "vt100")
 
-#-scl
+#-(or cmu scl)
 (defun default-directory ()
   (let* ((p (hemlock::buffer-default-directory (current-buffer)))
          (p (and p (namestring p))))
@@ -443,21 +443,13 @@
 
 ;;;;;;
 
-(defun set-file-permissions (pathname permissions)
-  ;; implementation defined, currently a nop
-  ;; Code from the original WRITE-FILE function:
-;    #+NIL
-;    (when access
-;      (multiple-value-bind
-;         (winp code)
-;         ;; Must do a TRUENAME in case the file has never been written.
-;         ;; It may have Common Lisp syntax that Unix can't handle.
-;         ;; If this is ever moved to the beginning of this function to use
-;         ;; Unix CREAT to create the file protected initially, they TRUENAME
-;         ;; will signal an error, and LISP::PREDICT-NAME will have to be used.
-;         (unix:unix-chmod (namestring (truename pathname)) access)
-;       (unless winp
-;         (error "Could not set access code: ~S"
-;                (unix:get-unix-error-msg code)))))
-  (declare (ignore pathname permissions))
+(defun set-file-permissions (pathname access)
+  (declare (ignorable pathname access))
+  (when access
+    #+(or cmu scl)
+    (multiple-value-bind (winp code)
+        (unix:unix-chmod (ext:unix-namestring pathname) access)
+      (unless winp
+        (error "Could not set access code: ~S"
+               (unix:get-unix-error-msg code)))))
   nil)
