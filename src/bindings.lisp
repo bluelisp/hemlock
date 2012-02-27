@@ -469,8 +469,6 @@
 
 ;;;; Spell bindings.
 
-#+port-user-spellcoms
-(progn
 (bind-key "Check Word Spelling" #k"meta-$")
 (bind-key "Add Word to Spelling Dictionary" #k"control-x $")
 
@@ -483,9 +481,9 @@
 (bind-key "Auto Check Word Spelling" #k"return" :mode "Spell")
 (bind-key "Auto Check Word Spelling" #k"tab" :mode "Spell")
 (bind-key "Auto Check Word Spelling" #k"linefeed" :mode "Spell")
-(bind-key "Correct Last Misspelled Word" #k"meta-:")
-(bind-key "Undo Last Spelling Correction" #k"control-x a")
-)
+(bind-key "Correct Last Misspelled Word" #k"meta-:" :mode "Spell")
+(bind-key "Undo Last Spelling Correction" #k"control-x a" :mode "Spell")
+
 
 ;;;; Overwrite Mode.
 
