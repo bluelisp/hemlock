@@ -70,11 +70,20 @@
     (reg hemlock.terminfo:key-f12 #k"F12")
     ;; Terminfo definitions for movement keys
     (reg hemlock.terminfo:key-left #k"Leftarrow")
+    (reg hemlock.terminfo:key-sleft #k"Shift-Leftarrow")
     (reg hemlock.terminfo:key-up #k"Uparrow")
+    (reg hemlock.terminfo:key-sr #k"Shift-Uparrow")
     (reg hemlock.terminfo:key-down #k"Downarrow")
+    (reg hemlock.terminfo:key-sf #k"Shift-Downarrow")
     (reg hemlock.terminfo:key-right #k"Rightarrow")
+    (reg hemlock.terminfo:key-sright #k"Shift-Rightarrow")
     (reg hemlock.terminfo:key-ppage #k"Pageup")
+    (reg hemlock.terminfo:key-sprevious #k"Shift-Pageup")
     (reg hemlock.terminfo:key-npage #k"Pagedown")
+    (reg hemlock.terminfo:key-snext #k"Shift-Pagedown")
+    (reg hemlock.terminfo:key-home #k"Home")
+    (reg hemlock.terminfo:key-end #k"End")
+    ;;
     ;; Best-effort to tell C-h and backspace apart: we have set VERASE to
     ;; #\Rubout so we can _sometimes_ do this: C-h is always send as
     ;; backspace.
@@ -90,8 +99,6 @@
     (reg #\Rubout #k"Backspace")
     (reg hemlock.terminfo:key-backspace #k"Control-h")
     (reg hemlock.terminfo:key-dc #k"Delete")
-    
-    (reg hemlock.terminfo:key-home #k"Home")
     
     ;; Misc.
     ;;
