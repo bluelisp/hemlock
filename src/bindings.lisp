@@ -483,6 +483,7 @@
 
 ;;;; Overwrite Mode.
 
+(bind-key "Overwrite Mode" #k"Insert")
 (bind-key "Overwrite Delete Previous Character" #k"backspace"
           :mode "Overwrite")
 
@@ -541,7 +542,7 @@
 
 ;;;; X commands:
 
-(bind-key "Insert Cut Buffer" #k"insert")
+#+nil (bind-key "Insert Cut Buffer" #k"insert")
 (bind-key "Region to Cut Buffer" #k"meta-insert")
 
 
