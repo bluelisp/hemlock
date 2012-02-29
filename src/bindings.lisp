@@ -114,10 +114,10 @@
 (bind-key "Exit Recursive Edit" #k"control-meta-z")
 (bind-key "Abort Recursive Edit" #k"control-]")
 
-(bind-key "Delete Previous Character" #k"delete")
 (bind-key "Delete Previous Character" #k"backspace")
+(bind-key "Delete Next Character" #k"delete")
 (bind-key "Kill Next Word" #k"meta-d")
-(bind-key "Kill Previous Word" #k"meta-delete")
+(bind-key "Kill Next Word" #k"meta-delete")
 (bind-key "Kill Previous Word" #k"meta-backspace")
 (bind-key "Exchange Point and Mark" #k"control-x control-x")
 (bind-key "Mark Whole Buffer" #k"control-x h")
@@ -142,7 +142,7 @@
 (bind-key "Mark Paragraph" #k"meta-h")
 
 (bind-key "Forward Kill Sentence" #k"meta-k")
-(bind-key "Backward Kill Sentence" #k"control-x delete")
+(bind-key "Forward Kill Sentence" #k"control-x delete")
 (bind-key "Backward Kill Sentence" #k"control-x backspace")
 
 (bind-key "Beginning of Buffer" #k"meta-\<")
@@ -270,10 +270,8 @@
 ;;; Rebind some standard commands to behave better.
 ;;;
 (bind-key "Kill Parse" #k"control-u" :mode "Echo Area")
-(bind-key "Echo Area Delete Previous Character" #k"delete" :mode "Echo Area")
 (bind-key "Echo Area Delete Previous Character" #k"backspace" :mode "Echo Area")
 (bind-key "Echo Area Kill Previous Word" #k"meta-h" :mode "Echo Area")
-(bind-key "Echo Area Kill Previous Word" #k"meta-delete" :mode "Echo Area")
 (bind-key "Echo Area Kill Previous Word" #k"meta-backspace" :mode "Echo Area")
 (bind-key "Echo Area Kill Previous Word" #k"control-w" :mode "Echo Area")
 (bind-key "Beginning of Parse" #k"control-a" :mode "Echo Area")
@@ -362,8 +360,8 @@
 (bind-key "Backward List" #k"control-meta-p")
 (bind-key "Transpose Forms" #k"control-meta-t")
 (bind-key "Forward Kill Form" #k"control-meta-k")
+(bind-key "Forward Kill Form" #k"control-meta-delete")
 (bind-key "Backward Kill Form" #k"control-meta-backspace")
-(bind-key "Backward Kill Form" #k"control-meta-delete")
 (bind-key "Mark Form" #k"control-meta-@")
 (bind-key "Mark Defun" #k"control-meta-h")
 (bind-key "Insert ()" #k"meta-(")
@@ -375,7 +373,6 @@
 (bind-key "Extract List" #k"control-meta-x")
 (bind-key "Lisp Insert )" #k")" :mode "Lisp")
 (bind-key "Delete Previous Character Expanding Tabs" #k"backspace" :mode "Lisp")
-(bind-key "Delete Previous Character Expanding Tabs" #k"delete" :mode "Lisp")
 
 (bind-key "Evaluate Expression" #k"meta-escape")
 (bind-key "Evaluate Defun" #k"control-x control-e")
@@ -439,7 +436,6 @@
 
 (bind-key "Delete Previous Character Expanding Tabs" #k"backspace"
           :mode "Pascal")
-(bind-key "Delete Previous Character Expanding Tabs" #k"delete" :mode "Pascal")
 (bind-key "Scribe Insert Bracket" #k")" :mode "Pascal")
 (bind-key "Scribe Insert Bracket" #k"]" :mode "Pascal")
 (bind-key "Scribe Insert Bracket" #k"}" :mode "Pascal")
@@ -487,8 +483,9 @@
 
 ;;;; Overwrite Mode.
 
-(bind-key "Overwrite Delete Previous Character" #k"delete" :mode "Overwrite")
-(bind-key "Overwrite Delete Previous Character" #k"backspace" :mode "Overwrite")
+(bind-key "Overwrite Delete Previous Character" #k"backspace"
+          :mode "Overwrite")
+
 
 ;;; Do up the printing characters ...
 (do ((i 33 (1+ i)))
@@ -621,7 +618,6 @@
 (bind-key "Scroll Message" #k"space" :mode "Message")
 (bind-key "Scroll Message" #k"control-v" :mode "Message")
 (bind-key "Scroll Window Up" #k"backspace" :mode "Message")
-(bind-key "Scroll Window Up" #k"delete" :mode "Message")
 (bind-key "Reply to Message in Other Window" #k"r" :mode "Message")
 (bind-key "Edit Message Buffer" #k"e" :mode "Message")
 (bind-key "Insert Message Region" #k"hyper-y" :mode "Message")
@@ -762,6 +758,7 @@
 (bind-key "Bufed" #k"control-x control-meta-b")
 (bind-key "Bufed Delete" #k"d" :mode "Bufed")
 (bind-key "Bufed Delete" #k"control-d" :mode "Bufed")
+(bind-key "Bufed Delete" #k"Delete" :mode "Bufed")
 (bind-key "Bufed Undelete" #k"u" :mode "Bufed")
 (bind-key "Bufed Expunge" #k"!" :mode "Bufed")
 (bind-key "Bufed Expunge" #k"x" :mode "Bufed")
@@ -783,6 +780,7 @@
 (bind-key "Coned" #k"control-x control-meta-b")
 (bind-key "Coned Delete" #k"d" :mode "Coned")
 (bind-key "Coned Delete" #k"control-d" :mode "Coned")
+(bind-key "Coned Delete" #k"Delete" :mode "Coned")
 (bind-key "Coned Undelete" #k"u" :mode "Coned")
 (bind-key "Coned Expunge" #k"!" :mode "Coned")
 (bind-key "Coned Expunge" #k"x" :mode "Coned")
@@ -845,6 +843,7 @@
 (bind-key "Dired Delete File and Down Line" #k"d" :mode "Dired")
 (bind-key "Dired Delete File with Pattern" #k"D" :mode "Dired")
 (bind-key "Dired Delete File" #k"control-d" :mode "Dired")
+(bind-key "Dired Delete File" #k"Delete" :mode "Dired")
 (bind-key "Dired Delete File" #k"k" :mode "Dired")
 
 (bind-key "Dired Undelete File and Down Line" #k"u" :mode "Dired")
@@ -875,7 +874,6 @@
 (bind-key "View Scroll Down" #k"space" :mode "View")
 (bind-key "Scroll Window Up" #k"b" :mode "View")
 (bind-key "Scroll Window Up" #k"backspace" :mode "View")
-(bind-key "Scroll Window Up" #k"delete" :mode "View")
 (bind-key "View Return" #k"^" :mode "View")
 (bind-key "View Quit" #k"q" :mode "View")
 (bind-key "View Edit File" #k"e" :mode "View")
