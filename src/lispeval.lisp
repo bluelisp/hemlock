@@ -787,7 +787,7 @@
                                        (region-to-string (region var-start var-end))
                                        ")")))
                  (eval-form-in-server (get-current-eval-server) exp)))
-             (region-eval form)))))))
+             (region-eval form))))))
 
 ;;; We use Prin1-To-String in the client so that the expansion gets pretty
 ;;; printed.  Since the expansion can contain unreadable stuff, we can't expect
