@@ -83,6 +83,7 @@
     (reg hemlock.terminfo:key-snext #k"Shift-Pagedown")
     (reg hemlock.terminfo:key-home #k"Home")
     (reg hemlock.terminfo:key-end #k"End")
+    (reg hemlock.terminfo:key-ic #k"Insert")
     ;;
     ;; Best-effort to tell C-h and backspace apart: we have set VERASE to
     ;; #\Rubout so we can _sometimes_ do this: C-h is always send as
@@ -99,6 +100,7 @@
     (reg #\Rubout #k"Backspace")
     (reg hemlock.terminfo:key-backspace #k"Control-h")
     (reg hemlock.terminfo:key-dc #k"Delete")
+    (reg hemlock.terminfo:key-sdc #k"Shift-Delete")
     
     ;; Misc.
     ;;
