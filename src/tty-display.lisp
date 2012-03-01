@@ -57,6 +57,9 @@
   (write-string (si-line-chars obj) str :end (si-line-length obj))
   (write-string "\">" str))
 
+;;; Could do better.
+(defun fonts-equal-p (font1 font2)
+  (equalp font1 font2))
 
 (defun find-identical-prefix (dis-line dis-line-fonts si-line)
   #+(or)
@@ -94,7 +97,7 @@
             (si-font (caar si-fonts))
             (si-start (cadar si-fonts))
             (si-stop (cddar si-fonts)))
-        (unless (and (= dl-font si-font)
+        (unless (and (fonts-equal-p dl-font si-font)
                      (= dl-start si-start))
           (return 0)
           #+nil ;this is buggy; just bail out for now
@@ -148,7 +151,7 @@
             (si-font (caar si-fonts))
             (si-start (- si-len (cadar si-fonts)))
             (si-stop (- si-len (cddar si-fonts))))
-        (unless (and (= dl-font si-font)
+        (unless (and (fonts-equal-p dl-font si-font)
                      (= dl-stop si-stop))
           (return 0)
           #+nil ;this is buggy; just bail out for now
@@ -166,29 +169,6 @@
 
 ;;; Font support.
 
-(defvar *tty-font-strings* (make-array font-map-size :initial-element nil)
-  "Array of (start-string . end-string) for fonts, or NIL if no such font.")
-
-(defun define-tty-font (font-id &rest stuff)
-  (unless (<= 0 font-id (1- font-map-size))
-    (error "Bogus font-id: ~S" font-id))
-  (cond ((every #'keywordp stuff)
-         (error "Can't extract font strings from the termcap entry yet."))
-        ((and (= (length stuff) 2)
-              (stringp (car stuff))
-              (stringp (cadr stuff)))
-         (setf (aref *tty-font-strings* font-id)
-               (cons (car stuff) (cadr stuff))))
-        (t
-         (error "Bogus font spec: ~S~%Must be either a list of keywords or ~
-                 a list of the start string and end string."
-                stuff))))
-
-;; workaround: we currently just use the font index as a number, but also need
-;; these definitions so that don't try to write NIL values
-(dotimes (i 16)
-  (define-tty-font i "" ""))
-
 (defun compute-font-usages (dis-line)
   (do ((results nil)
        (change (dis-line-font-changes dis-line) (font-change-next change))
@@ -196,8 +176,7 @@
       ((null change)
        (when prev
          (let ((font (font-change-font prev)))
-           (when (and (not (zerop font))
-                      (aref *tty-font-strings* font))
+           (when (and font (not (eql font 0)))
              (push (list* (font-change-font prev)
                           (font-change-x prev)
                           (dis-line-length dis-line))
@@ -205,8 +184,7 @@
        (nreverse results))
     (when prev
       (let ((font (font-change-font prev)))
-        (when (and (not (zerop font))
-                   (aref *tty-font-strings* font))
+        (when (and font (not (eql font 0)))
           (push (list* (font-change-font prev)
                        (font-change-x prev)
                        (font-change-x change))
@@ -272,38 +250,9 @@
     (when (window-modeline-buffer window)
       (let ((dl (window-modeline-dis-line window))
             (y (tty-hunk-modeline-pos hunk)))
-        (unwind-protect
-             (progn
-               (modeline-init hunk)
-               (funcall (tty-device-clear-to-eol device) hunk 0 y)
-               (tty-dumb-line-redisplay device hunk dl y))
-          (modeline-end hunk))
+        (funcall (tty-device-clear-to-eol device) hunk 0 y)
+        (tty-dumb-line-redisplay device hunk dl y)
         (setf (dis-line-flags dl) unaltered-bits)))))
-
-(defparameter *modeline-foreground* 7)
-(defparameter *modeline-background* 4)
-
-(defvar *terminal-has-colors* :unknown)
-
-(defun modeline-init (hunk)
-  (when (eq *terminal-has-colors* :unknown)
-    (setf *terminal-has-colors*
-          (and hemlock.terminfo:set-a-foreground
-               hemlock.terminfo:set-a-background
-               hemlock.terminfo:exit-attribute-mode)))
-  (cond
-    (*terminal-has-colors*
-     (setaf *modeline-foreground*)
-     (setab *modeline-background*)
-     (enter-bold-mode))
-    (t
-     (standout-init hunk))))
-
-(defun modeline-end (hunk)
-  (if *terminal-has-colors*
-      (exit-attribute-mode)
-      (standout-end hunk)))
-
 
 
 ;;;; Dumb redisplay top n lines of a window.
@@ -353,12 +302,8 @@
     (when (window-modeline-buffer window)
       (let ((dl (window-modeline-dis-line window)))
         (when (/= (dis-line-flags dl) unaltered-bits)
-          (unwind-protect
-              (progn
-                (modeline-init hunk)
-                (tty-smart-line-redisplay device hunk dl
-                                          (tty-hunk-modeline-pos hunk)))
-            (modeline-end hunk)))))))
+          (tty-smart-line-redisplay device hunk dl
+                                    (tty-hunk-modeline-pos hunk)))))))
 
 ;;; NEXT-DIS-LINE is used in DO-SEMI-DUMB-LINE-WRITES and
 ;;; COMPUTE-TTY-CHANGES.
@@ -622,13 +567,8 @@
     (when (window-modeline-buffer window)
       (let ((dl (window-modeline-dis-line window)))
         (when (/= (dis-line-flags dl) unaltered-bits)
-          (unwind-protect
-              (progn
-                (modeline-init hunk)
-                (tty-smart-line-redisplay device hunk dl
-                                          (tty-hunk-modeline-pos hunk)))
-            (modeline-end hunk)))))))
-
+          (tty-smart-line-redisplay device hunk dl
+                                    (tty-hunk-modeline-pos hunk)))))))
 
 
 ;;;; Smart window redisplay -- computing changes to the display.
@@ -1088,6 +1028,26 @@
 
 ;;; Writing strings (TTY-DEVICE-DISPLAY-STRING functions)
 
+;;; Font attribute support: color, bold.
+
+(defun setaf (color)
+  (device-write-string
+   (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))
+
+(defun setab (color)
+  (device-write-string
+   (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))
+
+(defun enter-bold-mode ()
+  (device-write-string hemlock.terminfo:enter-bold-mode))
+
+(defun exit-attribute-mode ()
+  (device-write-string hemlock.terminfo:exit-attribute-mode))
+
+(defvar *terminal-has-colors* :unknown)
+
+
+
 ;;; DISPLAY-STRING is used to put a string at (x,y) on the device.
 ;;;
 (defun display-string (hunk x y string font-info
@@ -1110,15 +1070,32 @@
         (when (< posn start)
           (device-write-string string posn start)
           (setf posn start))
-        (let ((new-posn (min stop end))
-              (font-strings (aref *tty-font-strings* font)))
-          (unwind-protect
-              (progn
-                (setaf font)            ;fixme
-                (device-write-string (car font-strings))
-                (when string (device-write-string string posn new-posn)))
-            (setaf 7)                   ;fixme
-            (device-write-string (cdr font-strings)))
+        (let ((new-posn (min stop end)))
+          (when (eq *terminal-has-colors* :unknown)
+            (setf *terminal-has-colors*
+                  (and hemlock.terminfo:set-a-foreground
+                       hemlock.terminfo:set-a-background
+                       hemlock.terminfo:exit-attribute-mode
+                       t)))
+          (cond (*terminal-has-colors*
+                 (unwind-protect
+                     (progn
+                       (let ((foreground (cond ((integerp font)
+                                                font)
+                                               ((listp font)
+                                                (getf font :fg)))))
+                         (when (and foreground (<= 0 foreground 9))
+                           (setaf foreground)))
+                       (let ((background (and (listp font) (getf font :bg))))
+                         (when (and background (<= 0 background 9))
+                           (setab background)))
+                       (let ((boldp (and (listp font) (getf font :bold))))
+                         (when boldp
+                           (enter-bold-mode)))
+                       (device-write-string string posn new-posn))
+                   (exit-attribute-mode)))
+                (t
+                 (device-write-string string posn new-posn)))
           (setf posn new-posn))))
     (when (< posn end)
       (device-write-string string posn end)))
@@ -1309,21 +1286,6 @@
 (defun standout-init (hunk)
   (device-write-string
    (tty-device-standout-init-string (device-hunk-device hunk))))
-
-(defun setaf (color)
-  (device-write-string
-   (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))
-
-(defun setab (color)
-  (device-write-string
-   (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))
-
-(defun enter-bold-mode ()
-  (device-write-string hemlock.terminfo:enter-bold-mode))
-
-(defun exit-attribute-mode ()
-  (device-write-string hemlock.terminfo:exit-attribute-mode))
-
 
 (defun standout-end (hunk)
   (device-write-string

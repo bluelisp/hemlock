@@ -99,12 +99,10 @@
             ((eq (window-buffer window) (hbuf device))
              (let ((hunk (window-hunk window)))
                (let ((y (hi::tty-hunk-modeline-pos hunk)))
-                 (modeline-init hunk)
                  (funcall (tty-device-clear-to-eol device) hunk 0 y)
                  (device-write-string
                   (make-string (tty-device-columns device)
-                               :initial-element #\space))
-                 (modeline-end hunk))
+                               :initial-element #\space)))
                (mark-window-display-as-done window)))
             (t (funcall call-next-method))))
          ((:no-redisplay :linedit-redisplay)
@@ -325,10 +323,10 @@
   (bind-key "Linedit Find Definitions" #k"meta-." :buffer buffer)
   (defhvar "Indent with Tabs" ""
     :buffer buffer
-    :value #'hemlock::indent-using-spaces)
+    :value nil)
   (defhvar "Indent Function" ""
     :buffer buffer
-    :value #'hemlock::spaces-to-tab-stop))
+    :value #'hemlock::indent-to-tab-stop))
 
 
 

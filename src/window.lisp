@@ -498,14 +498,20 @@
   "Dummy dis-line that we put at the head of window's dis-lines")
 (setf (dis-line-position dummy-line) -1)
 
+(defparameter *modeline-font* '(:fg 7 :bg 4 :bold t))
 
 ;;; SETUP-MODELINE-IMAGE sets up the modeline-dis-line for window using the
 ;;; modeline-fields list.  This is used by tty redisplay too.
 ;;;
 (defun setup-modeline-image (buffer window)
   (setf (window-modeline-buffer window) (make-string hunk-width-limit))
-  (setf (window-modeline-dis-line window)
-        (make-window-dis-line (make-string (window-width window))))
+  (let ((dis-line (make-window-dis-line (make-string (window-width window)))))
+    (setf (window-modeline-dis-line window) dis-line)
+    (let ((font-change (make-font-change nil)))
+      (setf (dis-line-font-changes dis-line) font-change)
+      (setf (font-change-x font-change) 0)
+      (setf (font-change-font font-change) *modeline-font*)
+      ))
   (update-modeline-fields buffer window))
 
 
