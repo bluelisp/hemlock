@@ -81,26 +81,13 @@
     (reg hemlock.terminfo:key-sprevious #k"Shift-Pageup")
     (reg hemlock.terminfo:key-npage #k"Pagedown")
     (reg hemlock.terminfo:key-snext #k"Shift-Pagedown")
+
     (reg hemlock.terminfo:key-home #k"Home")
     (reg hemlock.terminfo:key-end #k"End")
     (reg hemlock.terminfo:key-ic #k"Insert")
-    ;;
-    ;; Best-effort to tell C-h and backspace apart: we have set VERASE to
-    ;; #\Rubout so we can _sometimes_ do this: C-h is always send as
-    ;; backspace.
-    ;;
-    ;; FIXME: This is less elegant than we'd like, however, since
-    ;; #k"Delete" and #k"Rubout" are currently the same keysym in Hemlock:
-    ;; so we can't use
-    ;;   User-Backspace -> #k"Backspace"
-    ;;   User-Delete    -> #k"Delete"
-    ;;   User-C-h       -> #k"Rubout"
-    ;; which wold degrade gracefully by collapsing User-Backspace
-    ;; and User-C-h into #k"Rubout" -- now they collapse into #k"Control-h".
-    (reg #\Rubout #k"Backspace")
-    (reg hemlock.terminfo:key-backspace #k"Control-h")
     (reg hemlock.terminfo:key-dc #k"Delete")
     (reg hemlock.terminfo:key-sdc #k"Shift-Delete")
+    (reg hemlock.terminfo:key-backspace #k"Backspace")
     
     ;; Misc.
     ;;
