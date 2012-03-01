@@ -225,7 +225,6 @@
 (setf (hemlock-ext:char-key-event (code-char 10)) (hemlock-ext::make-key-event #k"Linefeed"))
 (setf (hemlock-ext:char-key-event (code-char 13)) (hemlock-ext::make-key-event #k"Return"))
 (setf (hemlock-ext:char-key-event (code-char 27)) (hemlock-ext::make-key-event #k"Alt"))
-(setf (hemlock-ext:char-key-event (code-char 8)) (hemlock-ext::make-key-event #k"Backspace"))
 ;;;
 ;;; Other ASCII codes are exactly the same as the Common Lisp codes.
 ;;;
