@@ -193,21 +193,23 @@
            (setf *screen-image-trashed* nil)
            t))
         (t
-         (catch 'redisplay-catcher
-           (let ((buffer (line-buffer (mark-line mark))))
-             (when buffer
-               (flet ((frob (win)
-                        (let* ((device (device-hunk-device (window-hunk win))))
-                          (device-force-output device)
-                          (device-after-redisplay device))))
-                 (let ((windows (buffer-windows buffer)))
-                   (when (member *current-window* windows :test #'eq)
-                     (redisplay-window-recentering *current-window*)
-                     (frob *current-window*))
-                   (dolist (window windows)
-                     (unless (eq window *current-window*)
-                       (redisplay-window window)
-                       (frob window)))))))))))
+         (let ((*in-redisplay* t))
+           (catch 'redisplay-catcher
+             (let ((buffer (line-buffer (mark-line mark))))
+               (when buffer
+                 (flet ((frob (win)
+                          (let* ((device (device-hunk-device
+                                          (window-hunk win))))
+                            (device-force-output device)
+                            (device-after-redisplay device))))
+                   (let ((windows (buffer-windows buffer)))
+                     (when (member *current-window* windows :test #'eq)
+                       (redisplay-window-recentering *current-window*)
+                       (frob *current-window*))
+                     (dolist (window windows)
+                       (unless (eq window *current-window*)
+                         (redisplay-window window)
+                         (frob window))))))))))))
 
 ;;; REDISPLAY-WINDOW -- Internal.
 ;;;
