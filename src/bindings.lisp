@@ -37,8 +37,10 @@
                                  (bind-key "Self Insert" key-event))
 
 (bind-key "Beginning of Line" #k"control-a")
+(bind-key "Beginning of Line" #k"home")
 (bind-key "Delete Next Character" #k"control-d")
 (bind-key "End of Line" #k"control-e")
+(bind-key "End of Line" #k"end")
 (bind-key "Forward Character" #k"control-f")
 (bind-key "Forward Character" #k"rightarrow")
 (bind-key "Backward Character" #k"control-b")
@@ -61,7 +63,7 @@
 (bind-key "Scroll Next Window Down" #k"control-meta-v")
 (bind-key "Scroll Next Window Up" #k"control-meta-V")
 
-(bind-key "Help" #k"home")
+(bind-key "Help" #k"control-h")
 (bind-key "Help" #k"control-_")
 (bind-key "Describe Key" #k"meta-?")
 
@@ -255,7 +257,7 @@
 
 ;;; Basic echo-area commands.
 ;;;
-(bind-key "Help on Parse" #k"home" :mode "Echo Area")
+(bind-key "Help on Parse" #k"control-h" :mode "Echo Area")
 (bind-key "Help on Parse" #k"control-_" :mode "Echo Area")
 (bind-key "Help on Parse" #k"control-Delete" :mode "Echo Area")
 
@@ -275,6 +277,7 @@
 (bind-key "Echo Area Kill Previous Word" #k"meta-backspace" :mode "Echo Area")
 (bind-key "Echo Area Kill Previous Word" #k"control-w" :mode "Echo Area")
 (bind-key "Beginning of Parse" #k"control-a" :mode "Echo Area")
+(bind-key "Beginning of Parse" #k"home" :mode "Echo Area")
 (bind-key "Beginning of Parse" #k"meta-\<" :mode "Echo Area")
 (bind-key "Echo Area Backward Character" #k"control-b" :mode "Echo Area")
 (bind-key "Echo Area Backward Word" #k"meta-b" :mode "Echo Area")
@@ -308,6 +311,7 @@
 (bind-key "Kill Interactive Input" #k"meta-i" :mode "Eval")
 (bind-key "Abort Eval Input" #k"control-meta-i" :mode "Eval")
 (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Eval")
+(bind-key "Interactive Beginning of Line" #k"home" :mode "Eval")
 (bind-key "Reenter Interactive Input" #k"control-return" :mode "Eval")
 (bind-key "Clear Eval Buffer" #k"control-c meta-o" :mode "Eval")
 
@@ -320,10 +324,10 @@
 (bind-key "Editor Describe Symbol" #k"control-meta-S" :mode "Editor")
 (bind-key "Editor Fuzzy Complete Symbol" #k"control-c meta-i" :mode "Editor")
 
-
 ;;;; Typescript.
 (bind-key "Confirm Typescript Input" #k"return" :mode "Typescript")
 (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Typescript")
+(bind-key "Interactive Beginning of Line" #k"home" :mode "Typescript")
 (bind-key "Kill Interactive Input" #k"meta-i" :mode "Typescript")
 (bind-key "Previous Interactive Input" #k"meta-p" :mode "Typescript")
 (bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Typescript")
@@ -750,6 +754,7 @@
 (bind-key "Previous Interactive Input" #k"meta-p" :mode "Process")
 (bind-key "Search Previous Interactive Input" #k"meta-P" :mode "Process")
 (bind-key "Interactive Beginning of Line" #k"control-a" :mode "Process")
+(bind-key "Interactive Beginning of Line" #k"home" :mode "Process")
 (bind-key "Kill Interactive Input" #k"meta-i" :mode "Process")
 (bind-key "Next Interactive Input" #k"meta-n" :mode "Process")
 (bind-key "Reenter Interactive Input" #k"control-return" :mode "Process")
@@ -919,7 +924,6 @@
 
 (bind-key "Scroll Window Down" #k"pagedown")
 (bind-key "Scroll Window Up"   #k"pageup")
-(bind-key "Delete Previous Character" #k"control-h")
 (bind-key "Dabbrev Expand"     #k"meta-/")
 (bind-key "Just One Space"     #k"meta-space")
 (bind-key "Mark Form"          #k"control-meta-space")
@@ -945,7 +949,7 @@
 (setf (logical-key-event-p #k"delete" :no) t)
 (setf (logical-key-event-p #k"!" :do-all) t)
 (setf (logical-key-event-p #k"." :do-once) t)
-(setf (logical-key-event-p #k"home" :help) t)
+(setf (logical-key-event-p #k"control-h" :help) t)
 (setf (logical-key-event-p #k"h" :help) t)
 (setf (logical-key-event-p #k"?" :help) t)
 (setf (logical-key-event-p #k"control-_" :help) t)
