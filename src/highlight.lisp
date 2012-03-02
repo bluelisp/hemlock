@@ -43,9 +43,9 @@
 ;;; typed.
 ;;;
 (defun maybe-highlight-open-parens (window)
-  (declare (ignore window))
   (when (value highlight-open-parens)
-    (if (and (value highlight-active-region) (region-active-p))
+    (if (and (value highlight-active-region)
+             (region-active-p (window-buffer window)))
         (kill-open-paren-font-marks)
         (multiple-value-bind
             (start end)
@@ -98,7 +98,7 @@
 (defun highlight-active-region (window)
   (unless (eq window *echo-area-window*)
     (when (value highlight-active-region)
-      (cond ((region-active-p)
+      (cond ((region-active-p (window-buffer window))
              (cond ((not *active-region-font-marks*)
                     (set-active-region-font-marks))
                    ((check-active-region-font-marks))

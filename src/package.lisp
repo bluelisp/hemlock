@@ -75,6 +75,7 @@
    #:buffer-write-date
    #:buffer-point
    #:buffer-mark
+   #:buffer-active-region-p
    #:buffer-start-mark
    #:buffer-end-mark
    #:buffer-writable

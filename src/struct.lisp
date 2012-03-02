@@ -88,6 +88,7 @@
   var-values                  ; the buffer's local variables
   variables                   ; string-table of local variables
   write-date                  ; File-Write-Date for pathname.
+  active-region-p             ; The buffer-signature when current region is active.
   display-start               ; Window display start when switching to buf.
   %modeline-fields            ; List of modeline-field-info's.
   (delete-hook nil)           ; List of functions to call upon deletion.

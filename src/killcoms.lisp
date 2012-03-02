@@ -30,37 +30,36 @@
   :value t)
 
 
-(defvar *active-region-p* nil)
-(defvar *active-region-buffer* nil)
 (defvar *ephemerally-active-command-types* (list :ephemerally-active)
   "This is a list of command types that permit the current region to be active
    for the immediately following command.")
 
 (declaim (inline activate-region deactivate-region region-active-p))
 
-(defun activate-region ()
+(defun activate-region (&optional buffer)
   "Make the current region active."
-  (let ((buffer (current-buffer)))
-    (setf *active-region-p* (buffer-signature buffer))
-    (setf *active-region-buffer* buffer)))
+  (let ((buffer (or buffer (current-buffer))))
+    (setf (buffer-active-region-p buffer) (buffer-signature buffer))))
 
-(defun deactivate-region ()
+(defun deactivate-region (&optional buffer)
   "Make the current region not active."
-  (setf *active-region-p* nil)
-  (setf *active-region-buffer* nil))
+  (let ((buffer (or buffer (current-buffer))))
+    (setf (buffer-active-region-p buffer) nil)))
 
-(defun region-active-p ()
+(defun region-active-p (&optional buffer)
   "Returns t or nil, depending on whether the current region is active."
-  (or (and *active-region-buffer*
-           (eql *active-region-p* (buffer-signature *active-region-buffer*)))
-      (member (last-command-type) *ephemerally-active-command-types*
-              :test #'equal)))
+  (let ((buffer (or buffer (current-buffer))))
+    (or (eql (buffer-active-region-p buffer)
+             (buffer-signature buffer))
+        (member (last-command-type) *ephemerally-active-command-types*
+                :test #'equal))))
 
-(defun check-region-active ()
+(defun check-region-active (&optional buffer)
   "Signals an error when active regions are enabled and the current region
    is not active."
-  (when (and (value active-regions-enabled) (not (region-active-p)))
-    (editor-error "The current region is not active.")))
+  (let ((buffer (or buffer (current-buffer))))
+    (when (and (value active-regions-enabled) (not (region-active-p buffer)))
+      (editor-error "The current region is not active."))))
 
 (defun current-region (&optional (error-if-not-active t)
                                  (deactivate-region t))
@@ -83,19 +82,6 @@
 
 ;;; The following are hook functions for keeping things righteous.
 ;;;
-
-(defun set-buffer-deactivate-region (buffer)
-  (declare (ignore buffer))
-  (deactivate-region))
-;;;
-(add-hook set-buffer-hook 'set-buffer-deactivate-region)
-
-(defun set-window-deactivate-region (window)
-  (unless (or (eq window *echo-area-window*)
-              (eq (current-window) *echo-area-window*))
-    (deactivate-region)))
-;;;
-(add-hook set-window-hook 'set-window-deactivate-region)
 
 (defun control-g-deactivate-region ()
   (deactivate-region))
