@@ -20,7 +20,7 @@
 ;;;    In order to permit the %SP-Find-Character-With-Attribute sub-primitive
 ;;; to be used for a fast implementation of find-attribute and
 ;;; reverse-find-attribute, there must be some way of translating
-;;; attribute/test-function pairs into a attribute vector and a mask.
+;;; attribute/test-function pairs into a attribute 'character-set and a mask.
 ;;;    What we do is maintain a eq-hash-cache of attribute/test-function
 ;;; pairs.  If the desired pair is not in the cache then we reclaim an old
 ;;; attribute bit in the bucket we hashed to and stuff it by calling the
@@ -28,7 +28,7 @@
 
 (defvar *character-attribute-cache* ()
   "This is the cache used to translate attribute/test-function pairs to
-  attribute-vector/mask pairs for find-attribute and reverse-find-attribute.")
+  attribute character-set/mask pairs for find-attribute and reverse-find-attribute.")
 
 (eval-when (:compile-toplevel :execute :load-toplevel)
 (defconstant character-attribute-cache-size 13
@@ -47,11 +47,11 @@
   "The attribute which we last did a find-attribute on.")
 (defvar *last-find-attribute-function* ()
   "The last test-function used for find-attribute.")
-(defvar *last-find-attribute-vector* ()
-  "The %SP-Find-Character-With-Attribute vector corresponding to the last
+(defvar *last-find-attribute-char-set* ()
+  "The %SP-Find-Character-With-Attribute character-set corresponding to the last
   attribute/function pair used for find-attribute.")
 (defvar *last-find-attribute-mask* ()
-  "The the mask to use with *last-find-attribute-vector* to do a search
+  "The the mask to use with *last-find-attribute-char-set* to do a search
   for the last attribute/test-function pair.")
 (defvar *last-find-attribute-end-wins* ()
   "The the value of End-Wins for the last attribute/test-function pair.")
@@ -74,7 +74,7 @@
   function                    ; The test on the attribute.
   attribute                   ; The attribute this is a test of.
   (mask 0 :type fixnum)       ; The mask for the corresponding bit.
-  vector                      ; The vector the bit is in.
+  char-set                    ; The 'character-set the bit is in.
   end-wins)                   ; Is this test true of buffer ends?
 
 ;;;
@@ -87,32 +87,33 @@
 (defvar *all-bit-descriptors* () "The list of all the bit descriptors.")
 
 (eval-when (:compile-toplevel :execute)
-(defmacro allocate-bit (vec bit-num)
+(defmacro allocate-bit (char-set bit-num)
   `(progn
     (when (= ,bit-num 8)
-      (setq ,bit-num 0  ,vec (make-array 256 :element-type '(mod 256))))
+      (setf ,bit-num 0)
+      (setf ,char-set (make-character-set
+                       :page0 (make-array 256 :element-type '(mod 256))
+                       :table (make-hash-table)
+                       :default 0)))
     (car (push (make-bit-descriptor
-                :vector ,vec
+                :char-set ,char-set
                 :mask (ash 1 (prog1 ,bit-num (incf ,bit-num))))
                *all-bit-descriptors*)))))
 ;;;
 (defun %init-syntax-table ()
   (let ((tab (make-array character-attribute-cache-size))
-        (bit-num 8) vec)
+        (bit-num 8)
+        char-set)
     (setq *character-attribute-cache* tab)
     (dotimes (c character-attribute-cache-size)
       (setf (svref tab c)
             (do ((i 0 (1+ i))
                  (res ()))
                 ((= i character-attribute-bucket-size) res)
-              (push (allocate-bit vec bit-num) res))))))
+              (push (allocate-bit char-set bit-num) res))))))
 
 (eval-when (:compile-toplevel :execute)
-#+NIL
-(defmacro hash-it (attribute function)
-  `(abs (rem (logxor (ash (lisp::%sp-make-fixnum ,attribute) -3)
-                     (lisp::%sp-make-fixnum ,function))
-             character-attribute-cache-size)))
+
 (defmacro hash-it (attribute function)
   `(abs (rem (logxor (ash (sxhash ,attribute) -3)
                      (sxhash ,function))
@@ -120,21 +121,21 @@
 
 ;;; CACHED-ATTRIBUTE-LOOKUP  --  Internal
 ;;;
-;;;    Sets Vector and Mask such that they can be used as arguments
+;;;    Sets 'char-set and 'mask such that they can be used as arguments
 ;;; to %sp-find-character-with-attribute to effect a search with attribute
 ;;; Attribute and test Function.  If the function and attribute
 ;;; are the same as the last ones then we just set them to that, otherwise
 ;;; we do the hash-cache lookup and update the *last-find-attribute-<mumble>*
 ;;;
-(defmacro cached-attribute-lookup (attribute function vector mask end-wins)
+(defmacro cached-attribute-lookup (attribute function char-set mask end-wins)
   `(if (and (eq ,function *last-find-attribute-function*)
             (eq ,attribute *last-find-attribute-attribute*))
-       (setq ,vector *last-find-attribute-vector*
+       (setq ,char-set *last-find-attribute-char-set*
              ,mask *last-find-attribute-mask*
              ,end-wins *last-find-attribute-end-wins*)
        (let ((bit (svref *character-attribute-cache*
                          (hash-it ,attribute ,function))))
-         ,(do ((res `(multiple-value-setq (,vector ,mask ,end-wins)
+         ,(do ((res `(multiple-value-setq (,char-set ,mask ,end-wins)
                        (new-cache-attribute ,attribute ,function))
                     `(let ((b (car bit)))
                        (cond
@@ -142,7 +143,7 @@
                                   ,function)
                               (eq (bit-descriptor-attribute b)
                                   ,attribute))
-                         (setq ,vector (bit-descriptor-vector b)
+                         (setq ,char-set (bit-descriptor-char-set b)
                                ,mask (bit-descriptor-mask b)
                                ,end-wins (bit-descriptor-end-wins b)))
                         (t
@@ -151,7 +152,7 @@
               ((= count character-attribute-bucket-size) res))
          (setq *last-find-attribute-attribute* ,attribute
                *last-find-attribute-function* ,function
-               *last-find-attribute-vector* ,vector
+               *last-find-attribute-char-set* ,char-set
                *last-find-attribute-mask* ,mask
                *last-find-attribute-end-wins* ,end-wins))))
 ); eval-when (:compile-toplevel :execute)
@@ -176,16 +177,33 @@
     (setf (bit-descriptor-attribute bit) attribute
           (bit-descriptor-function bit) function
           (bit-descriptor-end-wins bit) end-wins)
-    (setq values (attribute-descriptor-vector values))
-    (do ((mask (bit-descriptor-mask bit))
-         (fun (bit-descriptor-function bit))
-         (vec (bit-descriptor-vector bit))
-         (i 0 (1+ i)))
-        ((= i syntax-char-code-limit) (values vec mask end-wins))
-      (declare (type (simple-array (mod 256)) vec))
-      (if (funcall fun (aref (the simple-array values) i))
-          (setf (aref vec i) (logior (aref vec i) mask))
-          (setf (aref vec i) (logandc2 (aref vec i) mask))))))
+    (let ((char-set (attribute-descriptor-char-set values))
+          (mask (bit-descriptor-mask bit))
+          (fun (bit-descriptor-function bit))
+          (cs (bit-descriptor-char-set bit)))
+      (declare (type character-set char-set cs))
+      (do ((i 0 (1+ i)))
+          ((= i 256))
+        (if (funcall fun (char-set-ref char-set i))
+            (setf (char-set-ref cs i) (logior (char-set-ref cs i) mask))
+            (setf (char-set-ref cs i) (logandc2 (char-set-ref cs i) mask))))
+      (with-hash-table-iterator (next (character-set-table cs))
+        (loop
+           (multiple-value-bind (more code value)
+               (next)
+             (unless more
+               (return))
+             (if (funcall fun value)
+                 (setf (char-set-ref cs code) (logior (char-set-ref cs code) mask))
+                 (setf (char-set-ref cs code) (logandc2 (char-set-ref cs code) mask))))))
+      (let ((default (character-set-default char-set)))
+        (if (funcall fun default)
+            (setf (character-set-default cs)
+                  (logior (character-set-default cs) mask))
+            (setf (character-set-default cs)
+                  (logandc2 (character-set-default cs) mask))))
+      (values cs mask end-wins))))
+
 
 (defun %print-attribute-descriptor (object stream depth)
   (declare (ignore depth))
@@ -194,7 +212,7 @@
 
 ;;; DEFATTRIBUTE  --  Public
 ;;;
-;;;    Make a new vector of some type and enter it in the table.
+;;;    Make a new char-set of some type and enter it in the table.
 ;;;
 (defun defattribute (name documentation &optional (type '(mod 2))
                           (initial-value 0))
@@ -204,9 +222,12 @@
   (setq name (coerce name 'simple-string))
   (let* ((attribute (string-to-keyword name))
          (new (make-attribute-descriptor
-               :vector (make-array syntax-char-code-limit
-                                   :element-type type
-                                   :initial-element initial-value)
+               :char-set (make-character-set
+                        :page0 (make-array 256
+                                           :element-type type
+                                           :initial-element initial-value)
+                        :table (make-hash-table)
+                        :default initial-value)
                :name name
                :keyword attribute
                :documentation documentation
@@ -263,19 +284,18 @@
   "Return the value of the the character-attribute Attribute for Character.
   If Character is Nil then return the end-value."
   (if (and (eq attribute *last-character-attribute-requested*) character)
-      (aref (the simple-array *value-of-last-character-attribute-requested*)
-            (syntax-char-code character))
+      (char-set-ref *value-of-last-character-attribute-requested*
+                    (char-code character))
       (sub-character-attribute attribute character)))
 ;;;
 (defun sub-character-attribute (attribute character)
   (with-attribute attribute
     (setq *last-character-attribute-requested* attribute)
-    (setq *value-of-last-character-attribute-requested*
-          (attribute-descriptor-vector obj))
-    (if character
-        (aref (the simple-array *value-of-last-character-attribute-requested*)
-              (syntax-char-code character))
-        (attribute-descriptor-end-value obj))))
+    (let ((char-set (attribute-descriptor-char-set obj)))
+      (setq *value-of-last-character-attribute-requested* char-set)
+      (if character
+          (char-set-ref char-set (char-code character))
+          (attribute-descriptor-end-value obj)))))
 
 ;;; CHARACTER-ATTRIBUTE-P
 ;;;
@@ -300,18 +320,20 @@
      ;;
      ;; Setting the value for a real character.
      (character
-      (let ((value (attribute-descriptor-vector obj))
-            (code (syntax-char-code character)))
-        (declare (type (simple-array *) value))
+      (let ((char-set (attribute-descriptor-char-set obj))
+            (code (char-code character)))
+        (declare (type character-set char-set))
         (dolist (bit *all-bit-descriptors*)
           (when (eq (bit-descriptor-attribute bit) attribute)
-            (let ((vec (bit-descriptor-vector bit)))
-              (declare (type (simple-array (mod 256)) vec))
-              (setf (aref vec code)
+            (let ((cs (bit-descriptor-char-set bit)))
+              (declare (type character-set cs))
+              (setf (char-set-ref cs code)
                     (if (funcall (bit-descriptor-function bit) new-value)
-                        (logior (bit-descriptor-mask bit) (aref vec code))
-                        (logandc1 (bit-descriptor-mask bit) (aref vec code)))))))
-        (setf (aref value code) new-value)))
+                        (logior (bit-descriptor-mask bit)
+                                (char-set-ref cs code))
+                        (logandc1 (bit-descriptor-mask bit)
+                                  (char-set-ref cs code)))))))
+        (setf (char-set-ref char-set code) new-value)))
      ;;
      ;; Setting the magical end-value.
      (t
@@ -326,30 +348,30 @@
 ;;; swap-one-attribute  --  Internal
 ;;;
 ;;;    Install the mode-local values described by Vals for Attribute, whose
-;;; representation vector is Value.
+;;; representation char-set is Value.
 ;;;
  (defmacro swap-one-attribute (attribute value vals hooks)
   `(progn
-    ;; Fix up any cached attribute vectors.
+    ;; Fix up any cached attribute char-sets.
     (dolist (bit *all-bit-descriptors*)
       (when (eq ,attribute (bit-descriptor-attribute bit))
         (let ((fun (bit-descriptor-function bit))
-              (vec (bit-descriptor-vector bit))
+              (cs (bit-descriptor-char-set bit))
               (mask (bit-descriptor-mask bit)))
-          (declare (type (simple-array (mod 256)) vec)
+          (declare (type character-set cs)
                    (fixnum mask))
           (dolist (char ,vals)
-            (setf (aref vec (car char))
+            (setf (char-set-ref cs (car char))
                   (if (funcall fun (cdr char))
-                      (logior mask (aref vec (car char)))
-                      (logandc1 mask (aref vec (car char)))))))))
+                      (logior mask (char-set-ref cs (car char)))
+                      (logandc1 mask (char-set-ref cs (car char)))))))))
     ;; Invoke the attribute-hook.
     (dolist (hook ,hooks)
       (dolist (char ,vals)
         (funcall hook ,attribute (code-char (car char)) (cdr char))))
-    ;; Fix up the value vector.
+    ;; Fix up the value char-set.
     (dolist (char ,vals)
-      (rotatef (aref ,value (car char)) (cdr char)))))
+      (rotatef (char-set-ref ,value (car char)) (cdr char)))))
 ); eval-when (:compile-toplevel :execute)
 
 
@@ -362,9 +384,9 @@
   (dolist (attribute (mode-object-character-attributes mode))
     (let* ((obj (car attribute))
            (sym (attribute-descriptor-keyword obj))
-           (value (attribute-descriptor-vector obj))
+           (value (attribute-descriptor-char-set obj))
            (hooks (attribute-descriptor-hooks obj)))
-      (declare (simple-array value))
+      (declare (type character-set value))
       (swap-one-attribute sym value (cdr attribute) hooks))))
 
 
@@ -384,11 +406,11 @@
       (error "~S is not a defined Character Attribute." attribute))
     (unless obj (error "~S is not a defined Mode." mode))
     (let* ((current (assoc desc (mode-object-character-attributes obj)))
-           (code (syntax-char-code character))
+           (code (char-code character))
            (hooks (attribute-descriptor-hooks desc))
-           (vec (attribute-descriptor-vector desc))
+           (char-set (attribute-descriptor-char-set desc))
            (cons (cons code value)))
-      (declare (simple-array vec))
+      (declare (type character-set char-set))
       (if current
           (let ((old (assoc code (cdr current))))
             (if old
@@ -398,7 +420,7 @@
                 (mode-object-character-attributes obj)))
       (when (member obj (buffer-mode-objects *current-buffer*))
         (let ((vals (list cons)))
-          (swap-one-attribute attribute vec vals hooks)))
+          (swap-one-attribute attribute char-set vals hooks)))
       (invoke-hook hemlock::shadow-attribute-hook attribute character value mode)))
   attribute)
 
@@ -415,11 +437,11 @@
     (unless obj
       (error "~S is not a defined Mode." mode))
     (invoke-hook hemlock::shadow-attribute-hook mode attribute character)
-    (let* ((value (attribute-descriptor-vector desc))
+    (let* ((value (attribute-descriptor-char-set desc))
            (hooks (attribute-descriptor-hooks desc))
            (current (assoc desc (mode-object-character-attributes obj)))
-           (char (assoc (syntax-char-code character) (cdr current))))
-      (declare (simple-array value))
+           (char (assoc (char-code character) (cdr current))))
+      (declare (type character-set value))
       (unless char
         (error "Character Attribute ~S is not defined for character ~S ~
                in Mode ~S." attribute character mode))
@@ -438,29 +460,29 @@
 ;;; find-attribute  --  Public
 ;;;
 ;;;    Do hairy cache lookup to find a find-character-with-attribute style
-;;; vector that we can use to do the search.
+;;; char-set that we can use to do the search.
 ;;;
 (eval-when (:compile-toplevel :execute)
-(defmacro normal-find-attribute (line start result vector mask)
+(defmacro normal-find-attribute (line start result char-set mask)
   `(let ((chars (line-chars ,line)))
      (setq ,result (%sp-find-character-with-attribute
-                   chars ,start (strlen chars) ,vector ,mask))))
+                   chars ,start (strlen chars) ,char-set ,mask))))
 ;;;
-(defmacro cache-find-attribute (start result vector mask)
+(defmacro cache-find-attribute (start result char-set mask)
   `(let ((gap (- right-open-pos left-open-pos)))
      (declare (fixnum gap))
      (cond
       ((>= ,start left-open-pos)
        (setq ,result
              (%sp-find-character-with-attribute
-              open-chars (+ ,start gap) line-cache-length ,vector ,mask))
+              open-chars (+ ,start gap) line-cache-length ,char-set ,mask))
        (when ,result (decf ,result gap)))
       ((setq ,result (%sp-find-character-with-attribute
-                      open-chars ,start left-open-pos ,vector ,mask)))
+                      open-chars ,start left-open-pos ,char-set ,mask)))
       (t
        (setq ,result
              (%sp-find-character-with-attribute
-              open-chars right-open-pos line-cache-length ,vector ,mask))
+              open-chars right-open-pos line-cache-length ,char-set ,mask))
        (when ,result (decf ,result gap))))))
 ); eval-when (:compile-toplevel :execute)
 ;;;
@@ -469,20 +491,21 @@
   (let ((charpos (mark-charpos mark))
         (line (mark-line mark))
         (mask 0)
-        vector end-wins)
-    (declare (type (or (simple-array (mod 256)) null) vector) (fixnum mask)
+        char-set end-wins)
+    (declare (type (or character-set null) char-set)
+             (fixnum mask)
              (type (or fixnum null) charpos))
-    (cached-attribute-lookup attribute test vector mask end-wins)
+    (cached-attribute-lookup attribute test char-set mask end-wins)
     (cond
      ((cond
        ((eq line open-line)
-        (when (cache-find-attribute charpos charpos vector mask)
+        (when (cache-find-attribute charpos charpos char-set mask)
           (setf (mark-charpos mark) charpos) mark))
        (t
-        (when (normal-find-attribute line charpos charpos vector mask)
+        (when (normal-find-attribute line charpos charpos char-set mask)
           (setf (mark-charpos mark) charpos) mark))))
      ;; Newlines win and there is one.
-     ((and (not (zerop (logand mask (aref vector (char-code #\newline)))))
+     ((and (not (zerop (logand mask (char-set-ref char-set (char-code #\newline)))))
            (line-next line))
       (move-to-position mark (line-length line) line))
      ;; We can ignore newlines.
@@ -496,10 +519,10 @@
               (return (line-end mark prev))
               (return nil)))
          ((eq line open-line)
-          (when (cache-find-attribute 0 charpos vector mask)
+          (when (cache-find-attribute 0 charpos char-set mask)
             (return (move-to-position mark charpos line))))
          (t
-          (when (normal-find-attribute line 0 charpos vector mask)
+          (when (normal-find-attribute line 0 charpos char-set mask)
             (return (move-to-position mark charpos line))))))))))
 
 
@@ -508,12 +531,12 @@
 ;;;    Line find-attribute, only goes backwards.
 ;;;
 (eval-when (:compile-toplevel :execute)
-(defmacro rev-normal-find-attribute (line start result vector mask)
+(defmacro rev-normal-find-attribute (line start result char-set mask)
   `(let ((chars (line-chars ,line)))
      (setq ,result (%sp-reverse-find-character-with-attribute
-                    chars 0 ,(or start '(strlen chars)) ,vector ,mask))))
+                    chars 0 ,(or start '(strlen chars)) ,char-set ,mask))))
 ;;;
-(defmacro rev-cache-find-attribute (start result vector mask)
+(defmacro rev-cache-find-attribute (start result char-set mask)
   `(let ((gap (- right-open-pos left-open-pos)))
      (declare (fixnum gap))
      (cond
@@ -521,37 +544,37 @@
           `(((<= ,start left-open-pos)
              (setq ,result
                    (%sp-reverse-find-character-with-attribute
-                    open-chars 0 ,start ,vector ,mask)))))
+                    open-chars 0 ,start ,char-set ,mask)))))
       ((setq ,result (%sp-reverse-find-character-with-attribute
                       open-chars right-open-pos
                       ,(if start `(+ ,start gap) 'line-cache-length)
-                      ,vector ,mask))
+                      ,char-set ,mask))
        (decf ,result gap))
       (t
        (setq ,result
              (%sp-reverse-find-character-with-attribute
-              open-chars 0 left-open-pos ,vector ,mask))))))
+              open-chars 0 left-open-pos ,char-set ,mask))))))
 
 ); eval-when (:compile-toplevel :execute)
 ;;;
 (defun reverse-find-attribute (mark attribute &optional (test #'not-zerop))
   "Find the previous character whose attribute value satisfies test."
   (let* ((charpos (mark-charpos mark))
-         (line (mark-line mark)) vector mask end-wins)
-    (declare (type (or (simple-array (mod 256)) null) vector)
+         (line (mark-line mark)) char-set mask end-wins)
+    (declare (type (or character-set null) char-set)
              (type (or fixnum null) charpos))
-    (cached-attribute-lookup attribute test vector mask end-wins)
+    (cached-attribute-lookup attribute test char-set mask end-wins)
     (cond
      ((cond
        ((eq line open-line)
-        (when (rev-cache-find-attribute charpos charpos vector mask)
+        (when (rev-cache-find-attribute charpos charpos char-set mask)
           (setf (mark-charpos mark) (1+ charpos)) mark))
        (t
-        (when (rev-normal-find-attribute line charpos charpos vector mask)
+        (when (rev-normal-find-attribute line charpos charpos char-set mask)
           (setf (mark-charpos mark) (1+ charpos)) mark))))
      ;; Newlines win and there is one.
      ((and (line-previous line)
-           (not (zerop (logand mask (aref vector (char-code #\newline))))))
+           (not (zerop (logand mask (char-set-ref char-set (char-code #\newline))))))
       (move-to-position mark 0 line))
      (t
       (do (next)
@@ -563,8 +586,8 @@
               (return (line-start mark next))
               (return nil)))
          ((eq line open-line)
-          (when (rev-cache-find-attribute nil charpos vector mask)
+          (when (rev-cache-find-attribute nil charpos char-set mask)
             (return (move-to-position mark (1+ charpos) line))))
          (t
-          (when (rev-normal-find-attribute line nil charpos vector mask)
+          (when (rev-normal-find-attribute line nil charpos char-set mask)
             (return (move-to-position mark (1+ charpos) line))))))))))

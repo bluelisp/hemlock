@@ -27,45 +27,18 @@
 ;;; in lisp, and is included commented-out below, but if this function
 ;;; is not real fast then redisplay performance will suffer.
 ;;;
-;;;    Theres also code in here that special-cases "Buffered" lines,
-;;; which is not exactly Common Lisp, but if you aren't on a perq,
-;;; you won't have to worry about it.
-;;;
-;(defun %sp-find-character-with-attribute (string start end table mask)
-;  (declare (type (simple-array (mod 256) char-code-max) table))
-;  (declare (simple-string string))
-;  (declare (fixnum start end))
-;  "%SP-Find-Character-With-Attribute  String, Start, End, Table, Mask
-;  The codes of the characters of String from Start to End are used as indices
-;  into the Table, which is a U-Vector of 8-bit bytes. When the number picked
-;  up from the table bitwise ANDed with Mask is non-zero, the current
-;  index into the String is returned. The corresponds to SCANC on the Vax."
-;  (do ((index start (1+ index)))
-;      ((= index end) nil)
-;    (declare (fixnum index))
-;    (if (/= (logand (aref table (char-code (elt string index))) mask) 0)
-;       (return index))))
-;
-;(defun %sp-reverse-find-character-with-attribute (string start end table
-;                                                         mask)
-;  (declare (type (simple-array (mod 256) char-code-max) table))
-;  (declare (simple-string string))
-;  (declare (fixnum start end))
-;  "Like %SP-Find-Character-With-Attribute, only sdrawkcaB."
-;  (do ((index (1- end) (1- index)))
-;      ((< index start) nil)
-;    (declare (fixnum index))
-;    (if (/= (logand (aref table (char-code (elt string index))) mask) 0)
-;       (return index))))
 
 (defconstant winning-char #b01 "Bit for a char that prints normally")
 (defconstant losing-char #b10 "Bit for char with funny representation.")
 (defvar *losing-character-mask*
-  (make-array char-code-limit :element-type '(mod 256)
-              :initial-element winning-char)
+  (make-character-set
+   :page0 (make-array 256 :element-type '(mod 256)
+                      :initial-element winning-char)
+   :table (make-hash-table)
+   :default winning-char)
   "This is a character set used by redisplay to find funny chars.")
-(defvar *print-representation-vector* nil
-  "Redisplay's handle on the :print-representation attribute")
+(defvar *print-representation-char-set* nil
+  "Redisplay's handle on the :print-representation attribute.")
 
 ;;;  Do a find-character-with-attribute on the *losing-character-mask*.
 (defmacro %fcwa (str start end mask)
@@ -74,7 +47,7 @@
 
 ;;; Get the print-representation of a character.
 (defmacro get-rep (ch)
-  `(svref *print-representation-vector* (char-code ,ch)))
+  `(char-set-ref *print-representation-char-set* (char-code ,ch)))
 
 
 
@@ -83,9 +56,7 @@
 ;;; %init-line-image  --  Internal
 ;;;
 ;;;    Set up the print-representations for funny chars.  We make the
-;;; attribute vector by hand and do funny stuff so that chars > 127
-;;; will have a losing print-representation, so redisplay will not
-;;; die if you visit a binary file or do something stupid like that.
+;;; attribute character-set by hand.
 ;;;
 (defun %init-line-image ()
   (defattribute "Print Representation"
@@ -93,21 +64,14 @@
     on the screen.  If the value is a string this string is literally
     displayed.  If it is a function, then that function is called with
     the current X position to get the string to display.")
-  (setq *print-representation-vector*
-        (make-array char-code-limit :initial-element nil))
-  (setf (attribute-descriptor-vector
+  (setq *print-representation-char-set*
+        (make-character-set
+         :page0 (make-array 256 :initial-element nil)
+         :table (make-hash-table)
+         :default nil))
+  (setf (attribute-descriptor-char-set
          (gethash :print-representation *character-attributes*))
-        *print-representation-vector*)
-  (do ((code 128 (1+ code))
-       (str (make-string 4) (make-string 4)))
-      ((= code char-code-limit))
-    (setf (aref *losing-character-mask* code) losing-char)
-    (setf (aref *print-representation-vector* code) str)
-    (setf (schar str 0) #\<)
-    (setf (schar str 1) (char-upcase (digit-char (ash code -4) 16)))
-    (setf (schar str 2) (char-upcase (digit-char (logand code #x+F) 16)))
-    (setf (schar str 3) #\>))
-
+        *print-representation-char-set*)
   (add-hook hemlock::character-attribute-hook
             #'redis-set-char-attribute-hook-fun)
   (do ((i (1- (char-code #\space)) (1- i)) str)
@@ -131,11 +95,11 @@
      ((simple-string-p new-value)
       (if (and (= (length (the simple-string new-value)) 1)
                (char= char (elt (the simple-string new-value) 0)))
-          (setf (aref *losing-character-mask* (char-code char)) winning-char)
-          (setf (aref *losing-character-mask* (char-code char))
+          (setf (char-set-ref *losing-character-mask* (char-code char)) winning-char)
+          (setf (char-set-ref *losing-character-mask* (char-code char))
                 losing-char)))
      ((functionp new-value)
-      (setf (aref *losing-character-mask* (char-code char)) losing-char))
+      (setf (char-set-ref *losing-character-mask* (char-code char)) losing-char))
      (t (error "Bad print representation: ~S" new-value)))))
 
 ;;; redis-tab-display-fun
@@ -193,10 +157,6 @@
 (defmacro string-get-rep (string index)
   `(get-rep (schar ,string ,index)))
 
-(defmacro u-vec-get-rep (u-vec index)
-  `(svref *print-representation-vector*
-          (hemlock-ext:sap-ref-8 ,u-vec ,index)))
-
 ;;; display-losing-chars  --  Internal
 ;;;
 ;;;    This macro is called by the compute-line-image functions to
@@ -247,7 +207,7 @@
 (defun compute-normal-line-image (line start dis-line xpos width)
   (declare (fixnum start width) (type (or fixnum null) xpos))
   (do* ((index start)
-        (line-chars (line-%chars line))
+        (line-chars (line-chars line))
         (end (strlen line-chars))
         (dest (dis-line-chars dis-line))
         (losing 0)
@@ -282,50 +242,7 @@
      (t
       (display-losing-chars line-chars index end dest xpos width string
                             underhang string-get-rep)))))
-
-;;; compute-buffered-line-image  --  Internal
-;;;
-;;;    Compute the line image for a "Buffered" line, that is, one whose
-;;; chars have not been consed yet.
 
-(defun compute-buffered-line-image (line start dis-line xpos width)
-  (declare (fixnum start width) (type (or fixnum null) xpos))
-  (do* ((index start)
-        (line-chars (line-%chars line))
-        (end (line-buffered-p line))
-        (dest (dis-line-chars dis-line))
-        (losing 0)
-        underhang string)
-       (())
-    (declare (fixnum index end)
-             (type (or fixnum null) losing)
-             (simple-string dest))
-    (cond
-     (underhang
-      (update-and-punt dis-line width string underhang index))
-     ((null xpos)
-      (update-and-punt dis-line width nil 0 index))
-     ((= index end)
-      (update-and-punt dis-line xpos nil nil index)))
-    (setq losing (%fcwa line-chars index end losing-char))
-    (when (null losing)
-      (display-some-chars line-chars index end dest xpos width t)
-      (if (or xpos (= index end))
-          (update-and-punt dis-line xpos nil nil index)
-          (update-and-punt dis-line width nil 0 index)))
-    (display-some-chars line-chars index losing dest xpos width nil)
-    (cond
-     ;; Did we wrap?
-     ((null xpos)
-      (update-and-punt dis-line width nil 0 index))
-     ;; Are we about to cause the line to wrap? If so, wrap before
-     ;; it's too late.
-     ((= xpos width)
-      (setf (char dest (1- width)) *line-wrap-char*)
-      (update-and-punt dis-line width nil 0 index))
-     (t
-      (display-losing-chars line-chars index end dest xpos width string
-                            underhang u-vec-get-rep)))))
 
 ;;; compute-cached-line-image  --  Internal
 ;;;
@@ -523,15 +440,9 @@
         (values string underhang offset))
        ((eq line open-line)
         (compute-cached-line-image offset dis-line xpos width))
-       #+buffered-lines
-       ((line-buffered-p line)
-        (compute-buffered-line-image line offset dis-line xpos width))
        (t
         (compute-normal-line-image line offset dis-line xpos width)))))
    ((eq line open-line)
     (compute-cached-line-image offset dis-line 0 width))
-   #+buffered-lines
-   ((line-buffered-p line)
-    (compute-buffered-line-image line offset dis-line 0 width))
    (t
     (compute-normal-line-image line offset dis-line 0 width))))

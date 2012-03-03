@@ -61,7 +61,7 @@
           (line (make-line :%buffer buffer))
           (first-line line))
          (())
-      (let ((right-index (%sp-find-character string index end #\newline)))
+      (let ((right-index (position #\newline string :start index :end end)))
         (cond (right-index
                (let* ((length (- right-index index))
                       (chars (make-string length)))

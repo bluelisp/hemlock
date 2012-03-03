@@ -34,7 +34,7 @@
                                          :next next)))
                (maybe-move-some-marks (charpos line new-line) left-open-pos
                                       (- charpos left-open-pos))
-               (setf (line-%chars line) new-chars)
+               (setf (line-chars line) new-chars)
                (setf (line-next line) new-line)
                (if next (setf (line-previous next) new-line))
                (number-line new-line)
@@ -67,12 +67,12 @@
     (unless (zerop (- end start))
       (modifying-buffer buffer
         (modifying-line line mark)
-        (if (%sp-find-character string start end #\newline)
+        (if (position #\newline string :start start :end end)
             (with-mark ((mark mark :left-inserting))
               (do ((left-index start (1+ right-index))
                    (right-index
-                    (%sp-find-character string start end #\newline)
-                    (%sp-find-character string (1+ right-index) end #\newline)))
+                    (position #\newline string :start start :end end)
+                    (position #\newline string :start (1+ right-index) :end end)))
                   ((null right-index)
                    (if (/= left-index end)
                        (insert-string mark string left-index end)))

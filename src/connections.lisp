@@ -421,7 +421,7 @@
          :filter (or filter
                      (lambda (connection bytes)
                        (default-filter connection bytes)))
-         :encoding (or encoding :iso-8859-1)
+         :encoding (or encoding :utf-8)
          args))
 
 (defgeneric stream-fd (stream))

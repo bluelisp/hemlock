@@ -15,11 +15,6 @@
 (defun quit ()
   )
 
-#-scl
-(defun sap-ref-8 (vec index)
-  (declare (ignore vec index))
-  (error "SAP-REF-8 called.") )
-
 (defvar hi::*command-line-switches* nil)
 
 (defun hi::get-terminal-name ()
@@ -314,42 +309,6 @@
         do
         (setf (aref dest d) (aref src s))))
 
-
-;;(trace object-set-event-handler hi::invoke-scheduled-events hi::next-scheduled-event-wait serve-event)
-
-(defun hi::%sp-find-character-with-attribute (string start end table mask)
-  ;;(declare (type (simple-array (mod 256) char-code-max) table))
-  (declare (simple-string string))
-  (declare (fixnum start end))
-  "%SP-Find-Character-With-Attribute  String, Start, End, Table, Mask
-  The codes of the characters of String from Start to End are used as indices
-  into the Table, which is a U-Vector of 8-bit bytes. When the number picked
-  up from the table bitwise ANDed with Mask is non-zero, the current
-  index into the String is returned. The corresponds to SCANC on the Vax."
-  (do ((index start (1+ index)))
-      ((= index end) nil)
-    (declare (fixnum index))
-    (if (/= (logand (aref table (char-code (elt string index))) mask) 0)
-        (return index))))
-
-(defun hi::%sp-reverse-find-character-with-attribute (string start end table
-                                                          mask)
-  ;;(declare (type (simple-array (mod 256) char-code-max) table))
-  (declare (simple-string string))
-  (declare (fixnum start end))
-  "Like %SP-Find-Character-With-Attribute, only sdrawkcaB."
-  (do ((index (1- end) (1- index)))
-      ((< index start) nil)
-    (declare (fixnum index))
-    (if (/= (logand (aref table (char-code (elt string index))) mask) 0)
-        (return index))))
-
-(defun hi::%sp-find-character (string start end character)
-  "%SP-Find-Character  String, Start, End, Character
-  Searches String for the Character from Start to End.  If the character is
-  found, the corresponding index into String is returned, otherwise NIL is
-  returned."
-  (position character string :start start :end end))
 
 #-scl
 (defun delq (item list)

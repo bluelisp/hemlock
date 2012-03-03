@@ -72,6 +72,7 @@
 ;;;    These functions implement the :test, :test-not, :any and :not-any
 ;;; search-kinds.
 
+
 ;;; The Character-Set abstraction is used to hide somewhat the fact that
 ;;; we are using %Sp-Find-Character-With-Attribute to implement the
 ;;; character set searches.
@@ -80,6 +81,7 @@
   "A list of unused character-set objects for use by the Hemlock searching
   primitives.")
 
+
 ;;; Create-Character-Set  --  Internal
 ;;;
 ;;;    Create-Character-Set returns a character-set which will search
@@ -87,10 +89,13 @@
 ;;;
 (defun create-character-set ()
   (let ((set (or (pop *free-character-sets*)
-                 (make-array 256 :element-type '(mod 256)))))
-    (declare (type (simple-array (mod 256)) set))
-    (dotimes (i search-char-code-limit)
-      (setf (aref set i) 0))
+                 (make-character-set
+                  :page0 (make-array 256 :element-type '(unsigned-byte 8))
+                  :table (make-hash-table)))))
+    (let ((page0 (character-set-page0 set)))
+      (dotimes (i 256)
+        (setf (aref page0 i) 0)))
+    (setf (character-set-default set) 0)
     set))
 
 ;;; Add-Character-To-Set  --  Internal
@@ -99,15 +104,21 @@
 ;;;
 (declaim (inline add-character-to-set))
 (defun add-character-to-set (character set)
-  (setf (aref (the (simple-array (mod 256)) set)
-              (search-char-code character))
-        1))
+  (let ((code (char-code character)))
+    (cond ((< code 256)
+           (let ((page0 (character-set-page0 set)))
+             (setf (aref page0 code) 1)))
+          (t
+           (let ((table (character-set-table set)))
+             (setf (gethash code table) 1))))))
 
 ;;; Release-Character-Set  --  Internal
 ;;;
 ;;;    Release the storage for the character set Set.
 ;;;
 (defun release-character-set (set)
+  (let ((table (character-set-table set)))
+    (clrhash table))
   (push set *free-character-sets*))
 
 (eval-when (:compile-toplevel :execute)
@@ -166,7 +177,7 @@
   Pattern must be a function of its argument only."
   (setq old (frob-character-set pattern direction old :test))
   (let ((set (create-character-set)))
-    (dotimes (i search-char-code-limit)
+    (dotimes (i char-code-limit)
       (when (funcall pattern (code-char i))
         (add-character-to-set (code-char i) set)))
     (setf (set-search-pattern-set old) set))
@@ -178,7 +189,7 @@
   test function Pattern.  Pattern must be a function of its argument only."
   (setq old (frob-character-set pattern direction old :test-not))
   (let ((set (create-character-set)))
-    (dotimes (i search-char-code-limit)
+    (dotimes (i char-code-limit)
       (unless (funcall pattern (code-char i))
         (add-character-to-set (code-char i) set)))
     (setf (set-search-pattern-set old) set))
@@ -199,7 +210,7 @@
   (declare (string pattern))
   (setq old (frob-character-set pattern direction old :not-any))
   (let ((set (create-character-set)))
-    (dotimes (i search-char-code-limit)
+    (dotimes (i char-code-limit)
       (unless (find (code-char i) pattern)
         (add-character-to-set (code-char i) set)))
     (setf (set-search-pattern-set old) set))

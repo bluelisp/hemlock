@@ -130,7 +130,7 @@
      ;; New line comes before old line, insert it, punting when
      ;; we hit the bottom of the screen.
      ((neq line old-line)
-      (do ((chars (unless is-wrapped (line-%chars line)) nil) new)
+      (do ((chars (unless is-wrapped (line-chars line)) nil) new)
           (())
         (setq new (car spare-lines))
         (setf (dis-line-old-chars new) chars
@@ -152,7 +152,7 @@
      ;; The line is the same, possibly moved.  We add in the delta and
      ;; or in the moved bit so that if redisplay punts in the middle
      ;; the information is not lost.
-     ((eq (line-%chars line) (dis-line-old-chars cc))
+     ((eq (line-chars line) (dis-line-old-chars cc))
       ;; If the line is the old bottom line on the screen and it has moved and
       ;; is full length, then mash the old-chars and quit so that the image
       ;; will be recomputed the next time around the loop, since the line might
@@ -176,7 +176,7 @@
             (return nil))))))
      ;; The line is changed, possibly moved.
      (t
-      (do ((chars (line-%chars line) nil))
+      (do ((chars (line-chars line) nil))
           (())
         (multiple-value-setq (string underhang start)
           (compute-line-image string underhang line start cc width))
@@ -238,7 +238,7 @@
                   (dis-line-position (car (window-first-changed ,window))))
            (setf (window-first-changed ,window) ,current)
            (setq ,changed t)))
-       (do ((chars (line-%chars ,line) nil)
+       (do ((chars (line-chars ,line) nil)
             (start ,offset) string underhang)
            (())
          (multiple-value-setq (string underhang start)
@@ -283,7 +283,7 @@
          (width (window-width window)) changed)
     (cond
      ;; If the first line or its charpos has changed then bug out.
-     ((cond ((and (eq (dis-line-old-chars (car current)) (line-%chars line))
+     ((cond ((and (eq (dis-line-old-chars (car current)) (line-chars line))
                   (mark= display-start (window-old-start window)))
              (setq trail current  current (cdr current)  line (line-next line))
              nil)
@@ -307,7 +307,7 @@
        TOP
         (cond ((null line)
                (go DONE))
-              ((eq (line-%chars line) (dis-line-old-chars (car current)))
+              ((eq (line-chars line) (dis-line-old-chars (car current)))
                (go STEP)))
         ;;
         ;; We found a suspect line.

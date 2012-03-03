@@ -90,19 +90,20 @@
       (error "~S is not a defined search pattern kind." kind))
     (funcall expert direction pattern result-search-pattern)))
 
-;;;; stuff to allocate and de-allocate simple-vectors search-char-code-limit
-;;;; in length.
+;;; Allocate and de-allocate simple-vectors for the search jump
+;;; vectors.
 
-(defvar *spare-search-vectors* ())
+(defvar *spare-search-jump-vectors* ())
 (eval-when (:compile-toplevel :execute)
-(defmacro new-search-vector ()
-  `(if *spare-search-vectors*
-       (pop *spare-search-vectors*)
-       (make-array search-char-code-limit)))
+(defmacro new-search-jump-vector ()
+  `(if *spare-search-jump-vectors*
+       (pop *spare-search-jump-vectors*)
+       (make-array 256)))
 
-(defmacro dispose-search-vector (vec)
-  `(push ,vec *spare-search-vectors*))
+(defmacro dispose-search-jump-vector (vec)
+  `(push ,vec *spare-search-jump-vectors*))
 ); eval-when (:compile-toplevel :execute)
+
 
 ;;;; macros used by various search kinds:
 
@@ -333,7 +334,7 @@
 ;;; only if they agree do an actual compare with case-folding.
 ;;;
 (defmacro case-insensitive-test-fun (string1 string2 hashed-string2
-                                             &key end1 (start1 0) end2)
+                                     &key end1 (start1 0) end2)
   `(when (= (- ,end1 ,start1) ,end2)
      (do ((i 0 (1+ i)))
          ((= i ,end2)
@@ -354,24 +355,25 @@
 ;;;
 (defun compute-boyer-moore-jumps (vec access-fun)
   (declare (simple-vector vec))
-  (let ((jumps (new-search-vector))
+  (let ((jumps (new-search-jump-vector))
         (len (length vec)))
     (declare (simple-vector jumps))
     (when (zerop len) (error "Zero length search string not allowed."))
     ;; The default jump is the length of the search string.
-    (dotimes (i search-char-code-limit)
+    (dotimes (i 256)
       (setf (aref jumps i) len))
     ;; For chars in the string the jump is the distance from the end.
     (dotimes (i len)
-      (setf (aref jumps (funcall access-fun vec i)) (- len i 1)))
+      (let ((index (logand (funcall access-fun vec i) #xff)))
+        (setf (aref jumps index) (- len i 1))))
     jumps))
 
 ;;;; Case insensitive searches
 
 ;;; In order to avoid case folding, we do a case-insensitive hash of
 ;;; each character.  We then search for string in this translated
-;;; character set, and reject false successes by checking of the found
-;;; string is string-equal the the original search string.
+;;; character set, and reject false successes by checking if the found
+;;; string is string-equal to the original search string.
 ;;;
 
 (defstruct (string-insensitive-search-pattern
@@ -456,7 +458,7 @@
               (compute-boyer-moore-jumps hashed-string #'svref))
         (setf (search-pattern-reclaim-function old)
               #'(lambda (p)
-                  (dispose-search-vector (string-insensitive-jumps p))))))))
+                  (dispose-search-jump-vector (string-insensitive-jumps p))))))))
   old)
 
 (defun insensitive-find-string-once-forward-method (pattern line start)
@@ -565,10 +567,10 @@
       (setf (string-sensitive-string old) string)
       (setf (string-sensitive-jumps old)
             (compute-boyer-moore-jumps
-             string #'(lambda (v i) (char-code (svref v i)))))
+             string #'(lambda (v i) (search-char-code (svref v i)))))
       (setf (search-pattern-reclaim-function old)
             #'(lambda (p)
-                (dispose-search-vector (string-sensitive-jumps p)))))))
+                (dispose-search-jump-vector (string-sensitive-jumps p)))))))
   old)
 
 

@@ -34,19 +34,6 @@
           (insert-string mark line)
           (insert-character mark #\newline))))))
 
-;;; Hackish stuff for disgusting speed:
-
-(defun read-buffered-line (line)
-  ;; This function is not used at all by now --GB
-  (declare (ignore line))
-  (error "Oops, I am not supposed to be used.")
-  #+NIL
-  (let* ((len (line-buffered-p line))
-         (chars (make-string len)))
-    (%primitive byte-blt (line-%chars line) 0 chars 0 len)
-    (setf (line-buffered-p line) nil)
-    (setf (line-chars line) chars)))
-
 
 ;;; Write-File:
 
@@ -94,19 +81,15 @@
               ((eq line end-line))
             (incf length (1+ (line-length line))))
           ;;
-          (macrolet ((chars (line)
-                       `(if (line-buffered-p ,line)
-                         (line-%chars ,line)
-                         (line-chars ,line))))
-            (write-sequence (chars start-line) file :start start-charpos :end (+ start-charpos first-length))
-            (write-char #\newline file)
-            (let ((offset (1+ first-length)))
-              (do ((line (line-next start-line)
-                         (line-next line)))
-                  ((eq line end-line))
-                (let ((end (+ offset (line-length line))))
-                  (write-sequence (chars line) file :start 0 :end (- end offset))
-                  (write-char #\newline file)
-                  (setf offset (1+ end))))
-              (unless (zerop end-charpos)
-                (write-sequence (chars end-line) file :start 0 :end end-charpos))))))))
+          (write-sequence (line-chars start-line) file :start start-charpos :end (+ start-charpos first-length))
+          (write-char #\newline file)
+          (let ((offset (1+ first-length)))
+            (do ((line (line-next start-line)
+                       (line-next line)))
+                ((eq line end-line))
+              (let ((end (+ offset (line-length line))))
+                (write-sequence (line-chars line) file :start 0 :end (- end offset))
+                (write-char #\newline file)
+                (setf offset (1+ end))))
+            (unless (zerop end-charpos)
+              (write-sequence (line-chars end-line) file :start 0 :end end-charpos)))))))

@@ -25,22 +25,59 @@
 
 
 
-;;;; Stuff for the Syntax table functions (syntax)
 
-(defconstant syntax-char-code-limit 256
-  "The highest char-code which a character argument to the syntax
-  table functions may have.")
+;;; Unicode has a large range of characters.  The first 256 are stored in
+;;; a vector, and the rest are stored in a hash table.  A default for the
+;;; hash table can be supplied.
+(defstruct character-set
+  page0
+  table
+  default)
 
-(defmacro syntax-char-code (char)
-  `(char-code ,char))
+(defun char-set-ref (set code)
+  (cond ((< code 256)
+         (let ((page0 (character-set-page0 set)))
+           (aref page0 code)))
+        (t
+         (let ((table (character-set-table set))
+               (default (character-set-default set)))
+           (gethash code table default)))))
 
+(defun (setf char-set-ref) (value set code)
+  (cond ((< code 256)
+         (let ((page0 (character-set-page0 set)))
+           (setf (aref page0 code) value)))
+        (t
+         (let ((table (character-set-table set)))
+           (setf (gethash code table) value)))))
 
-;;;; Stuff used by the searching primitives (search)
-;;;
-(defconstant search-char-code-limit 128
-  "The exclusive upper bound on significant char-codes for searching.")
-(defmacro search-char-code (ch)
-  `(logand (char-code ,ch) #x+7F))
+(defun hi::%sp-find-character-with-attribute (string start end table mask)
+  (declare (simple-string string)
+           (fixnum start end mask)
+           (type character-set table))
+  "%SP-Find-Character-With-Attribute  String, Start, End, Table, Mask
+  The codes of the characters of String from Start to End are used as indices
+  into the Table, which is a U-Vector of 8-bit bytes. When the number picked
+  up from the table bitwise ANDed with Mask is non-zero, the current
+  index into the String is returned. The corresponds to SCANC on the Vax."
+  (do ((index start (1+ index)))
+      ((= index end) nil)
+    (declare (fixnum index))
+    (if (/= (logand (char-set-ref table (char-code (elt string index))) mask) 0)
+        (return index))))
+
+(defun hi::%sp-reverse-find-character-with-attribute (string start end table
+                                                      mask)
+  (declare (simple-string string)
+           (fixnum start end mask)
+           (type character-set table))
+  "Like %SP-Find-Character-With-Attribute, only sdrawkcaB."
+  (do ((index (1- end) (1- index)))
+      ((< index start) nil)
+    (declare (fixnum index))
+    (if (/= (logand (char-set-ref table (char-code (elt string index))) mask) 0)
+        (return index))))
+
 ;;;
 ;;;    search-hash-code must be a function with the following properties:
 ;;; given any character it returns a number between 0 and
@@ -49,7 +86,7 @@
 ;;;    In ASCII this is can be done by ANDing out the 5'th bit.
 ;;;
 (defmacro search-hash-code (ch)
-  `(logand (char-code ,ch) #x+5F))
+  `(logand (char-code ,ch) #x+DF))
 
 ;;; Doesn't do anything special, but it should fast and not waste any time
 ;;; checking type and whatnot.

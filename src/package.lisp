@@ -672,7 +672,7 @@
    #:buffer-end-mark #:*buffer-list*
 
    ;; charmacs.lisp
-   #:syntax-char-code-limit #:search-char-code-limit #:do-alpha-chars
+   #:do-alpha-chars
 
    ;; cursor.lisp
    #:mark-to-cursorpos #:center-window #:displayed-p #:scroll-window
