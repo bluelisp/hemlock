@@ -12,15 +12,6 @@
 ;;; This file contains definitions for the Line structure, and some
 ;;; functions and macros to manipulate them.
 ;;;
-;;;    This stuff was allowed to become implementation dependant because
-;;; you make thousands of lines, so speed is real important.  In some
-;;; implementations (the Perq for example) it may be desirable to
-;;; not actually cons the strings in the line objects until someone
-;;; touches them, and just keep a pointer in the line to where the file
-;;; is mapped in memory.  Such lines are called "buffered".  This stuff
-;;; links up with the file-reading stuff and the line-image building stuff.
-;;;
-
 
 (setf (documentation 'linep 'function)
   "Returns true if its argument is a Hemlock line object, Nil otherwise.")
@@ -37,14 +28,14 @@
 ;;;; The line object:
 
 (defclass line ()
-  ((%chars
+  ((chars
     :initform ""
     :initarg :chars                     ; Hide the fact that the slot isn't really called CHARS.
-    :accessor line-%chars
+    :accessor line-chars
     :documentation "Something that represents the contents of the line.  This is
                     guaranteed to change (as compared by EQL) whenver the contents of the
                     line changes, but might at arbitarary other times.  There are
-                    currently about three different cases:
+                    currently about two different cases:
 
                     Normal:
                        A simple string holding the contents of the line.
@@ -52,14 +43,7 @@
                     A cached line:
                        The line is eq to Open-Line, and the actual contents are in the
                        line cache.  The %Chars may be either the original contents or a
-                       negative fixnum.
-
-                    A buffered line:
-                       The line hasn't been touched since it was read from a file, and the
-                       actual contents are in some system I/O area.  This is indicated by
-                       the Line-Buffered-P slot being true.  In buffered lines on the RT,
-                       the %Chars slot contains the system-area-pointer to the beginning
-                       of the characters.")
+                       negative fixnum.")
    (previous
     :initform nil
     :initarg :previous
@@ -93,14 +77,6 @@
     :initarg :plist
     :accessor line-plist
     :documentation "The line property list, used by user code to annotate the text.")
-   #+buffered-lines
-   (buffered-p
-    :initform nil
-    :initarg :buffered-p
-    :accessor line-buffered-p
-    :documentation "A slot that indicates whether this line is a buffered line, and if so
-                    contains information about how the text is stored. On the RT, this is
-                    the length of the text pointed to by the Line-%Chars")
    (tag
     :accessor %line-tag
     :initform nil
@@ -133,36 +109,10 @@
   (syntax-info nil :type (or null syntax-info))
   (package (symbol-name :cl-user) :type (or null string)))
 
-;;; Make Line-Chars the same as Line-%Chars on implementations without
-;;; buffered lines.
-;;;
-#-buffered-lines
-(defmacro line-chars (x)
-  `(line-%chars ,x))
-
-
-;;; If buffered lines are supported, then we create the string
-;;; representation for the characters when someone uses Line-Chars.  People
-;;; who are prepared to handle buffered lines or who just want a signature
-;;; for the contents can use Line-%chars directly.
-;;;
-#+buffered-lines
-(defmacro line-chars (line)
-  `(the simple-string (if (line-buffered-p ,line)
-                          (read-buffered-line ,line)
-                          (line-%chars ,line))))
-;;;
-#+buffered-lines
-(defsetf line-chars %set-line-chars)
-;;;
-#+buffered-lines
-(defmacro %set-line-chars (line chars)
-  `(setf (line-%chars ,line) ,chars)) ; EW: CHARS can be a "tick".
-
 
 ;;; Line-Signature  --  Public
 ;;;
-;;;    We can just return the Line-%Chars.
+;;;    We can just return the Line-Chars.
 ;;;
 (declaim (inline line-signature))
 (defun line-signature (line)
@@ -171,38 +121,22 @@
   result in the signature changing so that it is not EQL to any previous value.
   Note that the signature may change even when the text hasn't been modified, but
   this probably won't happen often."
-  (line-%chars line))
+  (line-chars line))
 
-
-;;; Return a copy of Line in buffer Buffer with the same chars.  We use
-;;; this macro where we want to copy a line because it takes care of
-;;; the case where the line is buffered.
-;;;
-#||
-(defmacro %copy-line (line &key previous number %buffer)
-  `(make-line :chars (line-%chars ,line)
-              :previous ,previous
-              :number ,number
-              :%buffer ,%buffer
-              #+buffered-lines :buffered-p
-              #+buffered-lines (line-buffered-p ,line)))
-||#
 
 (defun %copy-line (line &key previous number %buffer)
-  (make-line :chars (line-%chars line)
+  (make-line :chars (line-chars line)
              :previous previous
              :number number
-             :%buffer %buffer
-             #+buffered-lines :buffered-p
-             #+buffered-lines (line-buffered-p line)))
+             :%buffer %buffer))
+
 
 (defmacro line-length* (line)
   "Returns the number of characters on the line, but it's a macro!"
   `(cond ((eq ,line open-line)
           (+ left-open-pos (- line-cache-length right-open-pos)))
-         ((line-buffered-p ,line))
          (t
-          (length (the simple-string (line-%chars ,line))))))
+          (length (the simple-string (line-chars ,line))))))
 
 ;; $Log: line.lisp,v $
 ;; Revision 1.2  2004-12-15 12:16:45  crhodes

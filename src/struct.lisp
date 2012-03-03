@@ -341,7 +341,7 @@
   name
   keyword
   documentation
-  vector
+  char-set
   hooks
   end-value)
 

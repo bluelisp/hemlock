@@ -357,7 +357,7 @@
                (declare (simple-string res first-chars new))
                (%sp-byte-blt first-chars 0 new 0 first)
                (%sp-byte-blt res 0 new first nlen)
-               (setf (line-%chars start-line) new))
+               (setf (line-chars start-line) new))
              ;;
              ;; Fix up marks on the first line, saving any within the region
              ;; to be dealt with later.
@@ -374,7 +374,7 @@
                (when (line-marks line)
                  (setq marks (nconc (line-marks line) marks))
                  (setf (line-marks line) nil))
-               (setf (line-%chars line) (fcs function (line-chars line))))
+               (setf (line-chars line) (fcs function (line-chars line))))
              ;;
              ;; Do the last line, which is cached.
              (let* ((res (fcs function (subseq (the simple-string open-chars)
