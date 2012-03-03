@@ -20,7 +20,6 @@
 (setf *modern-hemlock* t)
 
 (pushnew :command-bits *features*)
-(pushnew :buffered-lines *features*)
 
 (defparameter *hemlock-base-directory*
   (make-pathname :name nil :type nil :version nil
