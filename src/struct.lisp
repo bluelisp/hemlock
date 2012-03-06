@@ -93,7 +93,10 @@
   %modeline-fields            ; List of modeline-field-info's.
   (delete-hook nil)           ; List of functions to call upon deletion.
   (widget nil)                ; for virtual buffers, the Qt widget to show
-  (tag-line-number -1))       ; tags valid for earlier lines only
+  (tag-line-number -1)        ; tags valid for earlier lines only
+  (undo-p t)                  ; Flags the recording of 'Undo information.
+  (undo-list nil)             ; Undo list for this buffer.
+  )
 
 (defun virtual-buffer-p (buffer)
   (and (buffer-widget buffer) t))
