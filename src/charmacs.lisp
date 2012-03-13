@@ -79,11 +79,11 @@
         (return index))))
 
 ;;;
-;;;    search-hash-code must be a function with the following properties:
-;;; given any character it returns a number between 0 and
-;;; search-char-code-limit, and the same hash code must be returned
-;;; for the upper and lower case forms of each character.
-;;;    In ASCII this is can be done by ANDing out the 5'th bit.
+;;;    search-hash-code must be a function with the following
+;;; properties: given any character it returns a number between 0 and
+;;; 255, and the same hash code must be returned for the upper and
+;;; lower case forms of each character.  In ASCII this is can be done
+;;; by ANDing out the 5'th bit.
 ;;;
 (defmacro search-hash-code (ch)
   `(logand (char-code ,ch) #x+DF))
