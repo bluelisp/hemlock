@@ -314,7 +314,7 @@
 (defstruct (font-change (:copier nil)
                         (:constructor make-font-change (next)))
   x                           ; X position that change takes effect.
-  font                        ; Index into font-map of font to use.
+  font                        ; Index into font-map, or list of properties.
   next                        ; The next Font-Change on this dis-line.
   mark)                       ; Font-Mark responsible for this change.
 
