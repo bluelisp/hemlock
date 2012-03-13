@@ -877,90 +877,99 @@
                   #| that's all, folks |#))
               (t (princ c out)))))))
 
-(defun stream-fileno (stream)
-  (typecase stream
-    #+(or CMU scl)
-    (sys:fd-stream
-     (sys:fd-stream-fd stream))
-    (two-way-stream
-     (stream-fileno (two-way-stream-output-stream stream)))
-    (synonym-stream
-     (stream-fileno (symbol-value (synonym-stream-symbol stream))))
-    (echo-stream
-     (stream-fileno (echo-stream-output-stream stream)))
-    (broadcast-stream
-     (stream-fileno (first (broadcast-stream-streams stream))))
-    (otherwise nil)))
 
-(defun stream-baud-rate (stream)
-  #+(or CMU scl)
-  (alien:with-alien ((termios (alien:struct unix:termios)))
-    (declare (optimize (ext:inhibit-warnings 3)))
-    (when (unix:unix-tcgetattr (stream-fileno stream) termios)
-      (let ((baud (logand unix:tty-cbaud
-                          (alien:slot termios 'unix:c-cflag))))
-        (if (< baud unix::tty-cbaudex)
-          (aref #(0 50 75 110 134 150 200 300 600 1200
-                  1800 2400 4800 9600 19200 38400)
-                baud)
-          (aref #(57600 115200 230400 460800 500000 576000
-                  921600 1000000 1152000 1500000 2000000
-                  2500000 3000000 3500000 4000000)
-                (logxor baud unix::tty-cbaudex)))))))
-
-(defun tputs (string &rest args)
+;;; Handle the delay sequence $<...> with terminfo strings.  Padding
+;;; characters are used if possible, otherwise a list strings and
+;;; delays in milliseconds is returned.
+(defun tputs (string &key (terminfo *terminfo*)
+              (baud-rate hi::*terminal-baud-rate*)
+              (affcnt 1))
   (when string
-    (let* ((stream (if (streamp (first args)) (pop args) *terminal-io*))
-           (terminfo (if (terminfo-p (first args)) (pop args) *terminfo*)))
-      (with-input-from-string (string (apply #'tparm string args))
-        (do ((c (read-char string nil) (read-char string nil)))
-            ((null c))
-          (cond ((and (char= c #\$)
-                      (eql (peek-char nil string nil) #\<))
-                 (let ((time 0) (force nil) (rate nil) (pad #\Null))
-
+    (let ((strings-and-delays ())
+          (start 0)
+          (length (length string)))
+      (do ()
+          ((>= start length))
+        (let ((found (search "$<" string :start2 start)))
+          (cond ((not found)
+                 ;; Done
+                 (push (subseq string start) strings-and-delays)
+                 (return))
+                (t
+                 (when (> found start)
+                   (push (subseq string start found) strings-and-delays))
+                 (let ((time 0)
+                       (must-pad-p nil)
+                       (pad #\Null)
+                       (multiply 1)
+                       (pos (+ found 2)))
                    ;; Find out how long to pad for:
-                   (read-char string) ; eat the #\<
-                   (loop
-                     (setq c (read-char string))
-                     (let ((n (digit-char-p c)))
-                       (if n
-                           (setq time (+ (* time 10) n))
-                           (return))))
-                   (if (char= c #\.)
-                       (setq time (+ (* time 10)
-                                     (digit-char-p (read-char string)))
-                             c (read-char string))
-                       (setq time (* time 10)))
-                   (when (char= c #\*)
-                     ;; multiply time by "number of lines affected"
-                     ;; but how do I know that??
-                     (setq c (read-char string)))
-                   (when (char= c #\/)
-                     (setq force t c (read-char string)))
-                   (unless (char= c #\>)
-                     (error "Invalid padding specification."))
-
-                   ;; Decide whether to apply padding:
-                   (when (or force (not (capability :xon-xoff terminfo)))
-                     (setq rate (stream-baud-rate stream))
+                   (do ()
+                       ((>= pos length)
+                        ;; Invalid, give up.
+                        (return))
+                     (let* ((c (schar string pos))
+                            (n (digit-char-p c)))
+                       (cond (n
+                              (setf time (+ (* time 10) n))
+                              (incf pos))
+                             ((char= c #\.)
+                              (incf pos)
+                              (when (< pos length)
+                                (let* ((c (schar string pos))
+                                       (n (digit-char-p c)))
+                                  (cond (n
+                                         (setf time (+ (* time 10) n))
+                                         (incf pos))
+                                        (t
+                                         (setf time (* time 10)))))
+                                (return)))
+                             (t
+                              (return)))))
+                   (flet ((option ()
+                            (when (< pos length)
+                              (let ((c (schar string pos)))
+                                (cond ((char= c #\*)
+                                       (setf multiply (or affcnt 1))
+                                       (incf pos))
+                                      ((char= c #\/)
+                                       (setf must-pad-p t)
+                                       (incf pos)))))))
+                     (option)
+                     (option))
+                   (unless (< pos length)
+                     (return))
+                   (let ((c (schar string pos)))
+                     (unless (char= c #\>)
+                       (return)))
+                   ;; Ok, done.
+                   (when (or must-pad-p (not (capability :xon-xoff terminfo)))
                      (when (let ((pb (capability :padding-baud-rate terminfo)))
-                             (and rate (or (null pb) (> rate pb))))
+                             (and baud-rate (or (null pb) (> baud-rate pb))))
                        (cond ((capability :no-pad-char terminfo)
-                              (finish-output stream)
-                              (sleep (/ time 10000.0)))
+                              (push (/ time 10000.0) strings-and-delays))
                              (t
                               (let ((tmp (capability :pad-char terminfo)))
-                                (when tmp (setf pad (schar tmp 0))))
-                              (dotimes (i (ceiling (* rate time) 100000))
-                                (princ pad stream))))))))
+                                (when tmp
+                                  (setf pad (schar tmp 0)))
+                                (let* ((count (ceiling (* time baud-rate multiply)
+                                                       (* 10 10000)))
+                                       (pad-string (make-string count :initial-element pad)))
+                                  (cond ((and strings-and-delays
+                                              (stringp (first strings-and-delays)))
+                                         (setf (first strings-and-delays)
+                                               (concatenate (first strings-and-delays)
+                                                            pad-string)))
+                                        (t
+                                         (push pad-string strings-and-delays)))))))))
+                   (setf start (1+ pos)))))))
+      (nreverse strings-and-delays))))
 
-                (t
-                 (princ c stream))))))
-    t))
 
 (defun set-terminal (&optional name)
   (setf *terminfo*
         (let ((name (or name (hemlock-ext:getenv "TERM") "dumb")))
           (or (load-terminfo name)
               (error "Failed to load terminfo data for: ~A" name)))))
+
+
