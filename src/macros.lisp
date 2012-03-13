@@ -409,8 +409,8 @@
         {( {( {tag}* )  |  tag}  help  {form}* )}*
         )
    Each tag is either a character or a logical key-event.  The user's typed
-   key-event is compared using either EXT:LOGICAL-KEY-EVENT-P or CHAR= of
-   EXT:KEY-EVENT-CHAR.
+   key-event is compared using either 'ext:logical-key-event-p or 'char= of
+   'ext:key-event-char.
 
    The legal keys of the key/value pairs are :help, :prompt, :change-window,
    and :bind.  See the manual for details."
