@@ -25,13 +25,37 @@
        (car hemlock::*master-machine-and-port*)
        (cadr hemlock::*master-machine-and-port*))
       (dispatch-events-no-hang)
-      (iter:iter
-       (iter:until hemlock.wire:*current-wire*)
-       (dispatch-events)
-       (write-line "Thread waiting for connection to master..."
-                   hemlock::*original-terminal-io*)
-       (force-output hemlock::*original-terminal-io*))
+      (do ()
+          ((not (eq hemlock.wire:*current-wire* :not-yet)))
+        (dispatch-events)
+        (write-line "Thread waiting for connection to master..."
+                    hemlock::*original-terminal-io*)
+        (force-output hemlock::*original-terminal-io*))
       (with-typeout-pop-up-in-master
           (*terminal-io* (format nil "Slave thread ~A"
                                  (bt:thread-name (bt:current-thread))))
         (call-with-standard-synonym-streams cont)))))
+
+;;; Setup an a connection to the editor for the current thread, and
+;;; create an editor buffer for I/O and return the client stream.
+(defun typeout-for-thread ()
+  (assert (or (not (boundp '*event-base*)) (not *event-base*)))
+  (setf *event-base* (make-event-loop *connection-backend*))
+  (setf hi::*in-hemlock-slave-p* t)
+  (let ((hemlock.wire:*current-wire* :not-yet))
+    (hemlock::connect-to-editor-for-background-thread
+     (car hemlock::*master-machine-and-port*)
+     (cadr hemlock::*master-machine-and-port*))
+    (dispatch-events-no-hang)
+    (do ()
+        ((not (eq hemlock.wire:*current-wire* :not-yet)))
+      (dispatch-events)
+      (write-line "Thread waiting for connection to master..."
+                  hemlock::*original-terminal-io*)
+      (force-output hemlock::*original-terminal-io*))
+    (let* ((name (format nil "Slave thread ~A"
+                         (bt:thread-name (bt:current-thread))))
+           (ts-data (hemlock.wire:remote-value hemlock.wire:*current-wire*
+                     (hemlock::%make-extra-typescript-buffer name))))
+      (hemlock::connect-stream ts-data hemlock.wire:*current-wire*))))
+
