@@ -15,28 +15,6 @@
 (pushnew :tty hi::*available-backends*)
 
 
-;;;; Terminal init and exit methods.
-
-(defmethod device-init ((device tty-device))
-  (setup-input)
-  (device-write-string (tty-device-init-string device))
-  (redisplay-all))
-
-(defmethod device-exit ((device tty-device))
-  (cursor-motion device 0 (1- (tty-device-lines device)))
-  ;; Can't call the clear-to-eol method since we don't have a hunk to
-  ;; call it on, and you can't count on the bottom hunk being the echo area.
-  ;;
-  (if (tty-device-clear-to-eol-string device)
-      (device-write-string (tty-device-clear-to-eol-string device))
-      (dotimes (i (tty-device-columns device)
-                  (cursor-motion device 0 (1- (tty-device-lines device))))
-        (tty-write-char #\space)))
-  (device-write-string (tty-device-cm-end-string device))
-  (device-force-output device)
-  (reset-input))
-
-
 ;;;; Get terminal attributes:
 
 (defvar *terminal-baud-rate* nil)
@@ -52,11 +30,27 @@
 ;;; the buffer is in a global.
 ;;;
 (defun get-terminal-attributes (&optional (fd 1))
-  (cffi:with-foreign-object (ws 'osicat-posix::winsize)
-    (osicat-posix:ioctl fd osicat-posix:tiocgwinsz ws)
-    (cffi:with-foreign-slots ((osicat-posix::row osicat-posix::col)
-                              ws osicat-posix::winsize)
-      (values osicat-posix::row osicat-posix::col 4800))))
+  (let ((baud-rate #+(or CMU scl)
+                   (alien:with-alien ((termios (alien:struct unix:termios)))
+                     (declare (optimize (ext:inhibit-warnings 3)))
+                     (when (unix:unix-tcgetattr fd termios)
+                       (let ((baud (logand unix:tty-cbaud
+                                           (alien:slot termios 'unix:c-cflag))))
+                         (if (< baud unix::tty-cbaudex)
+                             (aref #(0 50 75 110 134 150 200 300 600 1200
+                                     1800 2400 4800 9600 19200 38400)
+                                   baud)
+                             (aref #(57600 115200 230400 460800 500000 576000
+                                     921600 1000000 1152000 1500000 2000000
+                                     2500000 3000000 3500000 4000000)
+                                   (logxor baud unix::tty-cbaudex))))))
+                   #-(or CMU scl) 4800))
+    (setf *terminal-baud-rate* baud-rate)
+    (cffi:with-foreign-object (ws 'osicat-posix::winsize)
+      (osicat-posix:ioctl fd osicat-posix:tiocgwinsz ws)
+      (cffi:with-foreign-slots ((osicat-posix::row osicat-posix::col)
+                                ws osicat-posix::winsize)
+        (values osicat-posix::row osicat-posix::col baud-rate)))))
 
 
 ;;;; Output routines and buffering.
@@ -91,10 +85,12 @@
 ;;; the string is stored in the buffer.  The buffer is always dumped if
 ;;; it is full, even if the last piece of the string just fills the buffer.
 ;;;
-(defun tty-write-string (string start length)
-  (declare (fixnum start length))
+(defun tty-write-string (string &optional (start 0) length)
+  (declare (fixnum start)
+           (type (or fixnum null) length))
   (let ((buffer-space (- redisplay-output-buffer-length
-                         *redisplay-output-buffer-index*)))
+                         *redisplay-output-buffer-index*))
+        (length (or length (length string))))
     (declare (fixnum buffer-space))
     (cond ((<= length buffer-space)
            (let ((dst-index (+ *redisplay-output-buffer-index* length)))
@@ -167,6 +163,36 @@
     (write-and-maybe-wait redisplay-output-buffer-length)
     (setf *redisplay-output-buffer-index* 0)))
 
+;;; Write a terminfo string returned by 'tputs which is a list of
+;;; strings and delays.
+(defun tty-write-cmd (cmd)
+  (declare (type (or string list) cmd))
+  (etypecase cmd
+    (string
+     (tty-write-string cmd))
+    (list
+     (dolist (string-or-delay cmd)
+       (cond ((stringp string-or-delay)
+              (tty-write-string string-or-delay))
+             ((numberp string-or-delay)
+              ;; Not yet supported, but could pass the delay to the
+              ;; event handler.
+              ))))))
+
+;;; Return the total number of characters in the command list returned
+;;; by 'tputs.
+(defun tty-cmd-length (cmd)
+  (declare (type (or string list) cmd))
+  (etypecase cmd
+    (string
+     (length cmd))
+    (list
+     (let ((len 0))
+       (dolist (string-or-delay cmd)
+         (when (stringp string-or-delay)
+           (incf len (length string-or-delay))))
+       len))))
+
 
 ;;; TTY-FORCE-OUTPUT dumps the redisplay output buffer.  This is called
 ;;; out of terminal device structures in multiple places -- the device
@@ -185,6 +211,28 @@
   (declare (ignore window))
   (device-force-output device))
 
+
+
+;;;; Terminal init and exit methods.
+
+(defmethod device-init ((device tty-device))
+  (setup-input)
+  (tty-write-cmd (tty-device-init-string device))
+  (redisplay-all))
+
+(defmethod device-exit ((device tty-device))
+  (cursor-motion device 0 (1- (tty-device-lines device)))
+  ;; Can't call the clear-to-eol method since we don't have a hunk to
+  ;; call it on, and you can't count on the bottom hunk being the echo area.
+  ;;
+  (if (tty-device-clear-to-eol-string device)
+      (tty-write-cmd (tty-device-clear-to-eol-string device))
+      (dotimes (i (tty-device-columns device)
+                  (cursor-motion device 0 (1- (tty-device-lines device))))
+        (tty-write-char #\space)))
+  (tty-write-cmd (tty-device-cm-end-string device))
+  (device-force-output device)
+  (reset-input))
 
 
 ;;;; Screen image line hacks.
