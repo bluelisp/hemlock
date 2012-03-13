@@ -542,10 +542,11 @@
                                   first-changed last-changed
                                   (tty-hunk-modeline-pos hunk))
               (let ((ratio (variable-value 'hemlock::scroll-redraw-ratio)))
-                (cond ((and ratio
-                            (> (/ (insert-line-count ins)
-                                  (tty-hunk-text-height hunk))
-                               ratio))
+                (cond ((or (not (tty-device-delete-line device))
+                           (and ratio
+                                (> (/ (insert-line-count ins)
+                                      (tty-hunk-text-height hunk))
+                                   ratio)))
                        (do-semi-dumb-line-writes first-changed last-changed
                                                  hunk))
                       (t
@@ -953,7 +954,7 @@
 ;;; Clearing the device (DEVICE-CLEAR functions).
 
 (defmethod device-clear ((device tty-device))
-  (device-write-string (tty-device-clear-string device))
+  (tty-write-cmd (tty-device-clear-string device))
   (cursor-motion device 0 0)
   (setf (tty-device-cursor-x device) 0)
   (setf (tty-device-cursor-y device) 0))
@@ -993,8 +994,9 @@
 ;;; we send first x and then y.
 ;;;
 (defun cursor-motion (device x y)
-  (device-write-string
-   (hemlock.terminfo:tparm hemlock.terminfo:cursor-address y x)))
+  (tty-write-cmd
+   (hemlock.terminfo:tputs
+    (hemlock.terminfo:tparm hemlock.terminfo:cursor-address y x))))
 
 ;;; CM-OUTPUT-COORDINATE outputs the coordinate with respect to the pad.  If
 ;;; there is a pad, then the coordinate needs to be sent as digit-char's (for
@@ -1031,18 +1033,35 @@
 ;;; Font attribute support: color, bold.
 
 (defun setaf (color)
-  (device-write-string
-   (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))
+  (when hemlock.terminfo:set-a-foreground
+    (tty-write-cmd
+     (hemlock.terminfo:tputs
+      (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))))
 
 (defun setab (color)
-  (device-write-string
-   (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))
+  (when hemlock.terminfo:set-a-background
+    (tty-write-cmd
+     (hemlock.terminfo:tputs
+      (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))))
 
 (defun enter-bold-mode ()
-  (device-write-string hemlock.terminfo:enter-bold-mode))
+  (when hemlock.terminfo:enter-bold-mode
+    (tty-write-cmd
+     (hemlock.terminfo:tputs hemlock.terminfo:enter-bold-mode))))
+
+(defun enter-italics-mode ()
+  (when hemlock.terminfo:enter-italics-mode
+    (tty-write-cmd
+     (hemlock.terminfo:tputs hemlock.terminfo:enter-italics-mode))))
+
+(defun enter-underline-mode ()
+  (when hemlock.terminfo:enter-underline-mode
+    (tty-write-cmd
+     (hemlock.terminfo:tputs hemlock.terminfo:enter-underline-mode))))
 
 (defun exit-attribute-mode ()
-  (device-write-string hemlock.terminfo:exit-attribute-mode))
+  (tty-write-cmd
+   (hemlock.terminfo:tputs hemlock.terminfo:exit-attribute-mode)))
 
 (defvar *terminal-has-colors* :unknown)
 
@@ -1092,6 +1111,12 @@
                        (let ((boldp (and (listp font) (getf font :bold))))
                          (when boldp
                            (enter-bold-mode)))
+                       (let ((italicp (and (listp font) (getf font :italic))))
+                         (when italicp
+                           (enter-italics-mode)))
+                       (let ((underlinep (and (listp font) (getf font :underline))))
+                         (when underlinep
+                           (enter-underline-mode)))
                        (device-write-string string posn new-posn))
                    (exit-attribute-mode)))
                 (t
@@ -1159,7 +1184,7 @@
 
 (defun clear-to-eol (hunk x y)
   (update-cursor hunk x y)
-  (device-write-string
+  (tty-write-cmd
    (tty-device-clear-to-eol-string (device-hunk-device hunk))))
 
 (defun space-to-eol (hunk x y)
@@ -1196,12 +1221,12 @@
 (defun open-tty-line (hunk x y &optional (n 1))
   (update-cursor hunk x y)
   (dotimes (i n)
-    (device-write-string (tty-device-open-line-string (device-hunk-device hunk)))))
+    (tty-write-cmd (tty-device-open-line-string (device-hunk-device hunk)))))
 
 (defun delete-tty-line (hunk x y &optional (n 1))
   (update-cursor hunk x y)
   (dotimes (i n)
-    (device-write-string (tty-device-delete-line-string (device-hunk-device hunk)))))
+    (tty-write-cmd (tty-device-delete-line-string (device-hunk-device hunk)))))
 
 
 ;;; Insert and Delete modes (TTY-DEVICE-INSERT-STRING and TTY-DEVICE-DELETE-CHAR)
@@ -1215,19 +1240,17 @@
          (char-init-string (tty-device-insert-char-init-string device))
          (char-end-string (tty-device-insert-char-end-string device))
          (end-string (tty-device-insert-end-string device)))
-    (declare (type (or simple-string null) char-init-string char-end-string))
-    (when init-string (device-write-string init-string))
+    (declare (type (or simple-string list) char-init-string char-end-string))
+    (when init-string (tty-write-cmd init-string))
     (if char-init-string
-        (let ((cis-len (length char-init-string))
-              (ces-len (length char-end-string)))
-          (do ((i start (1+ i)))
-              ((= i end))
-            (device-write-string char-init-string 0 cis-len)
-            (tty-write-char (schar string i))
-            (when char-end-string
-              (device-write-string char-end-string 0 ces-len))))
+        (do ((i start (1+ i)))
+            ((= i end))
+          (tty-write-cmd char-init-string)
+          (tty-write-char (schar string i))
+          (when char-end-string
+            (tty-write-cmd char-end-string)))
         (device-write-string string start end))
-    (when end-string (device-write-string end-string))
+    (when end-string (tty-write-cmd end-string))
     (setf (tty-device-cursor-x device)
           (the fixnum (+ x (the fixnum (- end start)))))))
 
@@ -1237,15 +1260,16 @@
          (char-end-string (tty-device-insert-char-end-string device))
          (end-string (tty-device-insert-end-string device))
          (cost 0))
-    (when init-string (incf cost (length (the simple-string init-string))))
+    (when init-string
+      (incf cost (tty-cmd-length (the simple-string init-string))))
     (when char-init-string
-      (incf cost (* insert-char-num (+ (length (the simple-string
-                                                    char-init-string))
-                                       (if char-end-string
-                                           (length (the simple-string
-                                                        char-end-string))
-                                           0)))))
-    (when end-string (incf cost (length (the simple-string end-string))))
+      (incf cost (* insert-char-num
+                    (+ (tty-cmd-length (the simple-string char-init-string))
+                       (if char-end-string
+                           (tty-cmd-length (the simple-string char-end-string))
+                           0)))))
+    (when end-string
+      (incf cost (tty-cmd-length (the simple-string end-string))))
     (< cost chars-saved)))
 
 (defun delete-char (hunk x y &optional (n 1))
@@ -1255,10 +1279,10 @@
          (init-string (tty-device-delete-init-string device))
          (end-string (tty-device-delete-end-string device))
          (delete-char-string (tty-device-delete-char-string device)))
-    (when init-string (device-write-string init-string))
+    (when init-string (tty-write-cmd init-string))
     (dotimes (i n)
-      (device-write-string delete-char-string))
-    (when end-string (device-write-string end-string))))
+      (tty-write-cmd delete-char-string))
+    (when end-string (tty-write-cmd end-string))))
 
 (defun worth-using-delete-mode (device delete-char-num clear-char-num)
   (declare (fixnum delete-char-num clear-char-num))
@@ -1267,26 +1291,28 @@
         (delete-char-string (tty-device-delete-char-string device))
         (clear-to-eol-string (tty-device-clear-to-eol-string device))
         (cost 0))
-    (declare (type (or simple-string null) init-string end-string
+    (declare (type (or simple-string list) init-string end-string
                    delete-char-string)
              (fixnum cost))
-    (when init-string (incf cost (the fixnum (length init-string))))
-    (when end-string (incf cost (the fixnum (length end-string))))
+    (when init-string
+      (incf cost (the fixnum (tty-cmd-length init-string))))
+    (when end-string
+      (incf cost (the fixnum (tty-cmd-length end-string))))
     (incf cost (the fixnum
-                    (* (the fixnum (length delete-char-string))
-                       delete-char-num)))
+                 (* (the fixnum (tty-cmd-length delete-char-string))
+                    delete-char-num)))
     (< cost (+ delete-char-num
                (if clear-to-eol-string
-                   (length clear-to-eol-string)
+                   (tty-cmd-length clear-to-eol-string)
                    clear-char-num)))))
 
 
 ;;; Standout mode (TTY-DEVICE-STANDOUT-INIT and TTY-DEVICE-STANDOUT-END)
 
 (defun standout-init (hunk)
-  (device-write-string
+  (tty-write-cmd
    (tty-device-standout-init-string (device-hunk-device hunk))))
 
 (defun standout-end (hunk)
-  (device-write-string
+  (tty-write-cmd
    (tty-device-standout-end-string (device-hunk-device hunk))))
