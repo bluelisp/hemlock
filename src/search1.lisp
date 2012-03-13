@@ -191,7 +191,7 @@
              (setq scan (,-/+ scan 1)  patp (1- patp))))
         (t
          ;; If mismatch consult jump table to find amount to skip.
-         (let ((jump (svref ,jumps (search-char-code char))))
+         (let ((jump (svref ,jumps (char-code char))))
            (declare (fixnum jump))
            (if (> jump (- ,patlen patp))
                (setq scan (,+/- scan jump))
@@ -567,7 +567,7 @@
       (setf (string-sensitive-string old) string)
       (setf (string-sensitive-jumps old)
             (compute-boyer-moore-jumps
-             string #'(lambda (v i) (search-char-code (svref v i)))))
+             string #'(lambda (v i) (char-code (svref v i)))))
       (setf (search-pattern-reclaim-function old)
             #'(lambda (p)
                 (dispose-search-jump-vector (string-sensitive-jumps p)))))))
