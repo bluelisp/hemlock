@@ -26,13 +26,20 @@
 
 ;;;; Creating, Deleting, and Moving.
 
+;;; Could do more checking here.
+(defun valid-font-p (font)
+  (cond ((integerp font)
+         (and (>= font 0) (< font font-map-size)))
+        ((listp font)
+         t)))
+
 (defun font-mark (line charpos font &optional (kind :right-inserting))
   "Returns a font on line at charpos with font.  Font marks must be permanent
    marks."
   (unless (or (eq kind :right-inserting) (eq kind :left-inserting))
     (error "A Font-Mark must be :left-inserting or :right-inserting."))
-  (unless (and (>= font 0) (< font font-map-size))
-    (error "Font number ~S out of range." font))
+  (unless (valid-font-p font)
+    (error "Invalid font: ~S" font))
   (let ((new (internal-make-font-mark line charpos kind font)))
     (new-font-mark new line)
     (push new (line-marks line))
@@ -94,8 +101,8 @@
 
 (defun (setf window-font) (font-object window font)
   "Change the font-object associated with a font-number in a window."
-  (unless (and (>= font 0) (< font font-map-size))
-    (error "Font number ~S out of range." font))
+  (unless (valid-font-p font)
+    (error "Invalid font: ~S" font))
   (setf (bitmap-hunk-trashed (window-hunk window)) :font-change)
   (let ((family (bitmap-hunk-font-family (window-hunk window))))
     (when (eq family *default-font-family*)
@@ -110,8 +117,8 @@
 
 (defun (setf default-font) (font-object font)
   "Change the font-object associated with a font-number in new windows."
-  (unless (and (>= font 0) (< font font-map-size))
-    (error "Font number ~S out of range." font))
+  (unless (valid-font-p font)
+    (error "Invalid font: ~S" font))
   (dolist (w *window-list*)
     (when (eq (bitmap-hunk-font-family (window-hunk w)) *default-font-family*)
       (setf (bitmap-hunk-trashed (window-hunk w)) :font-change)))
