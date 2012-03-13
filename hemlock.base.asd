@@ -72,7 +72,8 @@
                (:file "struct" :depends-on ("package"))
                #+port-core-struct-ed (:file "struct-ed" :depends-on ("package"))
                (:file "charmacs" :depends-on ("package"))
-               (:file "key-event" :depends-on ("package" "charmacs"))))
+               (:file "key-event" :depends-on ("package" "charmacs"))
+               ))
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -115,7 +116,8 @@
                (:file "cursor")
                (:file "display")
                (:file "exp-syntax")
-               (:file "repl" :depends-on ("macros" "rompsite"))))
+               (:file "connections")
+               (:file "repl" :depends-on ("macros" "rompsite" "connections"))))
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
@@ -197,6 +199,7 @@
 
                (:file "comments")
                (:file "overwrite")
+               #+nil ; port to new event model.
                (:file "abbrev")
                (:file "icom")
                (:file "defsyn")
@@ -234,5 +237,4 @@
                            *hemlock-base-directory*)
               :depends-on (core-1)
               :components
-              ((:file "connections")
-               (:file "clbuild")))))
+              ((:file "clbuild")))))
