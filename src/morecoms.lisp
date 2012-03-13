@@ -752,6 +752,21 @@
 
 
 
+
+;;; GET-COUNT-REGION -- Internal Interface.
+;;;
+;;; Returns the active region or the region between point and end-of-buffer.
+;;; As a second value, it returns whether the region was active.
+;;;
+;;; Some searching commands use this routine.
+;;;
+(defun get-count-region ()
+  (if (region-active-p)
+      (values (current-region) t)
+      (values (region (current-point) (buffer-end-mark (current-buffer)))
+              nil)))
+
+
 ;;;; Counting some stuff
 
 (defcommand "Count Lines Page" (p)
@@ -807,20 +822,6 @@
             (incf word-count))
           (message "~:[After point~;Active region~]: ~D Word~:P"
                    activep word-count))))))
-
-;;; GET-COUNT-REGION -- Internal Interface.
-;;;
-;;; Returns the active region or the region between point and end-of-buffer.
-;;; As a second value, it returns whether the region was active.
-;;;
-;;; Some searching commands use this routine.
-;;;
-(defun get-count-region ()
-  (if (region-active-p)
-      (values (current-region) t)
-      (values (region (current-point) (buffer-end-mark (current-buffer)))
-              nil)))
-
 
 
 ;;;; Some modes:
