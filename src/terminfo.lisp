@@ -881,6 +881,7 @@
 ;;; Handle the delay sequence $<...> with terminfo strings.  Padding
 ;;; characters are used if possible, otherwise a list strings and
 ;;; delays in milliseconds is returned.
+(declaim (special hi::*terminal-baud-rate*))
 (defun tputs (string &key (terminfo *terminfo*)
               (baud-rate hi::*terminal-baud-rate*)
               (affcnt 1))
@@ -893,7 +894,10 @@
         (let ((found (search "$<" string :start2 start)))
           (cond ((not found)
                  ;; Done
-                 (push (subseq string start) strings-and-delays)
+                 (cond ((= start 0)
+                        (push string strings-and-delays))
+                       ((< start length)
+                        (push (subseq string start) strings-and-delays)))
                  (return))
                 (t
                  (when (> found start)
