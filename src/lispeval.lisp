@@ -811,14 +811,16 @@
                (pre-command-parse-check start)
                (with-mark ((end start))
                  (unless (form-offset end 1) (editor-error))
-                 (with-pop-up-display (s)
-                   (write-string
-                    (eval-form-in-server-1
-                     (get-current-eval-server)
-                     (format nil "(prin1-to-string (~S (read-from-string ~S)))"
-                             (if p 'macroexpand 'macroexpand-1)
-                             (region-to-string (region start end))))
-                    s)))))))))
+                 (let ((package (package-at-point)))
+                   (with-pop-up-display (s)
+                     (write-string
+                      (eval-form-in-server-1
+                       (get-current-eval-server)
+                       (format nil "(prin1-to-string (~S (read-from-string ~S)))"
+                               (if p 'macroexpand 'macroexpand-1)
+                               (region-to-string (region start end)))
+                       package)
+                      s))))))))))
 
 (defcommand "Evaluate Expression" (p)
   "Prompt for an expression to evaluate."
@@ -1187,12 +1189,14 @@
       (with-mark ((mark1 (current-point))
                   (mark2 (current-point)))
         (mark-symbol mark1 mark2)
-        (with-pop-up-display (s)
-          (write-string (eval-form-in-server-1
-                         info
-                         (format nil "(hemlock::describe-symbol-aux '~A)"
-                                 (region-to-string (region mark1 mark2))))
-                        s)))))))
+        (let ((package (package-at-point)))
+          (with-pop-up-display (s)
+            (write-string (eval-form-in-server-1
+                           info
+                           (format nil "(hemlock::describe-symbol-aux '~A)"
+                                   (region-to-string (region mark1 mark2)))
+                           package)
+                          s))))))))
 
 (defun describe-symbol-aux (thing)
   (with-output-to-string (*standard-output*)
