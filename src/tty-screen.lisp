@@ -145,55 +145,60 @@
           (end-insert-char (termcap :end-insert-char)))
       (when (and init-insert-mode (string/= init-insert-mode ""))
         (setf (tty-device-insert-string device) #'tty-insert-string)
-        (setf (tty-device-insert-init-string device) init-insert-mode)
+        (setf (tty-device-insert-init-string device)
+              (hemlock.terminfo:tputs init-insert-mode))
         (setf (tty-device-insert-end-string device)
               (termcap :end-insert-mode)))
       (when init-insert-char
         (setf (tty-device-insert-string device) #'tty-insert-string)
-        (setf (tty-device-insert-char-init-string device) init-insert-char))
+        (setf (tty-device-insert-char-init-string device)
+              (hemlock.terminfo:tputs init-insert-char)))
       (when (and end-insert-char (string/= end-insert-char ""))
-        (setf (tty-device-insert-char-end-string device) end-insert-char)))
+        (setf (tty-device-insert-char-end-string device)
+              (hemlock.terminfo:tputs end-insert-char))))
     (let ((delete-char (termcap :delete-char)))
       (when delete-char
         (setf (tty-device-delete-char device) #'delete-char)
-        (setf (tty-device-delete-char-string device) delete-char)
+        (setf (tty-device-delete-char-string device)
+              (hemlock.terminfo:tputs delete-char))
         (setf (tty-device-delete-init-string device)
-              (termcap :init-delete-mode))
+              (hemlock.terminfo:tputs (termcap :init-delete-mode)))
         (setf (tty-device-delete-end-string device)
-              (termcap :end-delete-mode))))
+              (hemlock.terminfo:tputs (termcap :end-delete-mode)))))
     ;;
     ;; Some string slots.
     (setf (tty-device-standout-init-string device)
-          (or (termcap :init-standout-mode) ""))
+          (or (hemlock.terminfo:tputs (termcap :init-standout-mode)) ""))
     (setf (tty-device-standout-end-string device)
-          (or (termcap :end-standout-mode) ""))
+          (or (hemlock.terminfo:tputs (termcap :end-standout-mode)) ""))
     (setf (tty-device-clear-to-eol-string device)
-          (termcap :clear-to-eol))
+          (hemlock.terminfo:tputs (termcap :clear-to-eol)))
     (let ((clear-string (termcap :clear-display)))
       (unless clear-string
         (error "Terminal not sufficiently powerful enough to run Hemlock."))
-      (setf (tty-device-clear-string device) clear-string))
+      (setf (tty-device-clear-string device) (hemlock.terminfo:tputs clear-string)))
     (setf (tty-device-open-line-string device)
-          (termcap :open-line))
+          (hemlock.terminfo:tputs (termcap :open-line)))
     (setf (tty-device-delete-line-string device)
-          (termcap :delete-line))
+          (hemlock.terminfo:tputs (termcap :delete-line)))
     (let* ((init-string (termcap :init-string))
            (init-file (termcap :init-file))
            (init-file-string (if init-file (get-init-file-string init-file)))
            (init-cm-string (termcap :init-cursor-motion)))
       (setf (tty-device-init-string device)
-            (concatenate 'simple-string
-                         (or init-string "")
-                         (or init-file-string "")
-                         (or init-cm-string "")
-                         ;; Transmit-mode: this makes arrow-keys give sequences matching
-                         ;; the terminfo db.
-                         hemlock.terminfo:keypad-xmit)))
+            (hemlock.terminfo:tputs (concatenate 'simple-string
+                                (or init-string "")
+                                (or init-file-string "")
+                                (or init-cm-string "")
+                                ;; Transmit-mode: this makes arrow-keys give sequences matching
+                                ;; the terminfo db.
+                                hemlock.terminfo:keypad-xmit))))
     (setf (tty-device-cm-end-string device)
-          (concatenate 'simple-string
-                       (or (termcap :end-cursor-motion) "")
-                       ;; Exit transmit-mode.
-                       hemlock.terminfo:keypad-local))
+          (hemlock.terminfo:tputs
+           (concatenate 'simple-string
+                        (or (termcap :end-cursor-motion) "")
+                        ;; Exit transmit-mode.
+                        hemlock.terminfo:keypad-local)))
     ;;
     ;; Screen image initialization.
     (set-up-screen-image device)
