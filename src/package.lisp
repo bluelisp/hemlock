@@ -85,6 +85,7 @@
    #:buffer-modes
    #:buffer-windows
    #:buffer-delete-hook
+   #:buffer-undo-p
    #:delete-buffer
    #:delete-buffer-if-possible
    #:make-modeline-field
