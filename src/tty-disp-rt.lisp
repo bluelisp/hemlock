@@ -251,6 +251,9 @@
 (defvar *old-c-lflag*)
 (defvar *old-c-cc*)
 
+;;; The TTY erase character.
+(defvar *tty-erase-char* nil)
+
 (defun setup-input ()
   (let ((fd 1 #+nil *editor-file-descriptor*))
     (when (plusp (osicat-posix::isatty fd))
@@ -286,26 +289,28 @@
                             (logior osicat-posix::tty-echo
                                     osicat-posix::tty-icanon)))
             (setf osicat-posix::iflag
-                  (logandc2 osicat-posix::iflag
+                  (logandc2 (logior osicat-posix::iflag
+                                    osicat-posix::tty-ignbrk)
                             (logior osicat-posix::tty-icrnl
+                                    osicat-posix::tty-istrip
                                     osicat-posix::tty-ixon)))
             (setf osicat-posix::oflag
                   (logandc2 osicat-posix::oflag
-                            #-bsd osicat-posix::tty-ocrnl
-                            #+bsd osicat-posix::tty-onlcr))
-            (setf (ccref osicat-posix::cflag-vsusp) #xff)
-            (setf (ccref osicat-posix::cflag-veof) #xff)
-            (setf (ccref osicat-posix::cflag-verase) 127) ;DEL
+                            (logior #-bsd osicat-posix::tty-ocrnl
+                                    osicat-posix::tty-onlcr)))
+            (setf (ccref osicat-posix::cflag-vsusp) osicat-posix::posix-vdisable)
+            (setf (ccref osicat-posix::cflag-veof) osicat-posix::posix-vdisable)
+            (setf *tty-erase-char* (ccref osicat-posix::cflag-verase))
             (setf (ccref osicat-posix::cflag-vintr)
-                  (if *editor-windowed-input* #xff 28))
-            (setf (ccref osicat-posix::cflag-vquit) #xff)
-            (setf (ccref osicat-posix::cflag-vstart) #xff)
-            (setf (ccref osicat-posix::cflag-vstop) #xff)
-            (setf (ccref osicat-posix::cflag-vsusp) #xff)
+                  (if *editor-windowed-input* osicat-posix::posix-vdisable 28))
+            (setf (ccref osicat-posix::cflag-vquit) osicat-posix::posix-vdisable)
+            (setf (ccref osicat-posix::cflag-vstart) osicat-posix::posix-vdisable)
+            (setf (ccref osicat-posix::cflag-vstop) osicat-posix::posix-vdisable)
+            (setf (ccref osicat-posix::cflag-vsusp) osicat-posix::posix-vdisable)
             (when (boundp 'osicat-posix::cflag-vdsusp)
               ;; Default VDSUSP is C-y; it causes SIGTSTP on BSD-heritage
               ;; systems -- but may be undefined elsewhere.
-              (setf (ccref osicat-posix::cflag-vdsusp) #xff))
+              (setf (ccref osicat-posix::cflag-vdsusp) osicat-posix::posix-vdisable))
             (setf (ccref osicat-posix::cflag-vmin) 1)
             (setf (ccref osicat-posix::cflag-vtime) 0))
           (osicat-posix::tcsetattr fd osicat-posix::tcsaflush tios))))))
