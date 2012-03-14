@@ -297,7 +297,7 @@
             (setf osicat-posix::oflag
                   (logandc2 osicat-posix::oflag
                             (logior #-bsd osicat-posix::tty-ocrnl
-                                    osicat-posix::tty-onlcr)))
+                                    #+bsd osicat-posix::tty-onlcr)))
             (setf (ccref osicat-posix::cflag-vsusp) osicat-posix::posix-vdisable)
             (setf (ccref osicat-posix::cflag-veof) osicat-posix::posix-vdisable)
             (setf *tty-erase-char* (ccref osicat-posix::cflag-verase))
