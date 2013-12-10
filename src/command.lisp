@@ -392,7 +392,7 @@
          (function (command-function (getstring name *command-names*))))
     (funcall function p)))
 
-(defcommand "Eval Expresion" (p)
+(defcommand "Eval Expression" (p)
   "" ""
   (declare (ignore p))
   (message "~S" (eval (prompt-for-expression))))
