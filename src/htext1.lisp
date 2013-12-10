@@ -40,7 +40,7 @@
 ;;;     Right-Open-Pos: index of first used character after the gap
 ;;;
 ;;; Note:
-;;;    Any modificiation of the line cache must be protected by
+;;;    Any modification of the line cache must be protected by
 ;;; Without-Interrupts.  This is done automatically by modifying-buffer; other
 ;;; users beware.
 
