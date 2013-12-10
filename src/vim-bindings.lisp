@@ -48,18 +48,23 @@
        body)))
 
 
-(setf (key-translation #k"control-^") nil)
-(setf (key-translation #k"escape") nil)
-
 
 (defcommand "Into Normal Mode" (p)
   "puts the buffer into Normal mode"
   "puts the buffer into Normal mode"
   (setf (buffer-major-mode (current-buffer))
-        "vim-normal")
-  (setf (buffer-minor-mode
+        "vim-normal"
+        (key-translation #k"control-^") 
+        nil
+        (key-translation #k"escape")
+        nil
+        (buffer-minor-mode
           (current-buffer)
           "vim-normal-count") T))
+
+(bind-key "Into Normal Mode" #k"control-v")
+
+
 (defcommand "Into Normal/0 Mode" (p)
   "puts the buffer into Normal/0 mode"
   "puts the buffer into Normal/0 mode"
