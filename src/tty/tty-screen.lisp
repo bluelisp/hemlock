@@ -86,123 +86,127 @@
 
 
 
-;;;; Building devices from termcaps.
+;;;; Building devices from terminfo.
 
-;;; MAKE-TTY-DEVICE returns a device built from a termcap.  Some function
+;;; MAKE-TTY-DEVICE returns a device built from terminfo.  Some function
 ;;; slots are set to the appropriate function even though the capability
 ;;; might not exist; in this case, we simply set the control string value
 ;;; to the empty string.  Some function slots are set differently depending
 ;;; on available capability.
 ;;;
 (defun make-tty-device (name)
-  (hemlock.terminfo:set-terminal)
-  (register-tty-translations)
-  (let ((device (%make-tty-device :name name)))
-    (when (termcap :overstrikes)
-      (error "Terminal sufficiently irritating -- not currently supported."))
-    ;;
-    ;; A few useful values.
-    (setf (tty-device-dumbp device)
-          (not (and (termcap :open-line)
-                    (termcap :delete-line))))
-    ;;
-    ;; Get size and speed.
-    (multiple-value-bind  (lines cols speed)
-                          (get-terminal-attributes)
-      (setf (tty-device-lines device) (or lines (termcap :lines)))
-      (let ((cols (or cols (termcap :columns))))
-        (setf (tty-device-columns device)
-              (if hemlock.terminfo:auto-right-margin (1- cols) cols)))
-      (setf (tty-device-speed device) speed))
-    ;;
-    ;; Some function slots.
-    (setf (tty-device-display-string device)
-          (if (termcap :underlines)
-              #'display-string-checking-underlines
-              #'display-string))
-    (setf (tty-device-standout-init device) #'standout-init)
-    (setf (tty-device-standout-end device) #'standout-end)
-    (setf (tty-device-open-line device)
-          (if (termcap :open-line)
-              #'open-tty-line
-              ;; look for scrolling region stuff
-              ))
-    (setf (tty-device-delete-line device)
-          (if (termcap :delete-line)
-              #'delete-tty-line
-              ;; look for reverse scrolling stuff
-              ))
-    (setf (tty-device-clear-to-eol device)
-          (if (termcap :clear-to-eol)
-              #'clear-to-eol
-              #'space-to-eol))
-    (setf (tty-device-clear-lines device) #'clear-lines)
-    (setf (tty-device-clear-to-eow device) #'clear-to-eow)
-    ;;
-    ;; Insert and delete modes.
-    (let ((init-insert-mode (termcap :init-insert-mode))
-          (init-insert-char (termcap :init-insert-char))
-          (end-insert-char (termcap :end-insert-char)))
-      (when (and init-insert-mode (string/= init-insert-mode ""))
-        (setf (tty-device-insert-string device) #'tty-insert-string)
-        (setf (tty-device-insert-init-string device)
-              (hemlock.terminfo:tputs init-insert-mode))
-        (setf (tty-device-insert-end-string device)
-              (termcap :end-insert-mode)))
-      (when init-insert-char
-        (setf (tty-device-insert-string device) #'tty-insert-string)
-        (setf (tty-device-insert-char-init-string device)
-              (hemlock.terminfo:tputs init-insert-char)))
-      (when (and end-insert-char (string/= end-insert-char ""))
-        (setf (tty-device-insert-char-end-string device)
-              (hemlock.terminfo:tputs end-insert-char))))
-    (let ((delete-char (termcap :delete-char)))
-      (when delete-char
-        (setf (tty-device-delete-char device) #'delete-char)
-        (setf (tty-device-delete-char-string device)
-              (hemlock.terminfo:tputs delete-char))
-        (setf (tty-device-delete-init-string device)
-              (hemlock.terminfo:tputs (termcap :init-delete-mode)))
-        (setf (tty-device-delete-end-string device)
-              (hemlock.terminfo:tputs (termcap :end-delete-mode)))))
-    ;;
-    ;; Some string slots.
-    (setf (tty-device-standout-init-string device)
-          (or (hemlock.terminfo:tputs (termcap :init-standout-mode)) ""))
-    (setf (tty-device-standout-end-string device)
-          (or (hemlock.terminfo:tputs (termcap :end-standout-mode)) ""))
-    (setf (tty-device-clear-to-eol-string device)
-          (hemlock.terminfo:tputs (termcap :clear-to-eol)))
-    (let ((clear-string (termcap :clear-display)))
-      (unless clear-string
-        (error "Terminal not sufficiently powerful enough to run Hemlock."))
-      (setf (tty-device-clear-string device) (hemlock.terminfo:tputs clear-string)))
-    (setf (tty-device-open-line-string device)
-          (hemlock.terminfo:tputs (termcap :open-line)))
-    (setf (tty-device-delete-line-string device)
-          (hemlock.terminfo:tputs (termcap :delete-line)))
-    (let* ((init-string (termcap :init-string))
-           (init-file (termcap :init-file))
-           (init-file-string (if init-file (get-init-file-string init-file)))
-           (init-cm-string (termcap :init-cursor-motion)))
-      (setf (tty-device-init-string device)
-            (hemlock.terminfo:tputs (concatenate 'simple-string
-                                (or init-string "")
-                                (or init-file-string "")
-                                (or init-cm-string "")
-                                ;; Transmit-mode: this makes arrow-keys give sequences matching
-                                ;; the terminfo db.
-                                hemlock.terminfo:keypad-xmit))))
-    (setf (tty-device-cm-end-string device)
-          (hemlock.terminfo:tputs
-           (concatenate 'simple-string
-                        (or (termcap :end-cursor-motion) "")
-                        ;; Exit transmit-mode.
-                        hemlock.terminfo:keypad-local)))
-    ;;
-    ;; Screen image initialization.
-    (set-up-screen-image device)
-    device))
+  (let* ((terminfo (terminfo:set-terminal))
+         (device (%make-tty-device :name name :terminfo terminfo)))
+    (register-tty-translations terminfo)
+    (macrolet ((ticap (cap) `(ti:capability ,cap (tty-device-terminfo device)))
+               (tiputs (cmd) `(ti:tputs ,cmd :baud-rate (tty-device-speed device)
+                                        :terminfo (tty-device-terminfo device))))
+      (when (ticap :over-strike)
+        (error "Terminal sufficiently irritating -- not currently supported."))
+      ;;
+      ;; A few useful values.
+      (setf (tty-device-dumbp device)
+            (not (and (ticap :insert-line)
+                      (ticap :delete-line))))
+      ;;
+      ;; Get size and speed.
+      (multiple-value-bind  (lines cols speed)
+          (get-terminal-attributes)
+        (setf (tty-device-lines device) (or lines (ticap :lines)))
+        (let ((cols (or cols (ticap :columns))))
+          (setf (tty-device-columns device)
+                (if (ticap :auto-right-margin)
+                    (1- cols) cols)))
+        (setf (tty-device-speed device) speed))
+      ;;
+      ;; Some function slots.
+      (setf (tty-device-display-string device)
+            (if (ticap :transparent-underline)
+                #'display-string-checking-underlines
+                #'display-string))
+      (setf (tty-device-standout-init device) #'standout-init)
+      (setf (tty-device-standout-end device) #'standout-end)
+      (setf (tty-device-open-line device)
+            (if (ticap :insert-line)
+                #'open-tty-line
+                ;; look for scrolling region stuff
+                ))
+      (setf (tty-device-delete-line device)
+            (if (ticap :delete-line)
+                #'delete-tty-line
+                ;; look for reverse scrolling stuff
+                ))
+      (setf (tty-device-clear-to-eol device)
+            (if (ticap :clr-eol)
+                #'clear-to-eol
+                #'space-to-eol))
+      (setf (tty-device-clear-lines device) #'clear-lines)
+      (setf (tty-device-clear-to-eow device) #'clear-to-eow)
+      ;;
+      ;; Insert and delete modes.
+      (let ((init-insert-mode (ticap :enter-insert-mode))
+            (init-insert-char (ticap :insert-character))
+            (end-insert-char (ticap :insert-padding)))
+        (when (and init-insert-mode (string/= init-insert-mode ""))
+          (setf (tty-device-insert-string device) #'tty-insert-string)
+          (setf (tty-device-insert-init-string device)
+                (tiputs init-insert-mode))
+          (setf (tty-device-insert-end-string device)
+                (ticap :exit-insert-mode)))
+        (when init-insert-char
+          (setf (tty-device-insert-string device) #'tty-insert-string)
+          (setf (tty-device-insert-char-init-string device)
+                (tiputs init-insert-char)))
+        (when (and end-insert-char (string/= end-insert-char ""))
+          (setf (tty-device-insert-char-end-string device)
+                (tiputs end-insert-char))))
+      (let ((delete-char (ticap :delete-character)))
+        (when delete-char
+          (setf (tty-device-delete-char device) #'delete-char)
+          (setf (tty-device-delete-char-string device)
+                (tiputs delete-char))
+          (setf (tty-device-delete-init-string device)
+                (tiputs (ticap :enter-delete-mode)))
+          (setf (tty-device-delete-end-string device)
+                (tiputs (ticap :exit-delete-mode)))))
+      ;;
+      ;; Some string slots.
+      (setf (tty-device-standout-init-string device)
+            (or (tiputs (ticap :enter-standout-mode)) ""))
+      (setf (tty-device-standout-end-string device)
+            (or (tiputs (ticap :exit-standout-mode)) ""))
+      (setf (tty-device-clear-to-eol-string device)
+            (tiputs (ticap :clr-eol)))
+      (let ((clear-string (ticap :clear-screen)))
+        (unless clear-string
+          (error "Terminal not sufficiently powerful enough to run Hemlock."))
+        (setf (tty-device-clear-string device) (tiputs clear-string)))
+      (setf (tty-device-open-line-string device)
+            (tiputs (ticap :insert-line)))
+      (setf (tty-device-delete-line-string device)
+            (tiputs (ticap :delete-line)))
+      (let* ((init-string (ticap :init-2string))
+             (init-file (ticap :init-file))
+             (init-file-string (if init-file (get-init-file-string init-file)))
+             (init-cm-string (ticap :enter-ca-mode)))
+        (setf (tty-device-init-string device)
+              (tiputs (concatenate 'simple-string
+                                           (or init-string "")
+                                           (or init-file-string "")
+                                           (or init-cm-string "")
+                                           ;; Transmit-mode: this makes arrow-keys give sequences matching
+                                           ;; the terminfo db.
+                                           ti:keypad-xmit))))
+      (setf (tty-device-cm-end-string device)
+            (tiputs
+             (concatenate 'simple-string
+                          (or (ticap :exit-ca-mode) "")
+                          ;; Exit transmit-mode.
+                          ti:keypad-local)))
+      ;;
+      ;; Screen image initialization.
+      (set-up-screen-image device)
+      device)))
 
 (defun set-up-screen-image (device)
   (let* ((lines (tty-device-lines device))

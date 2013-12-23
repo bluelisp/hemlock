@@ -2,7 +2,7 @@
 
 (in-package :hemlock-internals)
 
-(pushnew :clx *available-backends*)
+(push (cons :clx :iolib) *available-backends*)
 
 ;;;; Editor input from windowing system.
 

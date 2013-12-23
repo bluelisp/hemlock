@@ -627,7 +627,9 @@
    ;;
    ;; This terminal's baud rate, or NIL for infinite.
    (speed :initarg :speed :initform nil :type (or (unsigned-byte 24) null)
-          :accessor tty-device-speed)))
+          :accessor tty-device-speed)
+   (terminfo :initarg :terminfo :initform nil
+             :accessor tty-device-terminfo)))
 
 (defun %make-tty-device (&rest initargs)
   (apply #'make-instance 'tty-device initargs))

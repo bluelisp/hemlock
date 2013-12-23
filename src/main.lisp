@@ -368,8 +368,10 @@ GB
        (t
         (apply #'hemlock rest keys))))))
 
-(defmacro with-editor
-    ((&key (load-user-init t) backend-type display) &body body)
+(defmacro with-editor ((&key (load-user-init t)
+                             backend-type
+                             display)
+                       &body body)
   `(call-with-editor (lambda () ,@body)
                      :load-user-init ,load-user-init
                      :backend-type ,backend-type
@@ -442,12 +444,10 @@ GB
     (error "Specified backend ~A not loaded" backend-type))
   ;; fixme: pass DISPLAY to WITH-EVENT-LOOP, so that Qt can pick it up
   ;; in case the user wants a DISPLAY != $DISPLAY
-  (let* ((backend-type (or backend-type (choose-backend-type display)))
-         (*default-backend* backend-type))
-    (setf *connection-backend*
-          (ecase backend-type
-            (:qt :qt)
-            ((:tty :clx :mini) :iolib)))
+  (let* ((backend-type (or (validate-backend-type backend-type)
+                           (choose-backend-type display)))
+         (*default-backend* (car backend-type)))
+    (setf *connection-backend* (cdr backend-type))
     (with-existing-event-loop
         (or *main-event-base*
             (setf *main-event-base*
@@ -456,13 +456,13 @@ GB
              (display (unless *editor-has-been-entered*
                         (maybe-load-hemlock-init load-user-init)
                         ;; Device dependent initializaiton.
-                        (init-raw-io backend-type display))))
+                        (init-raw-io (car backend-type) display))))
         (catch 'editor-top-level-catcher
           (site-wrapper-macro
             (unless *editor-has-been-entered*
               ;; Make an initial window, and set up redisplay's internal
               ;; data structures.
-              (%init-redisplay backend-type display)
+              (%init-redisplay (car backend-type) display)
               (setq *editor-has-been-entered* t)
               ;; Pick up user initializations to be done after initialization.
               (invoke-hook (reverse *after-editor-initializations-funs*)))

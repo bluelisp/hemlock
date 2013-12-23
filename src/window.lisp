@@ -228,7 +228,7 @@
                   ((null finfos)
                    start)))
              (dis-line (window-modeline-dis-line window))
-             (len (window-width window)))
+             (len (min effective-length (window-width window))))
         (replace (the simple-string (dis-line-chars dis-line)) ml-buffer
                  :end1 len :end2 len)
         (when (< effective-length len)

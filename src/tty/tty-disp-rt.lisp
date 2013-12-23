@@ -12,7 +12,7 @@
 
 (in-package :hemlock-internals)
 
-(pushnew :tty hi::*available-backends*)
+(push (cons :tty :iolib) hi::*available-backends*)
 
 
 ;;;; Get terminal attributes:
@@ -71,6 +71,9 @@
 ;;; written text to be displayed.  We multiply by 10 to get the baud-per-byte
 ;;; conversion, which assumes 7 character bits + 1 start bit + 2 stop bits, no
 ;;; parity.
+;;;
+;;; TODO: Update documentation...it looks like this probably doesn't wait,
+;;; so no maybe... NJP
 ;;;
 (defun write-and-maybe-wait (count)
   (declare (fixnum count))

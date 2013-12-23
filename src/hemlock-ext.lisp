@@ -18,7 +18,8 @@
 (defvar hi::*command-line-switches* nil)
 
 (defun hi::get-terminal-name ()
-  "vt100")
+  (or (hemlock-ext:getenv "TERM")
+      "vt100"))
 
 #-(or cmu scl)
 (defun default-directory ()

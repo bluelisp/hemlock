@@ -4,23 +4,17 @@
   (make-pathname :name nil :type nil :version nil
                  :defaults (parse-namestring *load-truename*)))
 
-(asdf:defsystem :hemlock.tty
+(asdf:defsystem :hemlock.iolib
      :pathname #.(make-pathname
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:hemlock.base :hemlock.iolib :terminfo)
+     :depends-on (:hemlock.base)
     :components
-    ((:module tty-1
+    ((:module iolib
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src" "tty"))
+                            :directory '(:relative "src" "iolib"))
                            *hemlock-base-directory*)
               :components
-              ((:file "init")
-               (:file "tty-disp-rt")
-               (:file "tty-display" :depends-on ("tty-disp-rt"))
-               (:file "tty-screen" :depends-on ("tty-disp-rt"))
-               (:file "tty-stuff")
-               (:file "tty-input")
-               (:file "linedit" :depends-on ("tty-display"))))))
+              ((:file "ioconnections")))))

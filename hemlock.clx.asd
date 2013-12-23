@@ -9,7 +9,7 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:hemlock.base :clx)
+     :depends-on (:hemlock.base :hemlock.iolib :clx)
     :components
     ((:module clx-1
               :pathname #.(merge-pathnames

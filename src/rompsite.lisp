@@ -191,10 +191,13 @@
 ;;; lisp.  It sets up process specific data structures.
 ;;;
 (defvar *default-backend* nil) ;if not set, use the CAR of available ones
+
+;;; Each backend type is a cons of the type and the connection backend
+;;; This could be turned into a struct or something in the future. NJP
 (defvar *available-backends* '())
 
 (defun validate-backend-type (want)
-  (find want *available-backends*))
+  (find want *available-backends* :key #'car))
 
 (defun choose-backend-type (&optional display)
   (let ((want
@@ -209,21 +212,6 @@
       (t (error "no Hemlock backends loaded, giving up")))))
 
 (defgeneric backend-init-raw-io (backend-type display))
-
-(defmethod backend-init-raw-io ((backend (eql :tty)) display)
-  (declare (ignore display))
-  ;; The editor's file descriptor is Unix standard input (0).
-  ;; We don't need to affect system:*file-input-handlers* here
-  ;; because the init and exit methods for tty redisplay devices
-  ;; take care of this.
-  ;;
-  (setf *editor-file-descriptor* 0)
-  (setf *editor-input* (make-tty-editor-input :fd 0))
-  (setf *real-editor-input* *editor-input*))
-
-(defmethod backend-init-raw-io ((backend (eql :mini)) display)
-  (declare (ignore display))
-  (backend-init-raw-io :tty display))
 
 (defun init-raw-io (backend-type display)
   (setf *editor-windowed-input* nil)

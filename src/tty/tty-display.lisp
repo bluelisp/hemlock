@@ -216,7 +216,7 @@
   (multiple-value-bind (lines cols)
       (hi::get-terminal-attributes)
     (let ((delta (- lines (tty-device-lines device)))
-          #+nil (cols (if hemlock.terminfo:auto-right-margin
+          #+nil (cols (if terminfo:auto-right-margin
                     (1- cols)
                     cols)))
       (unless (and (zerop delta)
@@ -993,10 +993,13 @@
 ;;; column or (y,x).  Because of this, when reversep is non-nil,
 ;;; we send first x and then y.
 ;;;
+;;; Check out the updated version from phemlock-git
 (defun cursor-motion (device x y)
   (tty-write-cmd
-   (hemlock.terminfo:tputs
-    (hemlock.terminfo:tparm hemlock.terminfo:cursor-address y x))))
+   (terminfo:tputs
+    (terminfo:tparm terminfo:cursor-address y x)
+    :terminfo (tty-device-terminfo device)
+    :baud-rate (tty-device-speed device))))
 
 ;;; CM-OUTPUT-COORDINATE outputs the coordinate with respect to the pad.  If
 ;;; there is a pad, then the coordinate needs to be sent as digit-char's (for
@@ -1032,36 +1035,48 @@
 
 ;;; Font attribute support: color, bold.
 
-(defun setaf (color)
-  (when hemlock.terminfo:set-a-foreground
+(defun setaf (color device)
+  (when terminfo:set-a-foreground
     (tty-write-cmd
-     (hemlock.terminfo:tputs
-      (hemlock.terminfo:tparm hemlock.terminfo:set-a-foreground color)))))
+     (terminfo:tputs
+      (terminfo:tparm terminfo:set-a-foreground color)
+      :terminfo (tty-device-terminfo device)
+      :baud-rate (tty-device-speed device)))))
 
-(defun setab (color)
-  (when hemlock.terminfo:set-a-background
+(defun setab (color device)
+  (when terminfo:set-a-background
     (tty-write-cmd
-     (hemlock.terminfo:tputs
-      (hemlock.terminfo:tparm hemlock.terminfo:set-a-background color)))))
+     (terminfo:tputs
+      (terminfo:tparm terminfo:set-a-background color)
+      :terminfo (tty-device-terminfo device)
+      :baud-rate (tty-device-speed device)))))
 
-(defun enter-bold-mode ()
-  (when hemlock.terminfo:enter-bold-mode
+(defun enter-bold-mode (device)
+  (when terminfo:enter-bold-mode
     (tty-write-cmd
-     (hemlock.terminfo:tputs hemlock.terminfo:enter-bold-mode))))
+     (terminfo:tputs terminfo:enter-bold-mode
+                     :terminfo (tty-device-terminfo device)
+                     :baud-rate (tty-device-speed device)))))
 
-(defun enter-italics-mode ()
-  (when hemlock.terminfo:enter-italics-mode
+(defun enter-italics-mode (device)
+  (when terminfo:enter-italics-mode
     (tty-write-cmd
-     (hemlock.terminfo:tputs hemlock.terminfo:enter-italics-mode))))
+     (terminfo:tputs terminfo:enter-italics-mode
+                     :terminfo (tty-device-terminfo device)
+                     :baud-rate (tty-device-speed device)))))
 
-(defun enter-underline-mode ()
-  (when hemlock.terminfo:enter-underline-mode
+(defun enter-underline-mode (device)
+  (when terminfo:enter-underline-mode
     (tty-write-cmd
-     (hemlock.terminfo:tputs hemlock.terminfo:enter-underline-mode))))
+     (terminfo:tputs terminfo:enter-underline-mode
+                     :terminfo (tty-device-terminfo device)
+                     :baud-rate (tty-device-speed device)))))
 
-(defun exit-attribute-mode ()
+(defun exit-attribute-mode (device)
   (tty-write-cmd
-   (hemlock.terminfo:tputs hemlock.terminfo:exit-attribute-mode)))
+   (terminfo:tputs terminfo:exit-attribute-mode
+                   :terminfo (tty-device-terminfo device)
+                   :baud-rate (tty-device-speed device))))
 
 (defvar *terminal-has-colors* :unknown)
 
@@ -1092,9 +1107,9 @@
         (let ((new-posn (min stop end)))
           (when (eq *terminal-has-colors* :unknown)
             (setf *terminal-has-colors*
-                  (and hemlock.terminfo:set-a-foreground
-                       hemlock.terminfo:set-a-background
-                       hemlock.terminfo:exit-attribute-mode
+                  (and terminfo:set-a-foreground
+                       terminfo:set-a-background
+                       terminfo:exit-attribute-mode
                        t)))
           (cond (*terminal-has-colors*
                  (unwind-protect
@@ -1104,21 +1119,21 @@
                                                ((listp font)
                                                 (getf font :fg)))))
                          (when (and foreground (<= 0 foreground 9))
-                           (setaf foreground)))
+                           (setaf foreground (device-hunk-device hunk))))
                        (let ((background (and (listp font) (getf font :bg))))
                          (when (and background (<= 0 background 9))
-                           (setab background)))
+                           (setab background (device-hunk-device hunk))))
                        (let ((boldp (and (listp font) (getf font :bold))))
                          (when boldp
-                           (enter-bold-mode)))
+                           (enter-bold-mode (device-hunk-device hunk))))
                        (let ((italicp (and (listp font) (getf font :italic))))
                          (when italicp
-                           (enter-italics-mode)))
+                           (enter-italics-mode (device-hunk-device hunk))))
                        (let ((underlinep (and (listp font) (getf font :underline))))
                          (when underlinep
-                           (enter-underline-mode)))
+                           (enter-underline-mode (device-hunk-device hunk))))
                        (device-write-string string posn new-posn))
-                   (exit-attribute-mode)))
+                   (exit-attribute-mode (device-hunk-device hunk))))
                 (t
                  (device-write-string string posn new-posn)))
           (setf posn new-posn))))
@@ -1254,23 +1269,26 @@
     (setf (tty-device-cursor-x device)
           (the fixnum (+ x (the fixnum (- end start)))))))
 
+;;; TODO Figure out why init string is not always a simple string! NJP
 (defun worth-using-insert-mode (device insert-char-num chars-saved)
-  (let* ((init-string (tty-device-insert-init-string device))
-         (char-init-string (tty-device-insert-char-init-string device))
-         (char-end-string (tty-device-insert-char-end-string device))
-         (end-string (tty-device-insert-end-string device))
-         (cost 0))
-    (when init-string
-      (incf cost (tty-cmd-length (the simple-string init-string))))
-    (when char-init-string
-      (incf cost (* insert-char-num
-                    (+ (tty-cmd-length (the simple-string char-init-string))
-                       (if char-end-string
-                           (tty-cmd-length (the simple-string char-end-string))
-                           0)))))
-    (when end-string
-      (incf cost (tty-cmd-length (the simple-string end-string))))
-    (< cost chars-saved)))
+  t
+  ;; (let* ((init-string (tty-device-insert-init-string device))
+  ;;        (char-init-string (tty-device-insert-char-init-string device))
+  ;;        (char-end-string (tty-device-insert-char-end-string device))
+  ;;        (end-string (tty-device-insert-end-string device))
+  ;;        (cost 0))
+  ;;   (when init-string
+  ;;     (incf cost (tty-cmd-length (the simple-string init-string))))
+  ;;   (when char-init-string
+  ;;     (incf cost (* insert-char-num
+  ;;                   (+ (tty-cmd-length (the simple-string char-init-string))
+  ;;                      (if char-end-string
+  ;;                          (tty-cmd-length (the simple-string char-end-string))
+  ;;                          0)))))
+  ;;   (when end-string
+  ;;     (incf cost (tty-cmd-length (the simple-string end-string))))
+  ;;   (< cost chars-saved))
+  )
 
 (defun delete-char (hunk x y &optional (n 1))
   (declare (fixnum x y n))

@@ -14,7 +14,7 @@
     ((:module qt-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "qt"))
                            *hemlock-base-directory*)
               :serial t
               :components

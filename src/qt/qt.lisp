@@ -2,7 +2,7 @@
 
 (in-package :hemlock.qt)
 
-(pushnew :qt hi::*available-backends*)
+(push (cons :qt :qt) hi::*available-backends*)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (named-readtables:find-readtable :hemlock.qt)
