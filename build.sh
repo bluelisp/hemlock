@@ -1,7 +1,11 @@
 #!/bin/sh
 unset backends
 
-SBCL=${SBCL:-clbuild lisp}
+if [ -z "$SBCL" ]; then
+    SBCL := "sbcl -clbuild lisp"
+else
+    SBCL=${SBCL:-clbuild lisp}
+fi
 
 if test $# -eq 0; then
 	cat <<eof
