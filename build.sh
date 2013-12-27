@@ -49,7 +49,7 @@ $SBCL <<EOF
 	   "/"))
     (setf hemlock::*slave-command* (list argv0 "--slave"))
     (hemlock:main))
-  (quit))
+  (exit))
 
 (sb-ext:save-lisp-and-die "hemlock"
                           :save-runtime-options t
