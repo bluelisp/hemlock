@@ -20,6 +20,9 @@
 
 ;;;; Terminal screen initialization
 
+(defmethod %init-screen-manager ((backend-type (eql :tty)) (display t))
+  (init-tty-screen-manager (make-tty-device (get-terminal-name))))
+
 (declaim (special *parse-starting-mark*))
 
 (defvar *do-not-finalize*)
