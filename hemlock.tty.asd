@@ -18,6 +18,7 @@
                            *hemlock-base-directory*)
               :components
               ((:file "init")
+               (:file "tty-device")
                (:file "tty-disp-rt")
                (:file "tty-display" :depends-on ("tty-disp-rt"))
                (:file "tty-screen" :depends-on ("tty-disp-rt"))

@@ -75,6 +75,9 @@
                                    :baud-rate (tty-device-speed device)))
     (setf (in-cm-mode-p device) nil)))
 
+(defmethod %init-screen-manager ((backend-type (eql :mini)) (display t))
+  (init-tty-screen-manager (make-linedit-device (get-terminal-name))))
+
 (defun make-linedit-device (name)
   (change-class (make-tty-device name) 'linedit-device))
 

@@ -33,9 +33,6 @@
   (setf (buffer-modeline-fields *echo-area-buffer*)
         (value hemlock::default-status-line-fields)))
 
-(defmethod %init-screen-manager ((backend-type (eql :mini)) (display t))
-  (init-tty-screen-manager (make-linedit-device (get-terminal-name))))
-
 
 ;;;; Window operations.
 
