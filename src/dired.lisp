@@ -627,7 +627,7 @@
 #-(or cmu scl)
 (defun directory-existsp (ses-name)
   (iolib.os:directory-exists-p ses-name))
-
+;;; TODO These differences should be pushed down into a support library
 #+(or cmu scl)
 (defun enter-directory (ses-name)
   (declare (simple-string ses-name))

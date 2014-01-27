@@ -283,6 +283,8 @@
 (bind-key "Echo Area Backward Word" #k"meta-b" :mode "Echo Area")
 (bind-key "Next Parse" #k"meta-n" :mode "Echo Area")
 (bind-key "Previous Parse" #k"meta-p" :mode "Echo Area")
+(bind-key "Confirm Parse" #k"Linefeed" :mode "Echo Area")
+(bind-key "Confirm Parse" #k"C-j" :mode "Echo Area")
 
 ;;; Remove some dangerous standard bindings.
 ;;;
@@ -771,6 +773,9 @@
 (bind-key "Bufed Quit" #k"q" :mode "Bufed")
 (bind-key "Bufed Goto" #k"space" :mode "Bufed")
 (bind-key "Bufed Goto" #k"e" :mode "Bufed")
+(bind-key "Bufed Goto" #k"return" :mode "Bufed")
+(bind-key "Bufed Goto" #k"Linefeed" :mode "Bufed")
+(bind-key "Bufed Goto" #k"C-j" :mode "Bufed")
 (bind-key "Bufed Goto and Quit" #k"super-leftdown" :mode "Bufed")
 (bind-key "Bufed Save File" #k"s" :mode "Bufed")
 (bind-key "Next Line" #k"n" :mode "Bufed")
@@ -872,7 +877,8 @@
 (bind-key "Dired Rename File" #k"r" :mode "Dired")
 (bind-key "Dired Rename with Wildcard" #k"R" :mode "Dired")
 
-(bind-key "Next Line" #k"n" :mode "Dired")
+(bind-key "Dired Down Line" #k"n" :mode "Dired")
+(bind-key "Dired Down Line" #k"control-n")
 (bind-key "Previous Line" #k"p" :mode "Dired")
 
 

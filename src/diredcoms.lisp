@@ -79,9 +79,9 @@
 
 (defcommand "Dired with Pattern" (p)
   "Do a dired, prompting for a pattern which may include a single *.  With an
-   argument, include UNIX dit files."
+   argument, include UNIX dot files."
   "Do a dired, prompting for a pattern which may include a single *.  With an
-   argument, include UNIX dit files."
+   argument, include UNIX dot files."
   (dired-guts t p nil))
 
 (defun dired-guts (patternp dot-files-p directory)
@@ -265,13 +265,18 @@
             (setf (next-character mark) note-char)))))))
 
 (defun dired-down-line (point)
-  (line-offset point 1)
+  (line-offset point 1 46)
   (when (blank-line-p (mark-line point))
-    (line-offset point -1)))
-
+    (line-offset point -1 46)))
 
 
 ;;;; Dired file finding and going to dired buffers.
+
+(defcommand "Dired Down Line" (p)
+  "Go to the next line, putting the point on the filename."
+  "Go to the next line, putting the point on the filename."
+  (declare (ignore p))
+  (dired-down-line (current-point)))
 
 (defcommand "Dired Edit File" (p)
   "Read in file or recursively \"Dired\" a directory."
