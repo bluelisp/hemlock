@@ -517,15 +517,17 @@
 
 ;;;; Word Abbrev Mode.
 
+#+nil ; again, check event model...
 (bind-key "Add Mode Word Abbrev" #k"control-x control-a")
-(bind-key "Add Global Word Abbrev" #k"control-x +")
-(bind-key "Inverse Add Mode Word Abbrev" #k"control-x control-h")
-(bind-key "Inverse Add Global Word Abbrev" #k"control-x \-")
+#+nil(bind-key "Add Global Word Abbrev" #k"control-x +")
+#+nil(bind-key "Inverse Add Mode Word Abbrev" #k"control-x control-h")
+#+nil(bind-key "Inverse Add Global Word Abbrev" #k"control-x \-")
 ;; Removed in lieu of "Pop and Goto Mark".
 ;;(bind-key "Abbrev Expand Only" #k"meta-space")
-(bind-key "Word Abbrev Prefix Mark" #k"meta-\"")
+#+nil(bind-key "Word Abbrev Prefix Mark" #k"meta-\"")
 ;; (bind-key "Unexpand Last Word" #k"control-x u")
 
+#+nil ; TODO port to new event model per hemlock.base.asd whatever that means
 (dolist (key (list #k"!" #k"~" #k"@" #k"#" #k";" #k"$" #k"%" #k"^" #k"&" #k"*"
                    #k"\-" #k"_" #k"=" #k"+" #k"[" #k"]" #k"(" #k")" #k"/" #k"|"
                    #k":" #k"'" #k"\"" #k"{" #k"}" #k"," #k"\<" #k"." #k"\>"
@@ -878,7 +880,7 @@
 (bind-key "Dired Rename with Wildcard" #k"R" :mode "Dired")
 
 (bind-key "Dired Down Line" #k"n" :mode "Dired")
-(bind-key "Dired Down Line" #k"control-n")
+(bind-key "Dired Down Line" #k"control-n" :mode "Dired")
 (bind-key "Previous Line" #k"p" :mode "Dired")
 
 
