@@ -251,7 +251,7 @@
 ;;; GET-EDITOR-NAME -- Internal.
 ;;;
 ;;; Pick a name for the editor.  Names consist of machine-name:port-number.  If
-;;; in ten tries we can't get an unused port, choak.  We don't save the result
+;;; in ten tries we can't get an unused port, choke.  We don't save the result
 ;;; of HEMLOCK.WIRE:CREATE-REQUEST-SERVER because we don't think the editor needs to
 ;;; ever kill the request server, and we can always inhibit connection with
 ;;; "Accept Connections".
@@ -814,9 +814,8 @@
              (backend-type hi::*default-backend*))
   (assert slave)
   (let ((hi::*connection-backend*
-         (ecase backend-type
-           (:qt :qt)
-           ((:tty :clx :mini) :iolib)))
+         (cdr (or (hi::validate-backend-type backend-type)
+                  (hi::choose-backend-type))))
         (seperator (position #\: editor :test #'char=)))
     (unless seperator
       (error "Editor name ~S invalid. ~
