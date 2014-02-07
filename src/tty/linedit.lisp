@@ -232,7 +232,7 @@
 
 (defmethod device-exit ((device linedit-device))
   (ensure-not-in-cm-mode device)
-  (exit-attribute-mode)
+  (exit-attribute-mode device)
   (tty-write-cmd (tty-device-standout-end-string device))
   (device-force-output device)
   (reset-input))
