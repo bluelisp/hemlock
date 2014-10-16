@@ -367,7 +367,7 @@
     buffer))
 
 (defun find-file-buffer (pathname)
-  "Return a buffer assoicated with the file Pathname, reading the file into a
+  "Return a buffer associated with the file Pathname, reading the file into a
    new buffer if necessary.  The second value is T if we created a buffer, NIL
    otherwise.  If the file has already been read, we check to see if the file
    has been modified on disk since it was read, giving the user various
