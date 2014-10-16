@@ -14,13 +14,12 @@
     ((:module clx-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "clx"))
                            *hemlock-base-directory*)
               :components
               ((:file "bit-stuff")
                (:file "hunk-draw" :depends-on ("bit-stuff"))
                (:file "bitmap-rompsite")
-               (:file "ioconnections")
                (:file "bitmap-input")
                (:file "bit-display" :depends-on ("hunk-draw"))
                (:file "bit-screen")
