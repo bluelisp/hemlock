@@ -2,10 +2,9 @@
 unset backends
 
 if [ -z "$SBCL" ]; then
-    SBCL := "sbcl -clbuild lisp"
-else
-    SBCL=${SBCL:-clbuild lisp}
+    SBCL=sbcl
 fi
+SBCL=${SBCL:-clbuild lisp}
 
 if test $# -eq 0; then
 	cat <<eof
