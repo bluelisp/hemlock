@@ -6,3 +6,6 @@
 c/setpty
 c/setpty.o
 hemlock.core
+hemlock-tty
+hemlock
+
