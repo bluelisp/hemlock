@@ -8,4 +8,4 @@ c/setpty.o
 hemlock.core
 hemlock-tty
 hemlock
-
+setpty

@@ -58,4 +58,6 @@ main(int argc, char **argv)
 
 	execvp(argv[2], argv + 2);
 	perror("exec");
+
+        return 0;
 }
