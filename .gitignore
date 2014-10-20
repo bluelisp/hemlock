@@ -9,3 +9,4 @@ hemlock.core
 hemlock-tty
 hemlock
 setpty
+*.CKP
