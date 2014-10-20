@@ -360,6 +360,7 @@
   %name                            ;The name of the command
   documentation                    ;Command documentation string or function
   function                         ;The function which implements the command
+  location                         ;The location of the definition
   %bindings)                       ;Places where command is bound
 
 (setf (documentation 'commandp 'function)

@@ -809,6 +809,7 @@
 ;;;; Xref.
 
 (bind-key "Find Definitions" #k"meta-." :mode "Lisp")
+(bind-key "Pop Xref Location" #k"meta-*" :mode "Lisp")
 (bind-key "Who Specializes"  #k"control-c control-w control-a" :mode "Lisp")
 (bind-key "Who Binds"        #k"control-c control-w control-b" :mode "Lisp")
 (bind-key "Who Calls"        #k"control-c control-w control-c" :mode "Lisp")

@@ -304,7 +304,8 @@
      (entry
       (setf (command-name entry) name)
       (setf (command-documentation entry) documentation)
-      (setf (command-function entry) function))
+      (setf (command-function entry) function)
+      (setf (command-location entry) (conium:find-definitions name)))
      (t
       (setf (getstring name *command-names*)
             (internal-make-command name documentation function))))))

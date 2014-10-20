@@ -16,6 +16,7 @@
 
 (defvar *xref-entries* nil)
 (defvar *xref-entries-end* nil)
+(defvar *xref-previous-location* nil)
 ;;;
 
 (defstruct (xref-entry
@@ -115,6 +116,9 @@
   (let ((file (xref-entry-file entry))
         (position (xref-entry-position entry)))
     (when file
+      ;; Save the current location
+      (push (list (current-buffer) (current-point))
+            *xref-previous-location*)
       (change-to-buffer (find-file-buffer file))
       (when position
         (buffer-start (current-point))
@@ -161,6 +165,17 @@
            :prompt "Name: "
            :default default)
           default)))))
+
+(defcommand "Pop Xref Location" (p)
+    "Pop the XREF location"
+    "Pop the XREF location"
+  (let ((previous-location (car *xref-previous-location*)))
+    (when previous-location
+      (setf *xref-previous-location*
+            (cdr *xref-previous-location*))
+      (change-to-buffer (car previous-location))
+      (buffer-start (current-point))
+      (character-offset (current-point) (1- (cadr previous-location))))))
 
 (macrolet
     ((% (name fun conium-fun)
