@@ -4,15 +4,13 @@
 #+sbcl (declaim (optimize (speed 2)))
 
 (defmethod invoke-with-new-event-loop ((backend (eql :iolib)) fun)
-  ;; the epoll muxer gives me segfaults and memory corruption.
-  ;; Don't know why, but select works, so let's use it:
   (iolib:with-event-base
-      (*event-base* :mux 'iolib.multiplex:select-multiplexer)
+      (*event-base* :mux 'iolib.multiplex:epoll-multiplexer)
     (funcall fun)))
 
 (defmethod make-event-loop ((backend (eql :iolib)))
   (make-instance 'iolib:event-base
-                 :mux 'iolib.multiplex:select-multiplexer))
+                 :mux 'iolib.multiplex:epoll-multiplexer))
 
 (defmethod invoke-with-existing-event-loop ((backend (eql :iolib)) loop fun)
   (let ((*event-base* loop))
