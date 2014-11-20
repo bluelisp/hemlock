@@ -102,7 +102,8 @@
          (device (%make-tty-device :name name :terminfo terminfo)))
     (register-tty-translations terminfo)
     (macrolet ((ticap (cap) `(ti:capability ,cap (tty-device-terminfo device)))
-               (tiputs (cmd) `(ti:tputs ,cmd :baud-rate (tty-device-speed device)
+               (tiputs (cmd) `(ti:tputs ,cmd
+                                        :baud-rate (tty-device-speed device)
                                         :terminfo (tty-device-terminfo device))))
       (when (ticap :over-strike)
         (error "Terminal sufficiently irritating -- not currently supported."))

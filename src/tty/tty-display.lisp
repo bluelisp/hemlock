@@ -997,7 +997,8 @@
 (defun cursor-motion (device x y)
   (tty-write-cmd
    (terminfo:tputs
-    (terminfo:tparm terminfo:cursor-address y x)
+    terminfo:cursor-address y x
+    :stream nil
     :terminfo (tty-device-terminfo device)
     :baud-rate (tty-device-speed device))))
 
@@ -1039,7 +1040,8 @@
   (when terminfo:set-a-foreground
     (tty-write-cmd
      (terminfo:tputs
-      (terminfo:tparm terminfo:set-a-foreground color)
+      terminfo:set-a-foreground color
+      :stream nil
       :terminfo (tty-device-terminfo device)
       :baud-rate (tty-device-speed device)))))
 
@@ -1047,36 +1049,45 @@
   (when terminfo:set-a-background
     (tty-write-cmd
      (terminfo:tputs
-      (terminfo:tparm terminfo:set-a-background color)
+      terminfo:set-a-background color
+      :stream nil
       :terminfo (tty-device-terminfo device)
       :baud-rate (tty-device-speed device)))))
 
 (defun enter-bold-mode (device)
   (when terminfo:enter-bold-mode
     (tty-write-cmd
-     (terminfo:tputs terminfo:enter-bold-mode
-                     :terminfo (tty-device-terminfo device)
-                     :baud-rate (tty-device-speed device)))))
+     (terminfo:tputs
+      terminfo:enter-bold-mode
+      :stream nil
+      :terminfo (tty-device-terminfo device)
+      :baud-rate (tty-device-speed device)))))
 
 (defun enter-italics-mode (device)
   (when terminfo:enter-italics-mode
     (tty-write-cmd
-     (terminfo:tputs terminfo:enter-italics-mode
-                     :terminfo (tty-device-terminfo device)
-                     :baud-rate (tty-device-speed device)))))
+     (terminfo:tputs
+      terminfo:enter-italics-mode
+      :stream nil
+      :terminfo (tty-device-terminfo device)
+      :baud-rate (tty-device-speed device)))))
 
 (defun enter-underline-mode (device)
   (when terminfo:enter-underline-mode
     (tty-write-cmd
-     (terminfo:tputs terminfo:enter-underline-mode
-                     :terminfo (tty-device-terminfo device)
-                     :baud-rate (tty-device-speed device)))))
+     (terminfo:tputs
+      terminfo:enter-underline-mode
+      :stream nil
+      :terminfo (tty-device-terminfo device)
+      :baud-rate (tty-device-speed device)))))
 
 (defun exit-attribute-mode (device)
   (tty-write-cmd
-   (terminfo:tputs terminfo:exit-attribute-mode
-                   :terminfo (tty-device-terminfo device)
-                   :baud-rate (tty-device-speed device))))
+   (terminfo:tputs
+    terminfo:exit-attribute-mode
+    :stream nil
+    :terminfo (tty-device-terminfo device)
+    :baud-rate (tty-device-speed device))))
 
 (defvar *terminal-has-colors* :unknown)
 
