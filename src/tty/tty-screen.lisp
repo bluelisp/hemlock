@@ -103,6 +103,7 @@
     (register-tty-translations terminfo)
     (macrolet ((ticap (cap) `(ti:capability ,cap (tty-device-terminfo device)))
                (tiputs (cmd) `(ti:tputs ,cmd
+                                        :stream nil
                                         :baud-rate (tty-device-speed device)
                                         :terminfo (tty-device-terminfo device))))
       (when (ticap :over-strike)
