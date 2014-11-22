@@ -178,6 +178,7 @@
        (cond ((stringp string-or-delay)
               (tty-write-string string-or-delay))
              ((numberp string-or-delay)
+              ;; TODO: event dispatch wait for the delay
               ;; Not yet supported, but could pass the delay to the
               ;; event handler.
               ))))))

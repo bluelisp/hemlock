@@ -58,7 +58,7 @@
     ((:module core-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "core"))
                            *hemlock-base-directory*)
               :depends-on (wire)
               :components
@@ -86,7 +86,7 @@
      (:module core-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "core"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-1 core-1)
               :serial t                 ;...
@@ -121,7 +121,7 @@
      (:module root-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "root"))
                            *hemlock-base-directory*)
               :depends-on (core-2 core-1)
               :components
@@ -129,7 +129,7 @@
      (:module root-2
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "root"))
                            *hemlock-base-directory*)
               :depends-on (root-1 core-1 wire)
               :components
@@ -142,7 +142,7 @@
      (:module core-3
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "core"))
                            *hemlock-base-directory*)
               :depends-on (bitmap-1 core-1 core-2)
               :components
@@ -150,7 +150,7 @@
      (:module wire
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "wire"))
                            *hemlock-base-directory*)
               :depends-on ()
               :serial t
