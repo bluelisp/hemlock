@@ -104,9 +104,9 @@
                  ;; Cons new chars for the first line.
                  (let* ((length (+ first-charpos (- last-length last-charpos)))
                         (new-chars (make-string length)))
-                   (%sp-byte-blt first-chars 0 new-chars 0 first-charpos)
-                   (%sp-byte-blt last-chars last-charpos new-chars first-charpos
-                                 length)
+                   (replace new-chars first-chars :start1 0 :end1 first-charpos :start2 0)
+                   (replace new-chars last-chars :start1 first-charpos :end1
+                            length :start2 last-charpos)
                    (setf (line-chars first-line) new-chars))
                  ;; fix up the first line's marks:
                  (move-some-marks (charpos first-line)
@@ -163,7 +163,7 @@
                                  :chars new-chars  :number 0
                                  :%buffer (incf *disembodied-buffer-counter*))))
                  (declare (simple-string new-chars))
-                 (%sp-byte-blt open-chars right-open-pos new-chars 0 num)
+                 (replace new-chars open-chars :start1 0 :end1 num :start2 right-open-pos)
                  (setq right-open-pos new-right)
                  ;; and fix up any marks in there:
                  (move-some-marks (charpos first-line)
@@ -193,14 +193,14 @@
                  ;; Cons new chars for victim line.
                  (let* ((length (+ first-charpos (- last-length last-charpos)))
                         (new-chars (make-string length)))
-                   (%sp-byte-blt first-chars 0 new-chars 0 first-charpos)
-                   (%sp-byte-blt last-chars last-charpos new-chars first-charpos
-                                 length)
+                   (replace new-chars first-chars :start1 0 :end1 first-charpos :start2 0)
+                   (replace new-chars last-chars :start1 first-charpos :end1
+                            length :start2 last-charpos)
                    (setf (line-chars first-line) new-chars))
                  ;; Make a region with all the lost stuff:
-                 (%sp-byte-blt first-chars first-charpos saved-first-chars 0
-                               saved-first-length)
-                 (%sp-byte-blt last-chars 0 saved-last-chars 0 last-charpos)
+                 (replace saved-first-chars first-chars :start1 0 :end1
+                          saved-first-length :start2 first-charpos)
+                 (replace saved-last-chars last-chars :start1 0 :end1 last-charpos :start2 0)
                  ;; Mash the chars and buff of the last line.
                  (setf (line-chars last-line) saved-last-chars
                        (line-%buffer last-line) count)
@@ -259,7 +259,7 @@
       (let* ((length (- last-charpos first-charpos))
              (chars (make-string length))
              (line (make-line :chars chars  :%buffer count  :number 0)))
-        (%sp-byte-blt (line-chars first-line) first-charpos chars 0 length)
+        (replace chars (line-chars first-line) :start1 0 :end1 length :start2 first-charpos)
         (internal-make-region (mark line 0 :right-inserting)
                               (mark line length :left-inserting))))
      (t
@@ -270,7 +270,7 @@
              (first-copied-line (make-line :chars chars  :%buffer count
                                            :number 0)))
         (declare (simple-string first-chars))
-        (%sp-byte-blt first-chars first-charpos chars 0 length)
+        (replace chars first-chars :start1 0 :end1 length :start2 first-charpos)
         (do ((line (line-next first-line) (line-next line))
              (previous first-copied-line)
              (number line-increment (+ number line-increment)))
@@ -280,7 +280,7 @@
                                                  :number number
                                                  :%buffer count
                                                  :previous previous)))
-               (%sp-byte-blt (line-chars last-line) 0 chars 0 last-charpos)
+               (replace chars (line-chars last-line) :start1 0 :end1 last-charpos :start2 0)
                (setf (line-next previous) last-copied-line)
                (internal-make-region
                 (mark first-copied-line 0 :right-inserting)
@@ -333,7 +333,7 @@
                (declare (simple-string res))
                (when (> new-left right-open-pos)
                  (grow-open-chars (+ new-left line-cache-length)))
-               (%sp-byte-blt res 0 open-chars first left-open-pos)
+               (replace open-chars  res :start1 first :end1 left-open-pos :start2 0)
                ;;
                ;; Move marks to start or end of region, depending on kind.
                (dolist (m (line-marks start-line))
@@ -355,8 +355,8 @@
                     (nlen (+ first rlen))
                     (new (make-string nlen)))
                (declare (simple-string res first-chars new))
-               (%sp-byte-blt first-chars 0 new 0 first)
-               (%sp-byte-blt res 0 new first nlen)
+               (replace new  first-chars :start1 0 :end1 first :start2 0)
+               (replace new  res :start1 first :end1 nlen :start2 0)
                (setf (line-chars start-line) new))
              ;;
              ;; Fix up marks on the first line, saving any within the region
@@ -384,7 +384,7 @@
                (declare (simple-string res))
                (when (> rlen right-open-pos)
                  (grow-open-chars (+ rlen line-cache-length)))
-               (%sp-byte-blt res 0 open-chars 0 rlen)
+               (replace open-chars  res :start1 0 :end1 rlen :start2 0)
                (setq left-open-pos rlen)
                ;;
                ;; Adjust marks after the end of the region and save ones in it.

@@ -141,15 +141,15 @@
       ((>= dst-end ,width)
        (cond
         ((and ,done-p (= dst-end ,width))
-         (%sp-byte-blt ,src ,src-start ,dst ,dst-start dst-end)
+         (replace ,dst ,src :start1 ,dst-start :end1 dst-end :start2 ,src-start)
          (setq ,dst-start dst-end  ,src-start ,src-end))
         (t
          (let ((1-width (1- ,width)))
-           (%sp-byte-blt ,src ,src-start ,dst ,dst-start 1-width)
+           (replace ,dst ,src :start1 ,dst-start :end1 1-width :start2 ,src-start)
            (setf (elt (the simple-string ,dst) 1-width) *line-wrap-char*)
            (setq ,src-start (+ ,src-start (- 1-width ,dst-start)))
            (setq ,dst-start nil)))))
-      (t (%sp-byte-blt ,src ,src-start ,dst ,dst-start dst-end)
+      (t (replace ,dst ,src :start1 ,dst-start :end1 dst-end :start2 ,src-start)
          (setq ,dst-start dst-end  ,src-start ,src-end)))))
 
 ;;; These macros are given as args to display-losing-chars to get the

@@ -307,11 +307,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun hi::%sp-byte-blt (src start dest dstart end)
-  (replace dest src 
-           :start1 dstart :end1 end
-           :start2 start)
-
 #-scl
 (defun delq (item list)
   (delete item list))

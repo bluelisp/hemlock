@@ -29,22 +29,22 @@
          (start-charpos (mark-charpos start-mark)))
     (declare (simple-string string))
     (if (eq start-line end-line)
-        (%sp-byte-blt (line-chars start-line) start-charpos string 0
-                      dst-length)
+        (replace string (line-chars start-line) :start1 0 :end1
+                 dst-length :start2 start-charpos)
         (let ((index ()))
           (let* ((line-chars (line-chars start-line))
                  (dst-end (- (length line-chars) start-charpos)))
             (declare (simple-string line-chars))
-            (%sp-byte-blt line-chars start-charpos string 0 dst-end)
+            (replace string line-chars :start1 0 :end1 dst-end :start2 start-charpos)
             (setf (char string dst-end) #\newline)
             (setq index (1+ dst-end)))
           (do* ((line (line-next start-line) (line-next line))
                 (chars (line-chars line) (line-chars line)))
                ((eq line end-line)
-                (%sp-byte-blt (line-chars line) 0 string index dst-length))
+                (replace string (line-chars line) :start1 index :end1 dst-length :start2 0))
             (declare (simple-string chars))
-            (%sp-byte-blt (line-chars line) 0 string index
-                          (incf index (length chars)))
+            (replace string (line-chars line) :start1 index :end1
+                     (incf index (length chars)) :start2 0)
             (setf (char string index) #\newline)
             (setq index (1+ index)))))
     string))
@@ -65,7 +65,7 @@
         (cond (right-index
                (let* ((length (- right-index index))
                       (chars (make-string length)))
-                 (%sp-byte-blt string index chars 0 length)
+                 (replace chars string :start1 0 :end1 length :start2 index)
                  (setf (line-chars line) chars))
                (setq index (1+ right-index))
                (setq previous-line line)
@@ -75,7 +75,7 @@
               (t
                (let* ((length (- end index))
                       (chars (make-string length)))
-                 (%sp-byte-blt string index chars 0 length)
+                 (replace chars string :start1 0 :end1 length :start2 index)
                  (setf (line-chars line) chars))
                (return (renumber-region
                         (internal-make-region
@@ -149,8 +149,8 @@
                  (setq right-open-pos (- line-cache-length (length chars)))
                  (when (<= right-open-pos left-open-pos)
                    (grow-open-chars (* (+ (length chars) left-open-pos 1) 2)))
-                 (%sp-byte-blt chars 0 open-chars right-open-pos
-                               line-cache-length)
+                 (replace open-chars chars :start1 right-open-pos :end1
+                               line-cache-length :start2 0)
                  (setf (schar open-chars left-open-pos) character)
                  (incf left-open-pos))
                (move-some-marks (charpos next line)
@@ -165,7 +165,7 @@
                     (chars (make-string len))
                     (new (make-line :chars chars  :previous line
                                     :next next  :%buffer buffer)))
-               (%sp-byte-blt open-chars right-open-pos chars 0 len)
+               (replace chars open-chars :start1 0 :end1 len :start2 right-open-pos)
                (maybe-move-some-marks* (charpos line new) left-open-pos
                                        (- charpos left-open-pos 1))
                (setf (line-next line) new)

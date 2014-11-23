@@ -64,8 +64,8 @@
   specified."
   (let ((new-chars (make-string new-length))
         (new-right (- new-length (- line-cache-length right-open-pos))))
-    (%sp-byte-blt open-chars 0 new-chars 0 left-open-pos)
-    (%sp-byte-blt open-chars right-open-pos new-chars new-right new-length)
+    (replace new-chars open-chars :start1 0 :end1 left-open-pos :start2 0)
+    (replace new-chars open-chars :start1 new-right :end1 new-length :start2 right-open-pos)
     (setq right-open-pos new-right)
     (setq open-chars new-chars)
     (setq line-cache-length new-length)))
@@ -77,8 +77,8 @@
     (hemlock-ext:without-interrupts
       (let* ((length (+ left-open-pos (- line-cache-length right-open-pos)))
              (string (make-string length)))
-        (%sp-byte-blt open-chars 0 string 0 left-open-pos)
-        (%sp-byte-blt open-chars right-open-pos string left-open-pos length)
+        (replace string open-chars :start1 0 :end1 left-open-pos :start2 0)
+        (replace string open-chars :start1 left-open-pos :end1 length :start2 right-open-pos)
         (setf (line-chars open-line) string)
         (setf open-line nil)))))
 
@@ -98,15 +98,15 @@
            (cond ((< charpos left-open-pos)     ; BLT 'em right!
                   (let ((right-start (- right-open-pos
                                         (- left-open-pos charpos))))
-                    (%sp-byte-blt open-chars charpos
-                                  open-chars right-start
-                                  right-open-pos)
+                    (replace open-chars  open-chars :start1 right-start :end1
+                             right-open-pos :start2 charpos
+)
                     (setq left-open-pos charpos)
                     (setq right-open-pos right-start)))
                  ((> charpos left-open-pos)     ; BLT 'em left!
-                  (%sp-byte-blt open-chars right-open-pos
-                                open-chars left-open-pos
-                                charpos)
+                  (replace open-chars  open-chars :start1 left-open-pos :end1
+                           charpos :start2 right-open-pos
+)
                   (setq right-open-pos
                         (+ right-open-pos (- charpos left-open-pos)))
                   (setq left-open-pos charpos)))))
@@ -123,9 +123,9 @@
            (setq left-open-pos (mark-charpos mark))
            (setq right-open-pos
                  (- line-cache-length (- (length chars) left-open-pos)))
-           (%sp-byte-blt chars 0 open-chars 0 left-open-pos)
-           (%sp-byte-blt chars left-open-pos open-chars right-open-pos
-                         line-cache-length)))))
+           (replace open-chars chars :start1 0 :end1 left-open-pos :start2 0)
+           (replace open-chars chars :start1 right-open-pos :end1
+                    line-cache-length :start2 left-open-pos)))))
 
 ;;;; Some macros for Text hacking:
 

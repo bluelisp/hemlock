@@ -87,11 +87,11 @@
               (cond
                ((eq (mark-%kind mark) :right-inserting)
                 (let ((new (- right-open-pos length)))
-                  (%sp-byte-blt string start open-chars new right-open-pos)
+                  (replace open-chars string :start1 new :end1 right-open-pos :start2 start)
                   (setq right-open-pos new)))
                (t
                 (let ((new (+ left-open-pos length)))
-                  (%sp-byte-blt string start open-chars left-open-pos new)
+                  (replace open-chars string :start1 left-open-pos :end1 new :start2 start)
                   (setq left-open-pos new))))))))))
 
 
@@ -126,8 +126,8 @@
                  (new-length (+ charpos (- first-length first-charpos)))
                  (new-chars (make-string new-length)))
             (declare (simple-string first-chars new-chars))
-            (%sp-byte-blt old-chars 0 new-chars 0 charpos)
-            (%sp-byte-blt first-chars first-charpos new-chars charpos new-length)
+            (replace new-chars old-chars :start1 0 :end1 charpos :start2 0)
+            (replace new-chars first-chars :start1 charpos :end1 new-length :start2 first-charpos)
             (setf (line-chars line) new-chars))
 
           ;; Copy intervening lines.  We don't link the lines in until we are
@@ -146,9 +146,9 @@
                        (old-length (length old-chars))
                        (new-length (+ last-charpos (- old-length charpos)))
                        (new-chars (make-string new-length)))
-                  (%sp-byte-blt last-chars 0 new-chars 0 last-charpos)
-                  (%sp-byte-blt old-chars charpos new-chars last-charpos
-                                new-length)
+                  (replace new-chars last-chars :start1 0 :end1 last-charpos :start2 0)
+                  (replace new-chars old-chars :start1 last-charpos :end1
+                           new-length :start2 charpos)
                   (setf (line-next line) first)
                   (setf (line-chars new-line) new-chars)
                   (setf (line-next previous) new-line)
@@ -194,16 +194,16 @@
                  (new-length (+ charpos (- first-length first-charpos)))
                  (new-chars (make-string new-length)))
             (declare (simple-string first-chars new-chars))
-            (%sp-byte-blt old-chars 0 new-chars 0 charpos)
-            (%sp-byte-blt first-chars first-charpos new-chars charpos
-                          new-length)
+            (replace new-chars old-chars :start1 0 :end1 charpos :start2 0)
+            (replace new-chars first-chars :start1 charpos :end1
+                     new-length :start2 first-charpos)
             (setf (line-chars line) new-chars))
           (let* ((last-chars (line-chars last-line))
                  (old-length (length old-chars))
                  (new-length (+ last-charpos (- old-length charpos)))
                  (new-chars (make-string new-length)))
-            (%sp-byte-blt last-chars 0 new-chars 0 last-charpos)
-            (%sp-byte-blt old-chars charpos new-chars last-charpos new-length)
+            (replace new-chars last-chars :start1 0 :end1 last-charpos :start2 0)
+            (replace new-chars old-chars :start1 last-charpos :end1 new-length :start2 charpos)
             (setf (line-chars last-line) new-chars))
 
           ;;; Link stuff together.
