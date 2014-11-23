@@ -308,11 +308,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun hi::%sp-byte-blt (src start dest dstart end)
-  (loop for s from start
-        for d from dstart below end
-        do
-        (setf (aref dest d) (aref src s))))
-
+  (replace dest src 
+           :start1 dstart :end1 end
+           :start2 start)
 
 #-scl
 (defun delq (item list)
