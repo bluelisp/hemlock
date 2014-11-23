@@ -14,14 +14,7 @@
   (setf custom:*WARN-ON-FLOATING-POINT-CONTAGION* nil))
 
 (defun getenv (name)
-  #.(or
-     #+EXCL  '(sys:getenv name)
-     #+CLISP '(ext:getenv name)
-     #+CMU   '(cdr (assoc name ext:*environment-list* :test #'string=))
-     #+scl   '(cdr (assoc name ext:*environment-list* :test #'string-equal))
-     #+sbcl  '(sb-ext:posix-getenv name)
-     #+openmcl '(ccl::getenv name)
-     (error "Find an implementation of getenv for your Lisp.")))
+  (osicat:environment-variable name)))
 
 (defmacro without-interrupts (&body body)
   `(#+EXCL   excl:without-interrupts
@@ -62,6 +55,3 @@
     (file-error (err)
                 (declare (ignore err))
                 nil)) )
-
-(defmacro without-gcing (&body body)
-  `(progn ,@body))

@@ -70,7 +70,6 @@
 
                (:file "decls" :depends-on ("package")) ; early declarations of functions and stuff
                (:file "struct" :depends-on ("package"))
-               #+port-core-struct-ed (:file "struct-ed" :depends-on ("package"))
                (:file "charmacs" :depends-on ("package"))
                (:file "key-event" :depends-on ("package" "charmacs"))
                ))

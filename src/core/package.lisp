@@ -537,7 +537,6 @@
   ;;
   (:export
    #:without-interrupts
-   #:without-gcing
    #:define-setf-method
    #:getenv
 

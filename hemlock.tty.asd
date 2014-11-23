@@ -9,7 +9,9 @@
                         :directory
                         (pathname-directory *hemlock-base-directory*)
                         :defaults *hemlock-base-directory*)
-     :depends-on (:hemlock.base :hemlock.iolib :terminfo)
+     :depends-on (:hemlock.base
+                  :hemlock.iolib 
+                  :terminfo)
     :components
     ((:module tty-1
               :pathname #.(merge-pathnames

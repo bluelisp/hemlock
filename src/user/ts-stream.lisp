@@ -250,7 +250,8 @@
 ;;; %TS-STREAM-FLSBUF --- internal.
 ;;;
 ;;; Flush the output buffer associated with stream.  This should only be used
-;;; inside a without-interrupts and without-gcing.
+;;; inside a without-interrupts and without-gcing.  Without-gcing was removed 
+;;; as it does nothing presently.  
 ;;;
 (defun %ts-stream-flsbuf (stream)
   (when (and (ts-stream-wire stream)
