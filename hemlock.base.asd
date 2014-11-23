@@ -229,10 +229,10 @@
                #+port-user-rcs (:file "rcs")
                (:file "dabbrev")
                (:file "bindings")
-               (:file "vim-bindings")
-               (:file "vim-normal")
-               (:file "vim-insert")
-               (:file "vim-cmdline")
+               ;; (:file "vim-bindings")
+               ;; (:file "vim-normal")
+               ;; (:file "vim-insert")
+               ;; (:file "vim-cmdline")
                (:file "slave-list")))
      (:module misc-1
               :pathname #.(merge-pathnames
