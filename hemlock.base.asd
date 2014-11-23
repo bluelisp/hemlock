@@ -77,7 +77,7 @@
      (:module bitmap-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "bitmap"))
                            *hemlock-base-directory*)
               :depends-on (core-1)
               :components
@@ -162,7 +162,7 @@
      (:module user-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "user"))
                            *hemlock-base-directory*)
               :depends-on (root-2 core-1 wire)
               :components
@@ -237,7 +237,7 @@
      (:module misc-1
               :pathname #.(merge-pathnames
                            (make-pathname
-                            :directory '(:relative "src"))
+                            :directory '(:relative "src" "misc"))
                            *hemlock-base-directory*)
               :depends-on (core-1)
               :components
