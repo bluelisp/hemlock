@@ -17,8 +17,11 @@
 
 (defvar hi::*command-line-switches* nil)
 
+(defun getenv (name)
+  (osicat:environment-variable name))
+
 (defun hi::get-terminal-name ()
-  (or (hemlock-ext:getenv "TERM")
+  (or (getenv "TERM")
       "vt100"))
 
 #-(or cmu scl)

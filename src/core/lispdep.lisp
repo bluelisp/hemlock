@@ -13,9 +13,6 @@
   (setf custom:*FLOATING-POINT-CONTAGION-ANSI* t)
   (setf custom:*WARN-ON-FLOATING-POINT-CONTAGION* nil))
 
-(defun getenv (name)
-  (osicat:environment-variable name)))
-
 (defmacro without-interrupts (&body body)
   `(#+EXCL   excl:without-interrupts
     #+CMU    sys:without-interrupts
