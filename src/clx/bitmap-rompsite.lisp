@@ -85,34 +85,6 @@
      (warn "Cannot open font -- ~S" font-name)
      nil)))
 
-;;; INIT-RAW-IO  --  Internal
-;;;
-;;;    This function should be called whenever the editor is entered in a new
-;;; lisp.  It sets up process specific data structures.
-;;;
-#+nilamb-duplicate(defun init-raw-io (display)
-  #-clx (declare (ignore display))
-  (setf *editor-windowed-input* nil)
-  (cond #+clx
-        (display
-         (setf *editor-windowed-input*
-               #+(or CMU scl) (ext:open-clx-display display)
-               #+(or sbcl openmcl)  (xlib::open-default-display #+nil display)
-               #-(or sbcl CMU scl openmcl) (xlib:open-display "localhost"))
-         (setf *editor-input* (make-windowed-editor-input))
-         (setup-font-family *editor-windowed-input*))
-        #+nilamb
-        (t ;; The editor's file descriptor is Unix standard input (0).
-           ;; We don't need to affect system:*file-input-handlers* here
-           ;; because the init and exit methods for tty redisplay devices
-           ;; take care of this.
-           ;;
-         (setf *editor-file-descriptor* 0)
-         (setf *editor-input* (make-tty-editor-input 0))))
-  (setf *real-editor-input* *editor-input*)
-  *editor-windowed-input*)
-
-
 (defhvar "Raise Echo Area When Modified"
   "When set, Hemlock raises the echo area window when output appears there."
   :value nil)
