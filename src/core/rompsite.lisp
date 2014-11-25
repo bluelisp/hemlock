@@ -137,11 +137,6 @@
 
 ;;;; I/O specials and initialization
 
-;;; File descriptor for the terminal.
-;;;
-(defvar *editor-file-descriptor*)
-
-
 ;;; This is a hack, so screen can tell how to initialize screen management
 ;;; without re-opening the display.  It is set in INIT-RAW-IO and referenced
 ;;; in WINDOWED-MONITOR-P.

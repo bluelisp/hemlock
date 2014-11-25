@@ -258,8 +258,12 @@
 ;;; The TTY erase character.
 (defvar *tty-erase-char* nil)
 
+;;; File descriptor for the terminal.
+;;;
+(defvar *editor-file-descriptor* 1)
+
 (defun setup-input ()
-  (let ((fd 1 #+nil *editor-file-descriptor*))
+  (let ((fd *editor-file-descriptor*))
     (when (plusp (osicat-posix::isatty fd))
       (cffi:with-foreign-object (tios 'osicat-posix::termios)
         (osicat-posix::tcgetattr fd tios)
@@ -399,7 +403,7 @@
 ;;;                (unix:get-unix-error-msg err)))))
 
 (defun reset-input ()
-  (let ((fd 1 #+nil *editor-file-descriptor*))
+  (let ((fd *editor-file-descriptor*))
     (when (plusp (osicat-posix::isatty fd))
       (cffi:with-foreign-object (tios 'osicat-posix::termios)
         (osicat-posix::tcgetattr fd tios)
