@@ -11,38 +11,6 @@
 
 (in-package :hi)
 
-;;; WITHOUT-HEMLOCK -- Public.
-;;;
-;;; Code:lispinit.lisp uses this for a couple interrupt handlers, and
-;;; eval-server.lisp.
-;;;
-#+CMU
-(defmacro without-hemlock (&body body)
-  "When in the editor and not in the debugger, call the exit method of Hemlock's
-   device, so we can type.  Do the same thing on exit but call the init method."
-  `(progn
-     (when (and *in-the-editor* (not debug::*in-the-debugger*))
-       (let ((device (device-hunk-device (window-hunk (current-window)))))
-         (device-exit device)))
-     ,@body
-     (when (and *in-the-editor* (not debug::*in-the-debugger*))
-       (let ((device (device-hunk-device (window-hunk (current-window)))))
-         (device-init device)))))
-
-#-CMU
-(defmacro without-hemlock (&body body)
-  "When in the editor and not in the debugger, call the exit method of Hemlock's
-   device, so we can type.  Do the same thing on exit but call the init method."
-  `(progn
-    (when (and *in-the-editor* )
-      (let ((device (device-hunk-device (window-hunk (current-window)))))
-        (device-exit device)))
-    ,@body
-    (when (and *in-the-editor* )
-      (let ((device (device-hunk-device (window-hunk (current-window)))))
-        (device-init device)))))
-
-
 
 ;;;; SITE-INIT.
 
