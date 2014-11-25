@@ -34,8 +34,10 @@ $SBCL <<EOF
 ;; specified, main.lisp has special-cased the tty backend as a fallback,
 ;; so CLX must come last to have a chance of overriding it.
 ;;
+(require :asdf)
+
 (dolist (system (or '($backends) '(:hemlock.tty :hemlock.clx)))
-  (asdf:operate 'asdf:load-op system))
+  (asdf:load-system system))
 
 (defun hemlock-toplevel ()
   #+ccl (when (find-package :qt) (funcall (find-symbol "REBIRTH" :qt)))
