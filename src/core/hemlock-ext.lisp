@@ -20,9 +20,6 @@
 (defun getenv (name)
   (osicat:environment-variable name))
 
-(defun hi::get-terminal-name ()
-  (or (getenv "TERM")
-      "vt100"))
 
 #-(or cmu scl)
 (defun default-directory ()

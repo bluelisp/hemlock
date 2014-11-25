@@ -436,3 +436,7 @@
   (without-hemlock
    (unix:unix-kill (unix:unix-getpid) :sigstop))
   t)
+
+(defun get-terminal-name ()
+  (or (hemlock-ext:getenv "TERM")
+      "vt100"))
