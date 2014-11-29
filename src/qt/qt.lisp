@@ -832,7 +832,7 @@
       (connect/int *tabs*
                    (qsignal "currentChanged(int)")
                    (lambda (index)
-                     (change-to-buffer (hemlock-ext::find-buffer (#_tabText *tabs* index)))))
+                     (change-to-buffer (hi::find-buffer (#_tabText *tabs* index)))))
       (with-object (key (#_new QKeySequence "Ctrl+G"))
         (connect (#_new QShortcut key (#_window *main-hunk-widget*))
                  (QSIGNAL "activated()")

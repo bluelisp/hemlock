@@ -944,7 +944,7 @@
     (setf (server-info-implementation-version server-info) version)
     (let* ((buf (ts-data-buffer slave-info))
            (name (format nil "~A ~A" (buffer-name buf) type)))
-      (hemlock-ext::maybe-rename-buffer buf name))
+      (hi::maybe-rename-buffer buf name))
     (values (hemlock.wire:make-remote-object slave-info)
             (hemlock.wire:make-remote-object background-info))))
 

@@ -7,7 +7,7 @@
 (defvar *dependency-graph-buffer* nil)
 
 (defun make-graphics-buffer (name projects)
-  (unless (hemlock-ext::find-buffer name)
+  (unless (hi::find-buffer name)
     (let* ((widget (#_new QGraphicsView))
            (scene (#_new QGraphicsScene widget)))
       (#_setScene widget scene)
@@ -32,7 +32,7 @@
   "" ""
   (declare (ignore p))
   (let ((name "*Dependency Graph*"))
-    (let ((buf (hemlock-ext::find-buffer name)))
+    (let ((buf (hi::find-buffer name)))
       (when buf
         (when (eq buf (current-buffer))
           (change-to-buffer (previous-buffer)))
@@ -40,7 +40,7 @@
     (change-to-buffer (or (make-graphics-buffer name projects)
                           (progn
                             (message "Buffer already exists: ~A" name)
-                            (hemlock-ext::find-buffer name))))))
+                            (hi::find-buffer name))))))
 
 (defun add-projects-to-current-graph (projects)
   (let ((graph (variable-value 'hemlock::current-graph))

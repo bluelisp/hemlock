@@ -5,11 +5,11 @@
 (named-readtables:in-readtable :hemlock.qt)
 
 (defun note-webkit-title-changed (buffer title)
-  (hemlock-ext::rename-buffer-uniquely buffer
-                                       (format nil "*Webkit* [~A]" title)))
+  (hi::rename-buffer-uniquely buffer
+                              (format nil "*Webkit* [~A]" title)))
 
 (defun make-browser-buffer (name url)
-  (unless (hemlock-ext::find-buffer name)
+  (unless (hi::find-buffer name)
     (let ((widget (#_new QWebView)))
       (#_setUrl widget (#_new QUrl url))
       (let ((buffer
@@ -40,7 +40,7 @@
 
 (defun ensure-browser-buffer (name url &aux *)
   (cond
-    ((setf * (hemlock-ext::find-buffer name))
+    ((setf * (hi::find-buffer name))
      (#_setUrl (hi::buffer-widget *) (#_new QUrl url))
      *)
     (t
