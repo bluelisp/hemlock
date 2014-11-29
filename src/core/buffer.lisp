@@ -579,6 +579,22 @@
   (delete-string (buffer-name buffer) *buffer-names*)
   nil)
 
+
+;;;; Finding and renaming buffers
+(defun find-buffer (name)
+  (getstring name hi::*buffer-names*))
+
+(defun maybe-rename-buffer (buffer new-name)
+  (unless (find-buffer new-name)
+    (setf (buffer-name buffer) new-name)))
+
+(defun rename-buffer-uniquely (buffer new-name)
+  (or (maybe-rename-buffer buffer new-name)
+      (iter:iter
+       (iter:for i from 2)
+       (iter:until
+        (maybe-rename-buffer buffer (format nil "~A<~D>" new-name i))))))
+
 
 
 ;;;; Buffer start and end marks.
