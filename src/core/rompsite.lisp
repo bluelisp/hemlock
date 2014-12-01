@@ -195,24 +195,12 @@
 (defconstant font-map-size 16)
 
 
-;;;; HEMLOCK-BEEP.
-
-(defvar *editor-bell* (make-string 1 :initial-element #\bell))
-
-;;; TTY-BEEP is used in Hemlock for beeping when running under a terminal.
-;;; Send a #\bell to unix standard output.
-;;;
-#+NIL
-(defun tty-beep (&optional device stream)
-  (declare (ignore device stream))
-  (when (variable-value 'hemlock::bell-style)
-    (unix:unix-write 1 *editor-bell* 0 1)))
-
 (declaim (special *current-window*))
 
 #+clx
 (declaim (special *foreground-background-xor*))
 
+;;;; HEMLOCK-BEEP.
 (defun hemlock-beep (stream)
   "Using the current window, calls the device's beep function on stream."
   (let ((device (device-hunk-device (window-hunk (current-window)))))
