@@ -44,7 +44,20 @@
                                      921600 1000000 1152000 1500000 2000000
                                      2500000 3000000 3500000 4000000)
                                    (logxor baud unix::tty-cbaudex))))))
-                   #-(or CMU scl) 4800))
+                   #-(or CMU scl)
+                   (cffi:with-foreign-object (termios 'nix:termios)
+                     (if (nix:tcgetattr fd termios)
+                         (let* ((baud-symbols (list nix:b0 nix:b50 nix:b75 nix:b110 nix:b134
+                                                    nix:b150 nix:b200 nix:b300 nix:b600 nix:b1200
+                                                    nix:b1800 nix:b2400 nix:b4800 nix:b9600
+                                                    nix:b19200 nix:b38400 nix:b57600
+                                                    nix:b115200 nix:b230400))
+                                (baud-rates #(0 50 75 110 134 150 200 300 600 1200 1800 2400
+                                              4800 9600 19200 38400 57600 115200 230400))
+                                (baud (nix:cfgetospeed termios)))
+                           (elt baud-rates (or (position baud baud-symbols)
+                                               (position 4800 baud-rates))))
+                         4800))))
     (setf *terminal-baud-rate* baud-rate)
     (cffi:with-foreign-object (ws 'osicat-posix::winsize)
       (osicat-posix:ioctl fd osicat-posix:tiocgwinsz ws)
