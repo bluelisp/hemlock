@@ -110,14 +110,6 @@
     (declare (fixnum buffer-space))
     (cond ((<= length buffer-space)
            (let ((dst-index (+ *redisplay-output-buffer-index* length)))
-             #+(or)
-             (%primitive byte-blt
-                         string             ;src
-                         start              ;src-start
-                         *redisplay-output-buffer* ;dst
-                         *redisplay-output-buffer-index* ;dst-start
-                         dst-index                       ;dst-end
-                         )
              (replace *redisplay-output-buffer*
                       string
                       :start1 *redisplay-output-buffer-index*
@@ -132,14 +124,6 @@
            (let ((remaining (- length buffer-space)))
              (declare (fixnum remaining))
              (loop
-              #+(or)
-                (%primitive byte-blt
-                            string                        ;src
-                            start                         ;src-start
-                            *redisplay-output-buffer*     ;dst
-                            *redisplay-output-buffer-index* ;dst-start
-                            redisplay-output-buffer-length  ;dst-end
-                            )
                 (replace *redisplay-output-buffer*
                          string
                          :start1 *redisplay-output-buffer-index*
@@ -147,14 +131,6 @@
                          :start2 start)
               (write-and-maybe-wait redisplay-output-buffer-length)
               (when (< remaining redisplay-output-buffer-length)
-                #+(or)
-                (%primitive byte-blt
-                            string                    ;src
-                            (+ start buffer-space)    ;src-start
-                            *redisplay-output-buffer* ;dst
-                            0                         ;dst-start
-                            remaining                 ;dst-end
-                            )
                 (replace *redisplay-output-buffer*
                          string
                          :start1 0
