@@ -21,9 +21,9 @@
               :components
               ((:file "init")
                (:file "tty-device")
-               (:file "tty-disp-rt")
-               (:file "tty-display" :depends-on ("tty-disp-rt"))
-               (:file "tty-screen" :depends-on ("tty-disp-rt"))
+               (:file "tty-ext")
+               (:file "tty-display" :depends-on ("tty-ext"))
+               (:file "tty-screen" :depends-on ("tty-ext"))
                (:file "tty-stuff")
                (:file "tty-input")
                (:file "linedit" :depends-on ("tty-display"))))))
