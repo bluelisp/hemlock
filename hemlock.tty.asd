@@ -19,7 +19,7 @@
                             :directory '(:relative "src" "tty"))
                            *hemlock-base-directory*)
               :components
-              ((:file "init")
+              ((:file "init" :depends-on ("tty-ext"))
                (:file "tty-device")
                (:file "tty-ext" :depends-on ("tty-device"))
                (:file "tty-display" :depends-on ("tty-ext"))
