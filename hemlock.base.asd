@@ -174,6 +174,7 @@
                (:file "indent" :depends-on ("filecoms"))
                (:file "searchcoms")
                (:file "filecoms")
+               ;; (:file "compile" :depends-on ("filecoms"))
                (:file "grep" :depends-on ("filecoms"))
                (:file "apropos" :depends-on ("filecoms"))
                (:file "morecoms")
