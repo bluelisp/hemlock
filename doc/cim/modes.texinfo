@@ -1,0 +1,115 @@
+@node Modes
+@chapter Modes
+@label[modes]
+@index (Modes)
+A mode is a collection of @hemlock values which may be present in the current
+environment depending on the editing
+task at hand @pageref{current-environment}.  Examples of typical modes are @hid{Lisp}, for editing Lisp code,
+and @hid{Echo Area}, for prompting in the echo area.
+
+
+@menu
+* Mode Hooks::
+* Major and Minor Modes::
+* Mode Functions::
+@end menu
+
+@node Mode Hooks
+@section Mode Hooks
+  When a mode is added to or removed from a buffer, its @i{mode hook}
+is invoked.  The hook functions take two arguments, the buffer
+involved and @true if the mode is being added or @nil if it is being
+removed. 
+
+Mode hooks are typically used to make a mode do something additional to
+what it usually does.  One might, for example, make a text mode hook
+that turned on auto-fill mode when you entered.
+
+
+@node Major and Minor Modes
+@section Major and Minor Modes
+There are two kinds of modes, @i{major} modes and @i{minor} modes.  A buffer
+always has exactly one major mode, but it may have any number of minor modes.
+Major modes may have mode character attributes while minor modes may not.
+
+A major mode is usually used to change the environment in some major way, such
+as to install special commands for editing some language.  Minor modes
+generally change some small attribute of the environment, such as whether lines
+are automatically broken when they get too long.  A minor mode should work
+regardless of what major mode and minor modes are in effect.
+
+@defhvar{var {Default Modes}, val {("Fundamental" "Save")}}
+This variable contains a list of mode names which are instantiated in a
+buffer when no other information is available.
+@enddefhvar
+
+@defvar[var {mode-names}]
+Holds a string-table of the names of all the modes.
+@end defvar
+
+@defcom[com "Illegal"]
+This is a useful command to bind in modes that wish to shadow global bindings
+by making them effectively illegal.  Also, although less likely, minor modes
+may shadow major mode bindings with this.  This command calls @f{editor-error}.
+@enddefcom
+
+
+@node Mode Functions
+@section Mode Functions
+
+@defun[fun {defmode}, args {@i{name}},@
+        keys {[setup-function][cleanup-function][major-p]},@
+        morekeys {[precedence][transparent-p][documentation]}]
+This function defines a new mode named @i{name}, and enters it in
+@var{mode-names} @varref{mode-names}.  If @i{major-p} is supplied and is not @nil
+then the mode is a major mode; otherwise it is a minor mode.
+
+@i{Setup-function} and @i{cleanup-function} are functions which are
+invoked with the buffer affected, after the mode is turned on, and
+before it is turned off, respectively.  These functions typically are
+used to make buffer-local key or variable bindings and to remove them
+when the mode is turned off.
+
+@i{Precedence} is only meaningful for a minor mode.  The precedence of a
+minor mode determines the order in which it in a buffer's list of modes.
+When searching for values in the current environment, minor modes are
+searched in order, so the precedence of a minor mode determines which value
+is found when there are several definitions.
+
+@i{Transparent-p} determines whether key bindings local to the defined mode
+are transparent.  Transparent key bindings are invoked in addition to the
+first normal key binding found rather than shadowing less local key bindings.
+
+@i{Documentation} is some introductory text about the mode.  Commands such as
+@hid{Describe Mode} use this.
+@end defun
+
+@defun[fun {mode-documentation}, args {@i{name}}]
+This function returns the documentation for the mode named @i{name}.
+@end defun
+
+@defun[fun {buffer-major-mode}, args {@i{buffer}}]
+@defhvar1[var {Buffer Major Mode Hook}]
+@f{buffer-major-mode} returns the name of @i{buffer}'s major mode.
+The major mode may be changed with @f{setf}; then
+ @hid{Buffer Major Mode Hook} is invoked with
+@i{buffer} and the new mode.
+@end defun
+
+@defun[fun {buffer-minor-mode}, args {@i{buffer} @i{name}}]
+@defhvar1[var {Buffer Minor Mode Hook}]
+@f{buffer-minor-mode} returns @true if the minor mode @i{name} is active
+in @i{buffer}, @nil otherwise.  A minor mode may be turned on or off
+by using @f{setf}; then @hid{Buffer Minor Mode Hook} is
+invoked with @i{buffer}, @i{name} and the new value.
+@end defun
+
+@defun[fun {mode-variables}, args {@i{name}}]
+Returns the string-table of mode local variables.
+@end defun
+
+@defun[fun {mode-major-p}, args {@i{name}}]
+Returns @true if @i{name} is the name of a major mode, or @nil if
+it is the name of a minor mode.  It is an error for @i{name} not to be
+the name of a mode.
+@end defun

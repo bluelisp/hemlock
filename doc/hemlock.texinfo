@@ -68,6 +68,8 @@ Contract=Basic87-90
 * Altering and Searching Text::
 * The Current Environment::
 * Hemlock Variables::
+* Commands::
+* Modes::
 @end menu
 
 @end ifnottex
@@ -79,5 +81,7 @@ Contract=Basic87-90
 @include cim/altering-searching-text.texinfo
 @include cim/current-environment.texinfo
 @include cim/hemlock-variables.texinfo
+@include cim/commands.texinfo
+@include cim/modes.texinfo
 
 @bye

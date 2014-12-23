@@ -1,0 +1,505 @@
+@node Commands
+@chapter Commands
+@index (Commands)
+@label[commands]
+
+
+@menu
+* Commands Introduction::
+* The Command Interpreter::
+* Command Types::
+* Command Arguments::
+* Recursive Edits::
+@end menu
+
+@node Commands Introduction
+@section Introduction
+The way that the user tells @hemlock to do something is by invoking a
+@i{command}.  Commands have three attributes:
+@c @begin(description)
+@enumerate
+@item
+@i{name}:A command's name provides a way to refer to it.  Command
+names are usually capitalized words separated by spaces, such as 
+@hid{Forward Word}.
+
+@item
+@i{documentation}:The documentation for a command is used by
+on-line help facilities.
+
+@item
+@i{function}:A command is implemented by a Lisp function, which is callable
+from Lisp.
+@c @end(description)
+@end enumerate
+
+@defvar[var {command-names}]
+Holds a string-table associating command names to command objects
+@pageref{string-tables}.  Whenever a new command is defined
+it is entered in this table.
+@end defvar
+
+@menu
+* Defining Commands::
+* Command Documentation::
+@end menu
+
+@node Defining Commands
+@subsection Defining Commands
+
+@defmac[fun {defcommand}, args]
+@c unsure how to translate yet
+@c {@^@mgroup<@i{command-name} @MOR (@i{command-name} @i{function-name})> @i{lambda-list} @
+@c :@i{command-doc} @i{function-doc} @mstar<@i{form}>}]
+
+Defines a command named @i{name}.  @f{defcommand} creates a function to
+implement the command from the @i{lambda-list} and @i{form}'s supplied.  The
+@i{lambda-list} must specify one required argument, see section
+@ref{invoking-commands-as-functions}, which by convention is typically named
+@f{p}.  If the caller does not specify @i{function-name}, @f{defcommand}
+creates the command name by replacing all spaces with hyphens and appending
+"@f{-command}".  @i{Function-doc} becomes the documentation for the function
+and should primarily describe issues involved in calling the command as a
+function, such as what any additional arguments are.  @i{Command-doc} becomes
+the command documentation for the command.  
+@end defmac
+
+@defun[fun {make-command}, args @
+	{@i{name} @i{documentation} @i{function}}] 
+Defines a new command named @i{name}, with command documentation
+@I{documentation} and function @i{function}.  The command in entered
+in the string-table @var{command-names}, with the command object as
+its value @varref{command-names}.  Normally command implementors will use the @f{defcommand}
+macro, but this permits access to the command definition mechanism at
+a lower level, which is occasionally useful.
+@end defun
+
+@defun[fun {commandp}, args {@i{command}}]
+Returns @true if @i{command} is a @f{command} object, otherwise @nil.
+@end defun
+
+@defun[fun {command-documentation}, args {@i{command}}]
+@defun1[fun {command-function}, args {@i{command}}]
+@defun1[fun {command-name}, args {@i{command}}]
+Returns the documentation, function, or name for @i{command}.  These
+may be set with @f{setf}.
+@end defun
+
+
+@node Command Documentation
+@subsection Command Documentation
+@i{Command documentation} is a description of what the command does
+when it is invoked as an extended command or from a key.  Command
+documentation may be either a string or a function.  If the
+documentation is a string then the first line should briefly summarize
+the command, with remaining lines filling the details.  Example:
+@lisp
+(defcommand "Forward Character" (p)
+  "Move the point forward one character.
+   With prefix argument move that many characters, with negative
+   argument go backwards."
+  "Move the point of the current buffer forward p characters."
+   . . .)
+@end lisp
+
+Command documentation may also be a function of one argument.  The
+function is called with either @kwd{short} or @kwd{full}, indicating
+that the function should return a short documentation string or do
+something to document the command fully.
+
+
+@node The Command Interpreter
+@section(The Command Interpreter)
+@index[Interpreter, command]
+@index[Invocation, command]
+@index[Command interpreter]
+
+The @i{command interpreter} is a function which reads key-events (see section
+@ref{key-events-intro}) from the keyboard and dispatches to different commands
+on the basis of what the user types.  When the command interpreter executes a
+command, we say it @i{invokes} the command.  The command interpreter also
+provides facilities for communication between commands contiguously running
+commands, such as a last command type register.  It also takes care of
+resetting communication mechanisms, clearing the echo area, displaying partial
+keys typed slowly by the user, etc.
+
+@defvar[var {invoke-hook}]
+This variable contains a function the command interpreter calls when it wants
+to invoke a command.  The function receives the command and the prefix argument
+as arguments.  The initial value is a function which simply funcalls the
+@f{command-function} of the command with the supplied prefix argument.  This is
+useful for implementing keyboard macros and similar things.
+@enddefhvar
+
+@defhvar{var "Command Abort Hook"}
+The command interpreter invokes the function in this variable whenever someone
+aborts a command (for example, if someone called @f{editor-error}).
+@enddefhvar
+
+When @hemlock initially starts the command interpreter is in control, but
+commands may read from the keyboard themselves and assign whatever
+interpretation they will to the key-events read.  Commands may call the command
+interpreter recursively using the function @funref{recursive-edit}.
+
+
+@menu
+* Editor Input::
+* Binding Commands to Keys::
+* Key Translation::
+* Transparent Key Bindings::
+* Interactive::
+@end menu
+
+@node Editor Input
+@subsection Editor Input
+@label[key-events-intro]
+@index[key-events]
+
+The canonical representation of editor input is a key-event structure.  Users
+can bind commands to keys (see section @ref{key-bindings}), which are non-zero
+length sequences of key-events.  A key-event consists of an identifying token
+known as a @i{keysym} and a field of bits representing modifiers.  Users define
+keysyms, integers between 0 and 65535 inclusively, by supplying names that
+reflect the legends on their keyboard's keys.  Users define modifier names
+similarly, but the system chooses the bit and mask for recognizing the
+modifier.  You can use keysym and modifier names to textually specify
+key-events and Hemlock keys in a @f{#k} syntax.  The following are some
+examples:
+@c @begin[programexample]
+@code {@
+   #k"C-u"@
+   #k"Control-u"@
+   #k"c-m-z"@
+   #k"control-x meta-d"@
+   #k"a"@
+   #k"A"@
+   #k"Linefeed"}
+@c @end[programexample]
+This is convenient for use within code and in init files containing
+@f{bind-key} calls.
+
+The @f{#k} syntax is delimited by double quotes, but the system parses the
+contents rather than reading it as a Common Lisp string.  Within the double
+quotes, spaces separate multiple key-events.  A single key-event optionally
+starts with modifier names terminated by hyphens.  Modifier names are
+alphabetic sequences of characters which the system uses case-insensitively.
+Following modifiers is a keysym name, which is case-insensitive if it consists
+of multiple characters, but if the name consists of only a single character,
+then it is case-sensitive.
+
+You can escape special characters @dash hyphen, double quote, open angle
+bracket, close angle bracket, and space @dash with a backslash, and you can
+specify a backslash by using two contiguously.  You can use angle brackets to
+enclose a keysym name with many special characters in it.  Between angle
+brackets appearing in a keysym name position, there are only two special
+characters, the closing angle bracket and backslash.
+
+For more information on key-events see section @ref{key-events}.
+
+
+
+@node Binding Commands to Keys
+@subsection Binding Commands to Keys
+
+The command interpreter determines which command to invoke on the basis of
+@i{key bindings}.  A key binding is an association between a command and a
+sequence of key-events (see section @ref{key-events-intro}.  A sequence of
+key-events is called a @i{key} and is represented by a single key-event or a
+sequence (list or vector) of key-events.
+
+Since key bindings may be local to a mode or buffer, the current environment
+determines the set of key bindings in
+effect at any given time @pageref{current-environment}.  When the command interpreter tries to find the
+binding for a key, it first checks if there is a local binding in the
+@var{current-buffer}, then if there is a binding in each of the minor
+modes and the major mode for the current buffer, and
+finally checks to see if there is a global binding @pageref{modes}, @xref{current-buffer}.  If no binding is found,
+then the command interpreter beeps or flashes the screen to indicate this.
+
+@defun[fun {bind-key}, args@
+        {@i{name} @i{key} @optional @i{kind} @i{where}}]
+ This function associates command @i{name} and @i{key} in some environment.
+@i{Key} is either a key-event or a sequence of key-events.  There are three
+possible values of @i{kind}:
+@c @begin(description)
+@enumerate
+@item
+@kwd{global}:
+ The default, make a global key binding.
+
+@item
+@kwd{mode}:
+ Make a mode specific key binding in the mode whose name is @i{where}.
+
+@item
+@kwd{buffer}:
+ Make a binding which is local to buffer @i{where}.
+@c@end(description)
+@end enumerate
+
+This processes @i{key} for key translations before establishing the binding.
+See section @ref{key-trans}.
+
+If the key is some prefix of a key binding which already exists in the
+specified place, then the new one will override the old one, effectively
+deleting it.
+
+@f{ext:do-alpha-key-events} is useful for setting up bindings in certain new
+modes.
+@end defun
+
+@defun[fun {command-bindings}, args {@i{command}}]
+This function returns a list of the places where @i{command} is bound.  A place
+is specified as a list of the key (always a vector), the kind of binding, and
+where (either the mode or buffer to which the binding is local, or @nil if it
+is a global).
+@end defun
+
+@defun[fun {delete-key-binding}, args {@i{key} @optional @i{kind} @i{where}}]
+This function removes the binding of @i{key} in some place.  @i{Key} is either
+a key-event or a sequence of key-events.  @i{kind} is the kind of binding to
+delete, one of @kwd{global} (the default), @kwd{mode} or @kwd{buffer}.  If
+@i{kind} is @kwd{mode}, @i{where} is the mode name, and if @i{kind} is
+@kwd{buffer}, then @i{where} is the buffer.
+
+This function signals an error if @i{key} is unbound.
+
+This processes @i{key} for key translations before deleting the binding.  See
+section @ref{key-trans}.
+@end defun
+
+@defun[fun {get-command}, args {@i{key} @optional @i{kind} @i{where}}]
+This function returns the command bound to @i{key}, returning @nil if it is
+unbound.  @i{Key} is either a key-event or a sequence of key-events.  If
+@i{key} is an initial subsequence of some keys, then this returns the keyword
+@kwd{prefix}.  There are four cases of @i{kind}:
+@c @begin(description)
+@enumerate
+@item
+@kwd{current}:
+ Return the current binding of @i{key} using the current buffer's search list.
+If there are any transparent key bindings for @i{key}, then they are returned
+in a list as a second value.
+
+@item
+@kwd{global}:
+ Return the global binding of @i{key}.  This is the default.
+
+@item
+@kwd{mode}:
+ Return the binding of @i{key} in the mode named @i{where}.
+
+@item
+@kwd{buffer}:
+ Return the binding of @i{key} local to the buffer @i{where}.
+@c@end(description)
+@end enumerate
+
+This processes @i{key} for key translations before looking for any binding.
+See section @ref{key-trans}.
+@end defun
+
+@defun[fun {map-bindings}, Args {@i{function} @i{kind} @optional @i{where}}]
+This function maps over the key bindings in some place.  For each binding, this
+passes @i{function} the key and the command bound to it.  @i{Kind} and
+@i{where} are the same as in @f{bind-key}.  The key is not guaranteed to remain
+valid after a given iteration.
+@end defun
+
+
+@node Key Translation
+@subsection Key Translation
+@index[bit-prefix keys]
+@index[key translation]
+@index[translating keys]
+@label[key-trans]
+Key translation is a process that the command interpreter applies to keys
+before doing anything else.  There are two kinds of key translations:
+substitution and bit-prefix.  In either case, the command interpreter
+translates a key when a specified key-event sequence appears in a key.
+
+In a substitution translation, the system replaces the matched subsequence with
+another key-event sequence.  Key translation is not recursively applied to the
+substituted key-events.
+
+In a bit-prefix translation, the system removes the matched subsequence and
+effectively sets the specified bits in the next key-event in the key.
+
+While translating a key, if the system encounters an incomplete final
+subsequence of key-events, it aborts the translation process.  This happens
+when those last key-events form a prefix of some translation.  It also happens
+when they translate to a bit-prefix, but there is no following key-event to
+which the system can apply the indicated modifier.  If there is a binding for
+this partially untranslated key, then the command interpreter will invoke that
+command; otherwise, it will wait for the user to type more key-events.
+
+@defun[fun {key-translation}, args {@i{key}}]
+This form is @f{setf}'able and allows users to register key translations that
+the command interpreter will use as users type key-events.
+
+This function returns the key translation for @i{key}, returning @nil if there
+is none.  @i{Key} is either a key-event or a sequence of key-events.  If
+@i{key} is a prefix of a translation, then this returns @kwd{prefix}.
+
+A key translation is either a key or modifier specification.  The bits
+translations have a list form: @w{@f{(:bits @{@}@i{bit-name}@@f@{@}*)}}.
+
+Whenever @i{key} appears as a subsequence of a key argument to the binding
+manipulation functions, that portion will be replaced with the translation.
+@end defun
+
+
+
+@node Transparent Key Bindings
+@subsection Transparent Key Bindings
+@label[transparent-key-bindings]
+@index[Transparent key bindings]
+
+Key bindings local to a mode may be @i{transparent}.  A transparent key
+binding does not shadow less local key bindings, but rather indicates that
+the bound command should be invoked before the first normal key binding.
+Transparent key bindings are primarily useful for implementing minor modes
+such as auto fill and word abbreviation.  There may be several transparent
+key bindings for a given key, in which case all of the commands bound are
+invoked in the order they were found.  If there no normal key binding for a
+key typed, then the command interpreter acts as though the key is unbound
+even if there are transparent key bindings.
+
+The @kwd{transparent-p} argument to @f{defmode} determines whether the
+key bindings in a mode are transparent or not @funref{defmode}.
+
+
+@node Interactive
+@subsection (Interactive
+@index (Keyboard macro vs. interactive)
+@index (Interactive vs. keyboard macro)
+@hemlock supports keyboard macros.  A user may enter a mode where the editor
+records his actions, and when the user exits this mode, the command @hid{Last
+Keyboard Macro} plays back the actions.  Some commands behave differently when
+invoked as part of the definition of a keyboard macro.  For example, when used
+in a keyboard macro, a command that @f{message}'s useless user confirmation
+will slow down the repeated invocations of @hid{Last Keyboard Macro} because
+the command will pause on each execution to make sure the user sees the
+message.  This can be eliminated with the use of @f{interactive}.  As another
+example, some commands conditionally signal an editor-error versus simply
+beeping the device depending on whether it executes on behalf of the user or a
+keyboard macro.
+
+@defun[fun {interactive}]
+This returns @true when the user invoked the command directly.
+@end defun
+
+
+@node Command Types
+@section(Command Types)
+@index(Command types)
+@label(command-types)
+In many editors the behavior of a command depends on the kind of command
+invoked before it.  @hemlock provides a mechanism to support this known as
+@i{command type}.
+
+@defun[fun {last-command-type}]
+This returns the command type of the last command invoked.  If this is set with
+@f{setf}, the supplied value becomes the value of @f{last-command-type} until
+the next command completes.  If the previous command did not set
+@f{last-command-type}, then its value is @nil.  Normally a command type is a
+keyword.  The command type is not cleared after a command is invoked due to a
+transparent key binding.
+@end defun
+
+
+@node Command Arguments
+@section(Command Arguments)
+@label[invoking-commands-as-functions]
+There are three ways in which a command may be invoked: It may be bound to a
+key which has been typed, it may be invoked as an extended command, or it may
+be called as a Lisp function.  Ideally commands should be written in such a way
+that they will behave sensibly no matter which way they are invoked.  The
+functions which implement commands must obey certain conventions about argument
+passing if the command is to function properly.
+
+
+@menu
+* The Prefix Argument::
+* Lisp Arguments::
+@end menu
+
+@node The Prefix Argument
+@subsection The Prefix Argument
+@index(Prefix arguments)
+Whenever a command is invoked it is passed as its first argument what
+is known as the @i{prefix argument}.  The prefix argument is always
+either an integer or @nil.  When a command uses this value it is
+usually as a repeat count, or some conceptually similar function.
+
+@defun[fun {prefix-argument}]
+This function returns the current value of the prefix argument.  When
+set with @f{setf}, the new value becomes the prefix argument for the
+next command.
+@end defun
+
+If the prefix argument is not set by the previous command then the
+prefix argument for a command is @nil.  The prefix argument is not cleared
+after a command is invoked due to a transparent key binding.
+
+
+@node Lisp Arguments
+@subsection Lisp Arguments
+It is often desirable to call commands from Lisp code, in which case
+arguments which would otherwise be prompted for are passed as optional
+arguments following the prefix argument.  A command should prompt for
+any arguments not supplied.
+
+
+@node Recursive Edits
+@section(Recursive Edits)
+@index(Recursive edits)
+@defmac[fun {use-buffer}, args {@i{buffer} @mstar<@i{form}>}]
+The effect of this is similar to setting the current-buffer to @i{buffer}
+during the evaluation of @i{forms}.  There are restrictions placed on what the
+code can expect about its environment.  In particular, the value of any global
+binding of a @hemlock variable which is also a mode local variable of some mode
+is ill-defined; if the variable has a global binding it will be bound, but the
+value may not be the global value.  It is also impossible to nest
+@f{use-buffer}'s in different buffers.  The reason for using @f{use-buffer} is
+that it may be significantly faster than changing @f{current-buffer} to
+@i{buffer} and back.
+@end defmac
+
+@defun[fun {recursive-edit}, args {@optional @i{handle-abort}}]
+@defhvar1[var {Enter Recursive Edit Hook}]
+@index[aborting]
+@f{recursive-edit} invokes the command interpreter.  The command interpreter
+will read from the keyboard and invoke commands until it is terminated with
+either @f{exit-recursive-edit} or @f{abort-recursive-edit}.
+
+Normally, an editor-error or @bf[C-g] aborts the command in progress and
+returns control to the top-level command loop.  If @f{recursive-edit} is used
+with @i{handle-abort} true, then @f{editor-error} or @bf[C-g] will only abort
+back to the recursive command loop.
+
+Before the command interpreter is entered the hook
+@hid{Enter Recursive Edit Hook} is invoked.
+@end defun
+
+@defun[fun {in-recursive-edit}]
+This returns whether the calling point is dynamically within a recursive edit
+context.
+@end defun
+
+@defun[fun {exit-recursive-edit}, args {@optional @i{values-list}}]
+@defhvar1[var {Exit Recursive Edit Hook}]
+@f{exit-recursive-edit} exits a recursive edit returning as multiple values
+each element of @i{values-list}, which defaults to @nil.  This invokes
+@hid{Exit Recursive Edit Hook} after exiting the command interpreter.  If no
+recursive edit is in progress, then this signals an error.
+@end defun
+
+@defun[fun {abort-recursive-edit}, args {@rest @i{args}}]
+@defhvar1[var {Abort Recursive Edit Hook}]
+@f{abort-recursive-edit} terminates a recursive edit by applying
+@f{editor-error} to @i{args} after exiting the command interpreter @funref{editor-error}.  This
+invokes @hid{Abort Recursive Edit Hook} with @i{args} before aborting the
+recursive edit .  If no recursive edit is in progress, then this signals an
+error.
+@end defun
