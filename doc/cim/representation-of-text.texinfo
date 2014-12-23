@@ -1,0 +1,316 @@
+@node Representation of Text
+@chapter Representation of Text
+
+@menu
+* Lines::
+* Marks::
+* Regions::
+@end menu
+
+@node Lines
+@section Lines
+In Hemlock all text is in some @i{line}.  Text is broken into lines wherever
+it contains a newline character; newline characters are never stored, but are
+assumed to exist between every pair of lines.  The implicit newline character
+is treated as a single character by the text primitives.
+
+@defun linep @i{line}
+This function returns true if @i{line} is a @f{line} object, otherwise nil.
+@end defun
+
+@defun line-string, @i{line}
+Given a @i{line}, this function returns as a simple string the characters in
+the line.  This is @f{setf}'able to set the @f{line-string} to any string that
+does not contain newline characters.  It is an error to destructively modify
+the result of @f{line-string} or to destructively modify any string after the
+@f{line-string} of some line has been set to that string.
+@end defun
+
+@defun[fun {line-previous}, args {@i{line}}]
+@defun1[fun {line-next}, args {@i{line}}]
+Given a @i{line}, @f{line-previous} returns the previous line or nil if there
+is no previous line.  Similarly, @f{line-next} returns the line following
+@i{line} or nil.
+@end defun
+
+@defun[fun {line-buffer}, args {@i{line}}]
+This function returns the buffer which contains this @i{line}.  Since a
+line may not be associated with any buffer, in which case @f{line-buffer}
+returns @nil.
+@end defun
+
+@defun[fun {line-length}, args {@i{line}}]
+This function returns the number of characters in the @i{line}.  This excludes
+the newline character at the end.
+@end defun
+
+@defun[fun {line-character}, args {@i{line} @i{index}}]
+This function returns the character at position @i{index} within @i{line}.  It
+is an error for @i{index} to be greater than the length of the line or less
+than zero.  If @i{index} is equal to the length of the line, this returns a
+@f{#\newline} character.
+@end defun
+
+@defun[fun {line-plist}, args {@i{line}}]
+This function returns the property-list for @i{line}.  @f{setf}, @f{getf},
+@f{putf} and @f{remf} can be used to change properties.  This is typically used
+in conjunction with @f{line-signature} to cache information about the line's
+contents.
+@end defun
+
+@defun[fun {line-signature}, args {@i{line}}]
+This function returns an object that serves as a signature for a @i{line}'s
+contents.  It is guaranteed that any modification of text on the line will
+result in the signature changing so that it is not @f{eql} to any previous
+value.  The signature may change even when the text remains unmodified, but
+this does not happen often.
+@end defun
+
+@node Marks
+@section(Marks)
+A mark indicates a specific position within the text represented by a line and
+a character position within that line.  Although a mark is sometimes loosely
+referred to as pointing to some character, it in fact points between
+characters.  If the @f{charpos} is zero, the previous character is the newline
+character separating the previous line from the mark's @f{line}.  If the
+charpos is equal to the number of characters in the line, the next character is
+the newline character separating the current line from the next.  If the mark's
+line has no previous line, a mark with @f{charpos} of zero has no previous
+character; if the mark's line has no next line, a mark with @f{charpos} equal
+to the length of the line has no next character.
+
+This section discusses the very basic operations involving marks, but a lot of
+@hemlock programming is built on altering some text at a mark.  For more
+extended uses of marks see chapter @c @ref{doing-stuff}.
+
+@menu
+* Kinds of Marks::
+* Mark Functions::
+* Making Marks::
+* Moving Marks::
+@end menu
+
+@node Kinds of Marks
+@subsection(Kinds of Marks)
+@anchor{Permanent marks}
+@anchor{Temporary marks}
+A mark may have one of two lifetimes: @i{temporary} or @i{permanent}.
+Permanent marks remain valid after arbitrary operations on the text; temporary
+marks do not.  Temporary marks are used because less bookkeeping overhead is
+involved in their creation and use.  If a temporary mark is used after the text
+it points to has been modified results will be unpredictable.  Permanent marks
+continue to point between the same two characters regardless of insertions and
+deletions made before or after them.
+
+There are two different kinds of permanent marks which differ only in their
+behavior when text is inserted @i{at the position of the mark}; text is
+inserted to the left of a @i{left-inserting} mark and to the right of
+@i{right-inserting} mark.
+
+@node Mark Functions
+@subsection(Mark Functions)
+@defun[fun {markp}, args {@i{mark}}]
+This function returns @true if @i{mark} is a @f{mark} object, otherwise @nil.
+@end defun
+
+@defun[fun {mark-line}, args {@i{mark}}]
+This function returns the line to which @i{mark} points.
+@end defun
+
+@defun[fun {mark-charpos}, args {@i{mark}}]
+This function returns the character position of the character after @i{mark}.
+If @i{mark}'s line has no next line, this returns the length of the line as
+usual; however, there is actually is no character after the mark.
+@end defun
+
+@defun[fun {mark-kind}, args {@i{mark}}]
+This function returns one of @kwd{right-inserting}, @kwd{left-inserting} or
+@kwd[temporary] depending on the mark's kind.  A corresponding @f{setf} form
+changes the mark's kind.
+@end defun
+
+@defun[fun {previous-character}, args {@i{mark}}]
+@defun1[fun {next-character}, args {@i{mark}}]
+This function returns the character immediately before (after) the position of
+the @i{mark}, or @nil if there is no previous (next) character.  These
+characters may be set with @f{setf} when they exist; the @f{setf} methods for
+these forms signal errors when there is no previous or next character.
+@end defun
+
+@node Making Marks
+@subsection(Making Marks)
+@defun[fun {mark}, args {@i{line} @i{charpos} @optional @i{kind}}]
+This function returns a mark object that points to the @i{charpos}'th character
+of the @i{line}.  @i{Kind} is the kind of mark to create, one of
+@kwd{temporary}, @kwd{left-inserting}, or @kwd{right-inserting}.  The default
+is @kwd{temporary}.
+@end defun
+
+@defun[fun {copy-mark}, args {@i{mark} @optional @i{kind}}]
+This function returns a new mark pointing to the same position and of the same
+kind, or of kind @i{kind} if it is supplied.
+@end defun
+
+@defun[fun {delete-mark}, args {@i{mark}}]
+This function deletes @i{mark}.  Delete any permanent marks when you are
+finished using it.
+@end defun
+
+@Defmac{Fun, {with-mark}, Args 
+        \{(@Mstar<(@i{mark} @i{pos} @mopt[@i{kind}])>) @Mstar<@i{form}>\}}
+ This macro binds to each variable @i{mark} a mark of kind @i{kind}, which
+defaults to @kwd{temporary}, pointing to the same position as the mark @i{pos}.
+On exit from the scope the mark is deleted.  The value of the last @i{form} is
+the value returned.
+@enddefmac
+
+
+@node Moving Marks
+@subsection(Moving Marks)
+@anchor{Moving marks}
+These functions destructively modify marks to point to new positions.  Other
+sections of this document describe mark moving routines specific to higher
+level text forms than characters and lines, such as words, sentences,
+paragraphs, Lisp forms, etc.
+
+@defun[fun {move-to-position}, args {@i{mark} @i{charpos} @optional @i{line}}]
+This function changes the @i{mark} to point to the given character position on
+the line @i{line}.  @i{Line} defaults to @i{mark}'s line.
+@end defun
+
+@defun[fun {move-mark}, args {@i{mark} @i{new-position}}]
+This function moves @i{mark} to the same position as the mark @i{new-position}
+and returns it.
+@end defun
+
+@defun[fun {line-start}, args {@i{mark} @optional @i{line}}]
+@defun1[fun {line-end}, args {@i{mark} @optional @i{line}}]
+This function changes @i{mark} to point to the beginning or the end of @i{line}
+and returns it.  @i{Line} defaults to @i{mark}'s line.
+@end defun
+
+@defun[fun {buffer-start}, args {@i{mark} @optional @i{buffer}}]
+@defun1[fun {buffer-end}, args {@i{mark} @optional @i{buffer}}]
+These functions change @i{mark} to point to the beginning or end of @i{buffer},
+which defaults to the buffer @i{mark} currently points into.  If @i{buffer} is
+unsupplied, then it is an error for @i{mark} to be disassociated from any
+buffer.
+@end defun
+
+@defun[fun {mark-before}, args {@i{mark}}]
+@defun1[fun {mark-after}, args {@i{mark}}]
+These functions change @i{mark} to point one character before or after the
+current position.  If there is no character before/after the current position,
+then they return @nil and leave @i{mark} unmodified.
+@end defun
+
+@defun[fun {character-offset}, args {@i{mark} @i{n}}]
+This function changes @i{mark} to point @i{n} characters after (@i{n} before if
+@i{n} is negative) the current position.  If there are less than @i{n}
+characters after (before) the @i{mark}, then this returns @nil and @i{mark} is
+unmodified.
+@end defun
+
+@defun[fun {line-offset}, args {@i{mark} @i{n} @optional @i{charpos}}]
+This function changes @i{mark} to point @i{n} lines after (@i{n} before if
+@i{n} is negative) the current position.  The character position of the
+resulting mark is
+@lisp
+(min (line-length @i{resulting-line}) (mark-charpos @i{mark}))
+@end lisp
+if @i{charpos} is unspecified, or
+@lisp
+(min (line-length @i{resulting-line}) @i{charpos})
+@end lisp
+if it is.  As with@c @xref{character-offset}, if there are not @i{n} lines then
+@nil is returned and @i{mark} is not modified.
+@end defun
+
+@node Regions
+@section(Regions)
+A region is simply a pair of marks: a starting mark and an ending mark.
+The text in a region consists of the characters following the starting
+mark and preceding the ending mark (keep in mind that a mark points between
+characters on a line, not at them).
+
+By modifying the starting or ending mark in a region it is possible to
+produce regions with a start and end which are out of order or even in
+different buffers.  The use of such regions is undefined and may
+result in arbitrarily bad behavior.
+
+@menu
+* Region Functions::
+@end menu
+
+@node Region Functions
+@subsection(Region Functions)
+@defun[fun {region}, args {@i{start} @i{end}}]
+This function returns a region constructed from the marks @i{start} and
+@i{end}.  It is an error for the marks to point to non-contiguous lines or for
+@i{start} to come after @i{end}.
+@end defun
+
+@defun[fun {regionp}, args {@i{region}}]
+This function returns @true if @i{region} is a @f[region] object, otherwise
+@nil.
+@end defun
+
+@defun[fun {make-empty-region}]
+This function returns a region with start and end marks pointing to the start
+of one empty line.  The start mark is a @kwd[right-inserting] mark, and the end
+is a @kwd[left-inserting] mark.
+@end defun
+
+@defun[fun {copy-region}, args {@i{region}}]
+This function returns a region containing a copy of the text in the specified
+@i{region}.  The resulting region is completely disjoint from @i{region} with
+respect to data references @dash marks, lines, text, etc.
+@end defun
+
+@defun[fun {region-to-string}, args {@i{region}}]
+@defun1[fun {string-to-region}, args {@i{string}}]
+These functions coerce regions to Lisp strings and vice versa.  Within the
+string, lines are delimited by newline characters.
+@end defun
+
+@defun[fun {line-to-region}, args {@i{line}}]
+This function returns a region containing all the characters on @i{line}.  The
+first mark is @kwd{right-inserting} and the last is @kwd{left-inserting}.
+@end defun
+
+@defun[fun {region-start}, args {@i{region}}]
+@defun1[fun {region-end}, args {@i{region}}]
+This function returns the start or end mark of @i{region}.
+@end defun
+
+@defun[fun {region-bounds}, args {@i{region}}]
+This function returns as multiple-values the starting and ending marks of
+@i{region}.
+@end defun
+
+@defun[fun {set-region-bounds}, args {@i{region} @i{start} @i{end}}]
+This function sets the start and end of region to @i{start} and @i{end}.  It is
+an error for @i{start} to be after or in a different buffer from @i{end}.
+@end defun
+
+@defun[fun {count-lines}, args {@i{region}}]
+This function returns the number of lines in the @i{region}, first and last
+lines inclusive.  A newline is associated with the line it follows, thus a
+region containing some number of non-newline characters followed by one newline
+is one line, but if a newline were added at the beginning, it would be two
+lines.
+@end defun
+
+@defun[fun {count-characters}, args {@i{region}}]
+This function returns the number of characters in a given @i{region}.  This
+counts line breaks as one character.
+@end defun
+
+@defun[fun {check-region-query-size}, args {@i{region}}]
+@defhvar1[var {Region Query Size}, val {30}]
+@f[check-region-query-size] counts the lines in @i{region}, and if their number
+exceeds the @hid[Region Query Size] threshold, it prompts the user for
+confirmation.  This should be used in commands that perform destructive
+operations and are not undoable.  If the user responds negatively, then this
+signals an editor-error, aborting whatever command was in progress.
+@end defun

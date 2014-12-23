@@ -1,0 +1,25 @@
+@node Introduction
+@comment  node-name,  next,  previous,  up
+@chapter Introduction
+
+ @hemlock is a text editor which follows in the tradition of editors
+such as EMACS and the Lisp Machine editor ZWEI.  In its basic form,
+@hemlock has almost the same command set as EMACS, and similar
+features such as multiple buffers and windows, extended commands,
+and built in documentation.
+
+Both user extensions and the original commands are written in Lisp,
+therefore a command implementor will have a working knowledge of this
+language.  Users not familiar with Lisp need not despair however.  Many
+users of Multics EMACS, another text editor written in Lisp, came to learn
+Lisp simply for the purpose of writing their own editor extensions, and
+found, to their surprise, that it was really pretty easy to write simple
+commands.
+
+This document describes the Common Lisp functions, macros and data structures
+that are used to implement new commands.  The basic editor consists of a set of
+Lisp utility functions for manipulating buffers and the other data structures
+of the editor as well as handling the display.  All user level commands are
+written in terms of these functions.  To find out how to define commands see
+chapter @c @ref[commands].
+

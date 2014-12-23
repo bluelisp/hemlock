@@ -1,0 +1,75 @@
+\input texinfo @c -*-texinfo-*-
+@c %**start of header
+@setfilename hemlock.info
+@settitle Hemlock Command Implementor's Manual
+@setchapternewpage odd
+@c %**end of header
+
+@ignore
+Don't know what this does...
+@Device[postscript]
+@style(FontFamily = TimesRoman)
+@Style(Spacing = 1.2 lines)
+@Style(StringMax = 5000)
+@style(Hyphenation = On)
+@style(Date="March 1952")
+@use(database "/afs/cs/project/clisp/docs/database/")
+@Style [DoubleSided]
+@Libraryfile[ArpaCredit]
+@Libraryfile[Hem]
+@Libraryfile[Spice]
+@Libraryfile[Uttir]
+@end ignore
+
+@titlepage
+@c @blankspace(1.3inches)
+@sp 10
+@center @titlefont{Hemlock Command Implementor's Manual}
+@sp 2
+@center @b{Bill Chiles}
+@center @b{Rob MacLachlan}
+
+@c @b{@value{date}}  doesn't seem to be supported automatically...
+
+@b{CMU-CS-89-134-R1}
+
+@comment<@end[TitleBox]>
+@sp 2
+@center School of Computer Science
+@center Carnegie Mellon University
+@center Pittsburgh, PA 15213
+
+@sp 2
+@center This is a revised version of Technical Report CMU-CS-87-159.
+@heading[Abstract]
+This document describes how to write commands for the  text editor, as
+of version M3.2.   is a customizable, extensible text editor whose
+initial command set closely resembles that of ITS/TOPS-20 Emacs.   is
+written in the CMU Common Lisp and has been ported to other implementations.
+
+@sp 2
+Contract=Basic87-90
+@end titlepage
+
+@contents
+
+@ifnottex
+
+@node Top
+@comment node-name, next, previous, up
+@top hemlock
+
+@insertcopying
+
+@menu
+* Introduction::
+* Representation of Text::
+@end menu
+
+@end ifnottex
+
+@include dictionary.texinfo
+@include cim/cim-intro.texinfo
+@include cim/representation-of-text.texinfo
+
+@bye

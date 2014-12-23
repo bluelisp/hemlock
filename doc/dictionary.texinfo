@@ -1,0 +1,137 @@
+@macro true
+@b{t}
+@end macro
+@macro nil
+@b{nil}
+@end macro
+@macro f{fname}
+@b{\fname\}
+@end macro
+
+@macro hemlock
+@b{Hemlock}
+@end macro
+
+@macro kwd {keyword}
+@code{\keyword\}
+@end macro
+@macro optional
+@@optional
+@end macro
+
+@macro Defmac{fun,name,args,actual_args,description} 
+@defun \name\ \actual_args\
+\description\
+@end macro
+
+@macro enddefmac
+@end defun
+@end macro
+
+@macro defun1
+@end defun
+@defun 
+@end macro
+
+@macro dash
+-
+@end macro
+
+@macro defhvar1
+@defun1
+@end macro
+
+@macro hid{NAME}
+@b{@i{\NAME\}}
+@end macro
+
+@macro pageref{ref}
+@xref{\ref\}
+@end macro
+@macro funref{ref}
+@xref{\ref\}
+@end macro
+
+@macro index{name}
+@end macro
+@macro label{name}
+@end macro
+
+@macro hvarref{name}
+@xref{\name\}
+@end macro
+
+@macro Begin{name}
+@code{
+@end macro
+@macro End{name}
+}
+@end macro
+
+@macro rest
+@@rest
+@end macro
+
+@macro varref{ref}
+@xref {\ref\}
+@end macro
+
+@macro binding {b}
+@i{\b\}
+@end macro
+@macro defhvar{var,name,val,value}
+@defvar{name,value}
+@end macro
+@macro emacs
+@b{Emacs}
+@end macro
+@macro enddefhvar
+@end defvar
+@end macro
+
+
+@macro defcon {vars}
+@defun \vars\
+@end macro
+@macro enddefcon
+@end defun
+@end macro
+
+@macro defvar1 {vars}
+@end defvar
+@end macro
+
+@macro DefmacFun {args,args2}
+@defmac {\args\,\args2\}
+@end macro
+
+@macro I{var}
+@c dunno
+@end macro
+
+@macro mstar {var}
+\var\
+@end macro
+
+@macro bf {arg}
+\arg\
+@end macro
+
+@macro defcom {name}
+@defvar {\name\}
+@end macro
+@macro enddefcom
+@end defvar
+@end macro
+
+@macro macref{name}
+@xref{\name\}
+@end macro
+
+@macro false
+@b{false}
+@end macro
+
+@macro blankspace {size}
+@sp 1 
+@end macro
