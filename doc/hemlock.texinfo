@@ -65,6 +65,9 @@ Contract=Basic87-90
 * Introduction::
 * Representation of Text::
 * Buffers::
+* Altering and Searching Text::
+* The Current Environment::
+* Hemlock Variables::
 @end menu
 
 @end ifnottex
@@ -73,5 +76,8 @@ Contract=Basic87-90
 @include cim/cim-intro.texinfo
 @include cim/representation-of-text.texinfo
 @include cim/buffers.texinfo
+@include cim/altering-searching-text.texinfo
+@include cim/current-environment.texinfo
+@include cim/hemlock-variables.texinfo
 
 @bye

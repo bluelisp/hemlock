@@ -1,0 +1,210 @@
+@node Hemlock Variables
+@chapter Hemlock Variables
+@index (Hemlock variables)
+@label(variables)
+@hemlock implements a system of variables separate from normal Lisp variables
+for the following reasons:
+@enumerate
+@item
+@hemlock has different scoping rules which are useful in an editor.  @hemlock
+variables can be local to a @i{buffer} or a @i{mode}
+@pageref{buffers}, @pageref{modes}.
+
+@item
+@hemlock variables have @i{hooks} , lists of functions
+called when someone sets the variable @pageref{hooks}.  See @f{variable-value} for the arguments @hemlock passes to these hook functions.
+
+@item
+There is a database of variable names and documentation which makes it easier
+to find out what variables exist and what their values mean.
+@end enumerate
+
+
+@menu
+* Variable Names::
+* Variable Functions::
+* Hooks::
+@end menu
+
+@node Variable Names
+@section(Variable Names)
+To the user, a variable name is a case insensitive string.  This
+string is referred to as the @i{string name} of the variable.  A
+string name is conventionally composed of words separated by spaces.
+
+In Lisp code a variable name is a symbol.  The name of this symbol is
+created by replacing any spaces in the string name with hyphens.  This
+symbol name is always interned in the @hemlock package and referring
+to a symbol with the same name in the wrong package is an error.
+
+@defvar[var {global-variable-names}]
+This variable holds a string-table of the names of all the global @hemlock
+variables.  The value of each entry is the symbol name of the variable.
+@end defvar
+
+@defun[fun {current-variable-tables}]
+This function returns a list of variable tables currently established,
+globally, in the @f{current-buffer}, and by the modes of the
+@f{current-buffer}.  This list is suitable for use with
+@f{prompt-for-variable}.
+@end defun
+
+
+@node Variable Functions
+@section(Variable Functions)
+In the following descriptions @i{name} is the symbol name of the variable.
+
+@defun[fun {defhvar}, args {@i{string-name} @i{documentation}},@
+	keys {[mode][buffer][hooks][value]}]
+ This function defines a @hemlock variable.  Functions that take a variable
+name signal an error when the variable is undefined.
+@enumerate
+@item
+@i{string-name}:The string name of the variable to define.
+
+@item
+@i{documentation}:The documentation string for the variable.
+
+@c @multiple{
+@item
+@kwd{mode},
+@kwd{buffer}:
+ If @i{buffer} is supplied, the variable is local to that buffer.  If @i{mode}
+is supplied, it is local to that mode.  If neither is supplied, it is global.
+
+@item
+@kwd{value}:
+ This is the initial value for the variable, which defaults to @nil.
+
+@item
+@kwd{hooks}:
+ This is the initial list of functions to call when someone sets the variable's
+value.  These functions execute before @hemlock establishes the new value.  See
+@f{variable-value} for the arguments passed to the hook functions.
+@end enumerate
+If a variable with the same name already exists in the same place, then
+@f{defhvar} sets its hooks and value from @i{hooks} and @i{value} if the user
+supplies these keywords.
+@end defun
+
+@defun[fun {variable-value}, args {@i{name} @optional @i{kind} @i{where}}]
+This function returns the value of a @hemlock variable in some place.
+The following values for @i{kind} are defined:
+@c @begin[description]
+@enumerate
+@item
+@kwd{current}:
+ Return the value present in the current environment, taking into consideration
+any mode or buffer local variables.  This is the default.
+
+@item
+@kwd{global}:
+ Return the global value.
+
+@item
+@kwd{mode}:
+ Return the value in the mode named @i{where}.
+
+@item
+@kwd{buffer}:
+ Return the value in the buffer @i{where}.
+@c @end[description]
+@end enumerate
+When set with @f{setf}, @hemlock sets the value of the specified variable and
+invokes the functions in its hook list with @i{name}, @i{kind}, @i{where}, and
+the new value.
+@end defun
+
+@defun[fun {variable-documentation}, args@
+	{@i{name} @optional @i{kind} @i{where}}] 
+@defun1[fun {variable-hooks}, args@
+        {@i{name} @optional @i{kind} @i{where}}]
+@defun1[fun {variable-name}, args@
+	{@i{name} @optional @i{kind} @i{where}}]
+These function return the documentation, hooks and string name of a
+@hemlock variable.  The @i{kind} and @i{where} arguments are the same
+as for @f{variable-value}.  The documentation and hook list may be set
+using @f{setf}.
+@end defun
+
+@defun[fun {string-to-variable}, args {@i{string}}]
+This function converts a string into the corresponding variable symbol
+name.  @i{String} need not be the name of an actual @hemlock variable.
+@end defun
+
+@defmac[fun {value}, args {@i{name}}] 
+@end defmac
+@defmac[fun {setv}, args {@i{name} @i{new-value}}]
+These macros get and set the current value of the @hemlock variable
+@i{name}.  @i{Name} is not evaluated.  There is a @f{setf} form for
+@f{value}.
+@end defmac
+
+@c not sure what is mstar...
+@c @DefmacFun{ {hlet}, Args {(@Mstar{(@i{var} @i{value})}) @Mstar{@i{form}}}}
+@defmac[ {hlet}, Mstar(@i{var} @i{value}) Mstar(@i{form})]
+This macro is very similar to @f{let} in effect; within its scope each
+of the @hemlock variables @i{var} have the respective @i{value}s, but
+after the scope is exited by any means the binding is removed.  This
+does not cause any hooks to be invoked.  The value of the last
+@i{form} is returned.
+@end defmac
+
+@defun[fun {hemlock-bound-p}, args {@i{name} @optional @i{kind} @i{where}}]
+Returns @true if @i{name} is defined as a @hemlock variable in the
+place specified by @i{kind} and @i{where}, or @nil otherwise.
+@end defun
+
+@defun[fun {delete-variable}, args {@i{name} @optional @i{kind} @i{where}}]
+@defhvar1[var {Delete Variable Hook}]
+@f{delete-variable} makes the @hemlock variable @i{name} no longer
+defined in the specified place.  @i{Kind} and @i{where} have the same
+meanings as they do for @f{variable-value}, except that @kwd{current}
+is not available, and the default for @i{kind} is @kwd{global}
+
+An error will be signaled if no such variable exists.  The hook,
+@hid{Delete Variable Hook} is invoked with the same arguments before the
+variable is deleted.
+@end defun
+
+
+@node Hooks
+@section(Hooks)
+@index(Hooks)
+@label[hooks]
+@hemlock actions such as setting variables, changing buffers, changing windows,
+turning modes on and off, etc., often have hooks associated with them.  A hook
+is a list of functions called before the system performs the action.  The
+manual describes the object specific hooks with the rest of the operations
+defined on these objects.
+
+Often hooks are stored in @hemlock variables, @hid{Delete Buffer Hook} and
+@hid{Set Window Hook} for example.  This leads to a minor point of confusion
+because these variables have hooks that the system executes when someone
+changes their values.  These hook functions @hemlock invokes when someone sets
+a variable are an example of a hook stored in an object instead of a @hemlock
+variable.  These are all hooks for editor activity, but @hemlock keeps them in
+different kinds of locations.  This is why some of the routines in this section
+have a special interpretation of the hook @i{place} argument.
+
+@defmac[fun {add-hook}, args {@i{place} @i{hook-fun}}]
+@end defmac
+@defmac[fun {remove-hook}, args {@i{place} @i{hook-fun}}]
+These macros add or remove a hook function in some @i{place}.  If @i{hook-fun}
+already exists in @i{place}, this call has no effect.  If @i{place} is a
+symbol, then it is a @hemlock variable; otherwise, it is a generalized variable
+or storage location.  Here are two examples:
+@c @Begin[ProgramExample]
+@lisp
+(add-hook delete-buffer-hook 'remove-buffer-from-menu)
+
+(add-hook (variable-hooks 'check-mail-interval)
+          'reschedule-mail-check)
+@end lisp
+@c @End[ProgramExample]
+@end defmac
+
+@defmac[fun {invoke-hook}, args {@i{place} @rest @i{args}}]
+This macro calls all the functions in @i{place}.  If @i{place} is a symbol,
+then it is a @hemlock variable; otherwise, it is a generalized variable.
+@end defmac

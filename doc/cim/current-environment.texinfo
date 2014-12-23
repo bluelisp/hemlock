@@ -1,0 +1,59 @@
+@node The Current Environment
+@chapter The Current Environment
+@label(current-environment)
+@index(Current environment)
+
+@menu
+* Different Scopes::
+* Shadowing::
+@end menu
+
+@node Different Scopes, Shadowing, The Current Environment, The Current Environment
+@section(Different Scopes)
+In @hemlock the values of @i{variables}, @i{key-bindings} and
+@i{character-attributes} may depend on the @f{current-buffer} and the
+modes active in it @pageref{variables}, @pageref{key-bindings}, 
+@pageref{character-attributes}, @funref{current-buffer}.  There are
+three possible scopes for @hemlock values:
+@enumerate
+@item
+@i{buffer local}:The value is present only if the buffer it is local
+to is the @f{current-buffer}.
+
+@item
+@i{mode local}:The value is present only when the mode it is local to
+is active in the @f{current-buffer}.
+
+@item
+@i{global}:The value is always present unless shadowed by a buffer or
+mode local value.
+@end enumerate
+
+
+@node Shadowing,  , Different Scopes, The Current Environment
+@section(Shadowing)
+    It is possible for there to be a conflict between different values
+for the same thing in different scopes.  For example, there be might a
+global binding for a given variable and also a local binding in the
+current buffer.  Whenever there is a conflict shadowing occurs,
+permitting only one of the values to be visible in the current
+environment.
+
+    The process of resolving such a conflict can be described as a
+search down a list of places where the value might be defined, returning
+the first value found.  The order for the search is as follows:
+@enumerate
+@item
+Local values in the current buffer.
+
+@item
+Mode local values in the minor modes of the current buffer, in order
+from the highest precedence mode to the lowest precedence mode.  The
+order of minor modes with equal precedences is undefined.
+
+@item
+Mode local values in the current buffer's major mode.
+
+@item
+Global values.
+@end enumerate

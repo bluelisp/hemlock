@@ -1,0 +1,402 @@
+@node Altering and Searching Text
+@chapter Altering and Searching Text
+@label[doing-stuff]
+
+@menu
+* Altering Text::
+* Text Predicates::
+* Kill Ring::
+* Active Regions::
+* Searching and Replacing::
+@end menu
+
+@node Altering Text, Text Predicates, Altering and Searching Text, Altering and Searching Text
+@section(Altering Text)
+@index(Altering text)
+@index(Inserting)
+@index(Deleting)
+A note on marks and text alteration: @kwd{temporary} marks are invalid
+after any change has been made to the text the mark points to; it is an
+error to use a temporary mark after such a change has been made.  If
+text is deleted which has permanent marks pointing into it then they
+are left pointing to the position where the text was.
+
+@defun[fun {insert-character}, args {@i{mark} @i{character}}]
+@defun1[fun {insert-string}, args {@i{mark} @i{string}}]
+@defun1[fun {insert-region}, args {@i{mark} @i{region}}]
+Inserts @i{character}, @i{string} or @i{region} at @i{mark}.
+@f{insert-character} signals an error if @i{character} is not
+@f{string-char-p}.  If @i{string} or @i{region} is empty, and @i{mark} is in
+some buffer, then @hemlock leaves @f{buffer-modified} of @i{mark}'s buffer
+unaffected.
+@end defun
+
+@defun[fun {ninsert-region}, args {@i{mark} @i{region}}]
+Like @f{insert-region}, inserts the @i{region} at the @i{mark}'s position,
+destroying the source region.  This must be used with caution, since if anyone
+else can refer to the source region bad things will happen.  In particular, one
+should make sure the region is not linked into any existing buffer.  If
+@i{region} is empty, and @i{mark} is in some buffer, then @hemlock leaves
+@f{buffer-modified} of @i{mark}'s buffer unaffected.
+@end defun
+
+@defun[fun {delete-characters}, args {@i{mark} @i{n}}]
+This deletes @i{n} characters after the @i{mark} (or -@i{n} before if @i{n} is
+negative).  If @i{n} characters after (or -@i{n} before) the @i{mark} do not
+exist, then this returns @nil; otherwise, it returns @true.  If @i{n} is zero,
+and @i{mark} is in some buffer, then @hemlock leaves @f{buffer-modified} of
+@i{mark}'s buffer unaffected.
+@end defun
+
+@defun[fun {delete-region}, args {@i{region}}]
+This deletes @i{region}.  This is faster than @f{delete-and-save-region}
+(below) because no lines are copied.  If @i{region} is empty and contained in
+some buffer's @f{buffer-region}, then @hemlock leaves @f{buffer-modified} of
+the buffer unaffected.
+@end defun
+
+@defun[fun {delete-and-save-region}, args {@i{region}}]
+This deletes @i{region} and returns a region containing the original
+@i{region}'s text.  If @i{region} is empty and contained in some buffer's
+@f{buffer-region}, then @hemlock leaves @f{buffer-modified} of the buffer
+unaffected.  In this case, this returns a distinct empty region.
+@end defun
+
+@defun[fun {filter-region}, args {@i{function} @i{region}}]
+Destructively modifies @i{region} by replacing the text
+of each line with the result of the application of @i{function} to a
+string containing that text.  @i{Function} must obey the following
+restrictions:
+@enumerate
+@item
+The argument may not be destructively modified.
+
+@item
+The return value may not contain newline characters.
+
+@item
+The return value may not be destructively modified after it is
+returned from @i{function}.
+@end enumerate
+The strings are passed in order, and are always simple strings.
+
+Using this function, a region could be uppercased by doing:
+@lisp
+(filter-region #'string-upcase region)
+@end lisp
+@end defun
+
+
+@node Text Predicates, Kill Ring, Altering Text, Altering and Searching Text
+@section(Text Predicates)
+@defun[fun {start-line-p}, args {@i{mark}}]
+Returns @true if the @i{mark} points before the first character in a line,
+@nil otherwise.
+@end defun
+
+@defun[fun {end-line-p}, args {@i{mark}}]
+Returns @true if the @i{mark} points after the last character in a line and
+before the newline, @nil otherwise.
+@end defun
+
+@defun[fun {empty-line-p}, args {@i{mark}}]
+Return @true of the line which @i{mark} points to contains no characters.
+@end defun
+
+@defun[fun {blank-line-p}, args {@i{line}}]
+Returns @true if @i{line} contains only characters with a
+@hid[Whitespace] attribute of 1.  See chapter @ref{character-attributes} for
+discussion of character attributes.
+@end defun
+
+@defun[fun {blank-before-p}, args {@i{mark}}]
+@defun1[fun {blank-after-p}, args {@i{mark}}]
+These functions test if all the characters preceding or following
+@i{mark} on the line it is on have a @hid[Whitespace] attribute of @f{1}.
+@end defun
+
+@defun[fun {same-line-p}, args {@i{mark1} @i{mark2}}]
+Returns @true if @i{mark1} and @i{mark2} point to the same line, or @nil
+otherwise;  That is,
+@example
+(same-line-p a b) <==> (eq (mark-line a) (mark-line b))
+@end example
+@end defun
+
+@defun[fun {mark<}, funlabel {mark-LSS}, args {@i{mark1} @i{mark2}}]
+@defun1[fun {mark<=}, funlabel {mark-LEQ}, args {@i{mark1} @i{mark2}}]
+@defun1[fun {mark=}, funlabel {mark-EQL}, args {@i{mark1} @i{mark2}}]
+@defun1[fun {mark/=}, funlabel {mark-NEQ}, args {@i{mark1} @i{mark2}}]
+@defun1[fun {mark>=}, funlabel {mark-GEQ}, args {@i{mark1} @i{mark2}}]
+@defun1[fun {mark>}, funlabel {mark-GTR}, args {@i{mark1} @i{mark2}}]
+These predicates test the relative ordering of two marks in a piece of
+text, that is a mark is @f{mark>} another if it points to a position
+after it.  If the marks point into different, non-connected pieces of
+text, such as different buffers, then it is an error to test their
+ordering; for such marks @f{mark=} is always false and @f{mark/=} is
+always true.
+@end defun
+
+@defun[fun {line<}, funlabel {line-LSS}, args {@i{line1} @i{line2}}]
+@defun1[fun {line<=}, funlabel {line-LEQ}, args {@i{line1} @i{line2}}]
+@defun1[fun {line>=}, funlabel {line-GEQ}, args {@i{line1} @i{line2}}]
+@defun1[fun {line>}, funlabel {line-GTR}, args {@i{line1} @i{line2}}]
+These predicates test the ordering of @i{line1} and @i{line2}.  If the
+lines are in unconnected pieces of text it is an error to test their
+ordering.
+@end defun
+
+@defun[fun {lines-related}, args {@i{line1} @i{line2}}]
+This function returns @true if @i{line1} and @i{line2} are in the same
+piece of text, or @nil otherwise.
+@end defun
+
+@defun[fun {first-line-p}, args {@i{mark}}]
+@defun1[fun {last-line-p}, args {@i{mark}}]
+@f{first-line-p} returns @true if there is no line before the line
+@i{mark} is on, and @nil otherwise.  @i{Last-line-p} similarly tests
+tests whether there is no line after @i{mark}.
+@end defun
+
+
+@node Kill Ring, Active Regions, Text Predicates, Altering and Searching Text
+@section(Kill Ring)
+@index(Kill ring)
+@label(kill-ring)
+
+@defvar[var {kill-ring}]
+This is a ring (see section @ref{rings}) of regions deleted from buffers.
+Some commands save affected regions on the kill ring before performing
+modifications.  You should consider making the command undoable (see section
+@ref{undo}), but this is a simple way of achieving a less satisfactory means
+for the user to recover.
+@end defvar
+
+@defun[fun {kill-region}, args {@i{region} @i{current-type}}]
+This kills @i{region} saving it in @var{kill-ring}.  @i{Current-type} is either
+@kwd{kill-forward} or @kwd{kill-backward}.  When the @f{last-command-type}
+is one of these, this adds @i{region} to the beginning or end, respectively, of
+the top of @var{kill-ring} @funref{last-command-type}.  The result of calling this is undoable using the
+command @hid[Undo] (see the @i{Hemlock User's Manual}).  This sets
+@f{last-command-type} to @i{current-type}, and it interacts with
+@f{kill-characters}.
+@end defun
+
+@defun[fun {kill-characters}, args {@i{mark} @i{count}}]
+@defhvar1[var {Character Deletion Threshold}, val {5}]
+@f{kill-characters} kills @i{count} characters after @i{mark} if @i{count} is
+positive, otherwise before @i{mark} if @i{count} is negative.  When @i{count}
+is greater than or equal to @hid[Character Deletion Threshold], the killed
+characters are saved on @var{kill-ring}.  This may be called multiple times
+contiguously (that is, without @f{last-command-type} being set) to
+accumulate an effective count for purposes of comparison with the threshold 
+@funref{last-command-type}.
+
+This sets @f{last-command-type}, and it interacts with @f{kill-region}.  When
+this adds a new region to @var{kill-ring}, it sets @f{last-command-type} to
+@kwd{kill-forward} (if @i{count} is positive) or @kwd{kill-backward} (if
+@i{count} is negative).  When @f{last-command-type} is @kwd{kill-forward} or
+@kwd{kill-backward}, this adds the killed characters to the beginning (if
+@i{count} is negative) or the end (if @i{count} is positive) of the top of
+@var{kill-ring}, and it sets @f{last-command-type} as if it added a new region
+to @var{kill-ring}.  When the kill ring is unaffected, this sets
+@f{last-command-type} to @kwd{char-kill-forward} or @kwd{char-kill-backward}
+depending on whether @i{count} is positive or negative, respectively.
+
+This returns mark if it deletes characters.  If there are not @i{count}
+characters in the appropriate direction, this returns nil.
+@end defun
+
+
+@node Active Regions, Searching and Replacing, Kill Ring, Altering and Searching Text
+@section(Active Regions)
+@index(Active regions)
+@label(active-regions)
+
+Every buffer has a mark stack and a mark known as the point where most text
+altering nominally occurs @pageref{mark-stack}.  Between the top of the
+mark stack, the @f{current-mark}, and the @f{current-buffer}'s point, the
+@f{current-point}, is what is known as the @f{current-region}.  Certain
+commands signal errors when the user tries to operate on the @f{current-region}
+without its having been activated.  If the user turns off this feature, then
+the @f{current-region} is effectively always active.
+
+When writing a command that marks a region of text, the programmer should make
+sure to activate the region.  This typically occurs naturally from the
+primitives that you use to mark regions, but sometimes you must explicitly
+activate the region.  These commands should be written this way, so they do not
+require the user to separately mark an area and then activate it.  Commands
+that modify regions do not have to worry about deactivating the region since
+modifying a buffer automatically deactivates the region.  Commands that insert
+text often activate the region ephemerally; that is, the region is active for
+the immediately following command, allowing the user wants to delete the region
+inserted, fill it, or whatever.
+
+Once a marking command makes the region active, it remains active until:
+@itemize
+@item
+a command uses the region,
+
+@item
+a command modifies the buffer,
+
+@item
+a command changes the current window or buffer,
+
+@item
+a command signals an editor-error,
+
+@item
+or the user types @binding[C-g].
+@end itemize
+
+@defhvar{var, "Active Regions Enabled", val, {t}}
+When this variable is non-@nil, some primitives signal an editor-error if
+the region is not active.  This may be set to @nil for more traditional @emacs
+region semantics.
+@enddefhvar
+
+@defvar[var {ephemerally-active-command-types}]
+This is a list of command types (see section @ref{command-types}), and its
+initial value is the list of @kwd{ephemerally-active} and @kwd{unkill}.  When
+the previous command's type is one of these, the @f{current-region} is active
+for the currently executing command only, regardless of whether it does
+something to deactivate the region.  However, the current command may activate
+the region for future commands.  @kwd{ephemerally-active} is a default command
+type that may be used to ephemerally activate the region, and @kwd{unkill} is
+the type used by two commands, @hid{Un-kill} and @hid{Rotate Kill Ring} (what
+users typically think of as @binding{C-y} and @binding{M-y}).
+@end defvar
+
+@defun[fun {activate-region}]
+This makes the @f{current-region} active.
+@end defun
+
+@defun[fun {deactivate-region}]
+After invoking this the @f{current-region} is no longer active.
+@end defun
+
+@defun[fun {region-active-p}]
+Returns whether the @f{current-region} is active, including ephemerally.  This
+ignores @hid{Active Regions Enabled}.
+@end defun
+
+@defun[fun {check-region-active}]
+This signals an editor-error when active regions are enabled, and the
+@f{current-region} is not active.
+@end defun
+
+@defun[current-region, {@optional @i{error-if-not-active} @i{deactivate-region}}]
+This returns a region formed with @f{current-mark} and @f{current-point},
+optionally signaling an editor-error if the current region is not active.
+@i{Error-if-not-active} defaults to @true.  Each call returns a distinct region
+object.  Depending on @i{deactivate-region} (defaults to @true), fetching the
+current region deactivates it.  @hemlock primitives are free to modify text
+regardless of whether the region is active, so a command that checks for this
+can deactivate the region whenever it is convenient.
+@end defun
+
+
+@node Searching and Replacing,  , Active Regions, Altering and Searching Text
+@section(Searching and Replacing)
+@index(Searching)
+@index(Replacing)
+
+Before using any of these functions to do a character search, look at character
+attributes @pageref{character-attributes}.  They provide a facility
+similar to the syntax table in real EMACS.  Syntax tables are a powerful,
+general, and efficient mechanism for assigning meanings to characters in
+various modes.
+
+@defcon{var {search-char-code-limit}}
+An exclusive upper limit for the char-code of characters given to the searching
+functions.  The result of searches for characters with a char-code greater than
+or equal to this limit is ill-defined, but it is @i{not} an error to do such
+searches.
+@enddefcon
+
+@defun[fun {new-search-pattern},@
+args {@i{kind} @i{direction} @i{pattern} @optional @i{result-search-pattern}}] 
+
+Returns a @i{search-pattern} object which can be given to the @f{find-pattern}
+and @f{replace-pattern} functions.  A search-pattern is a specification of a
+particular sort of search to do.  @i{direction} is either @kwd{forward} or
+@kwd{backward}, indicating the direction to search in.  @i{kind} specifies the
+kind of search pattern to make, and @i{pattern} is a thing which specifies what
+to search for.
+
+The interpretation of @i{pattern} depends on the @i{kind} of pattern being
+made.  Currently defined kinds of search pattern are:
+@enumerate
+
+@c changing @\ to : since it is invalid here.
+@item
+@kwd{string-insensitive}:Does a case-insensitive string search,
+@i{pattern} being the string to search for.
+
+@item
+@kwd{string-sensitive}:Does a case-sensitive string search for
+@i{pattern}.
+
+@item
+@kwd{character}:Finds an occurrence of the character @i{pattern}.
+This is case sensitive.
+
+@item
+@kwd{not-character}:Find a character which is not the character
+@i{pattern}.
+
+@item
+@kwd{test}:Finds a character which satisfies the function @i{pattern}.
+This function may not be applied an any particular fashion, so it
+should depend only on what its argument is, and should have no
+side-effects.
+
+@item
+@kwd{test-not}:Similar to as @kwd{test}, except it finds a character that
+fails the test.
+
+@item
+@kwd{any}:Finds a character that is in the string @i{pattern}.
+
+@item
+@kwd{not-any}:Finds a character that is not in the string @i{pattern}.
+@end enumerate
+
+@i{result-search-pattern}, if supplied, is a search-pattern to
+destructively modify to produce the new pattern.  Where reasonable
+this should be supplied, since some kinds of search patterns may
+involve large data structures.
+@end defun
+
+@defun[fun {search-pattern-p}, args {@i{search-pattern}}]
+Returns @true if @i{search-pattern} is a @f{search-pattern} object, otherwise
+@nil.
+@end defun
+
+@defun[fun {get-search-pattern}, args {@i{string} @i{direction}}]
+@defvar[var {last-search-pattern}]
+@defvar1[var {last-search-string}]
+@f{get-search-pattern} interfaces to a default search string and pattern that
+search and replacing commands can use.  These commands then share a default
+when prompting for what to search or replace, and save on consing a search
+pattern each time they execute.  This uses @hid{Default Search Kind} (see the
+@i{Hemlock User's Manual}) when updating the pattern object.  This returns the
+pattern, so you probably don't need to refer to @var{last-search-pattern}, but
+@var{last-search-string} is useful when prompting.
+@end defun
+
+@defun[fun {find-pattern}, args {@i{mark} @i{search-pattern}}]
+Find the next match of @i{search-pattern} starting at @i{mark}.  If a
+match is found then @i{mark} is altered to point before the matched text
+and the number of characters matched is returned.  If no match is
+found then @nil is returned and @i{mark} is not modified.
+@end defun
+
+@defun[fun {replace-pattern}, args @
+        {@i{mark} @i{search-pattern} @i{replacement} @optional @i{n}}]
+Replace @i{n} matches of @i{search-pattern} with the string
+@i{replacement} starting at @i{mark}.  If @i{n} is @nil (the default)
+then replace all matches.  A mark pointing before the last replacement
+done is returned.
+@end defun
