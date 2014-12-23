@@ -1,0 +1,390 @@
+@node Buffers
+@chapter Buffers
+A buffer is an environment within @hemlock consisting of:
+@enumerate
+@item
+A name.
+
+@item
+A piece of text.
+
+@item
+A current focus of attention, the point.
+
+@item
+An associated file (optional).
+
+@item
+A write protect flag.
+
+@item
+Some variables @pageref{variables}.
+
+@item
+Some key bindings @pageref{key-bindings}.
+
+@item
+Some collection of modes @pageref{modes}.
+
+@item
+Some windows in which it is displayed @pageref{windows}.
+
+@item
+A list of modeline fields (optional).
+@end enumerate
+
+@menu
+* The Current Buffer::
+* Buffer Functions::
+* Modelines::
+@end menu
+
+@node The Current Buffer
+@section The Current Buffer
+@defun[fun {current-buffer}]
+@defhvar1[var {Set Buffer Hook}]
+@defhvar1[var {After Set Buffer Hook}]
+@f[current-buffer] returns the current buffer object.  Usually this is the
+buffer that current-window is displaying @funref{current-window}.  This value may be changed
+with @f{setf}, and the @f{setf} method invokes @hid[Set Buffer Hook] before the
+change occurs with the new value.  After the change occurs, the method invokes
+@hid[After Set Buffer Hook] with the old value.
+@end defun
+
+@defun[fun {current-point}]
+This function returns the @f{buffer-point} of the current buffer.
+This is such a common idiom in commands that it is defined despite
+its trivial implementation.
+@end defun
+
+@defun[fun {current-mark}]
+@defun1[fun {pop-buffer-mark}]
+@defun1[fun {push-buffer-mark}, args {@i{mark} @optional @i{activate-region}}]
+@index(Buffer mark stack)
+@index(Mark stack)
+@label(mark-stack)
+@f{current-mark} returns the top of the current buffer's mark stack.  There
+always is at least one mark at the beginning of the buffer's region, and all
+marks returned are right-inserting.
+
+@f{pop-buffer-mark} pops the current buffer's mark stack, returning the mark.
+If the stack becomes empty, this pushes a new mark on the stack pointing to the
+buffer's start.  This always deactivates the current region (see section
+@ref{active-regions}).
+
+@f{push-buffer-mark} pushes @i{mark} into the current buffer's mark stack,
+ensuring that the mark is right-inserting.  If @i{mark} does not point into the
+current buffer, this signals an error.  Optionally, the current region is made
+active, but this never deactivates the current region (see section
+@ref{active-regions}).  @i{Mark} is returned.
+@end defun
+
+@defvar[var {buffer-list}]
+This variable holds a list of all the buffer objects made with @f{make-buffer}.
+@end defvar
+
+@defvar[var {buffer-names}]
+This variable holds a @f{string-table} of all the
+names of the buffers in @var{buffer-list}.  The values of the entries are the
+corresponding buffer objects @pageref{string-tables}.
+@end defvar
+
+@defvar[var {buffer-history}]
+This is a list of buffer objects ordered from those most recently selected to
+those selected farthest in the past.  When someone makes a buffer, an element
+of @hid[Make Buffer Hook] adds this buffer to the end of this list.  When
+someone deletes a buffer, an element of @hid[Delete Buffer Hook] removes the
+buffer from this list.  Each buffer occurs in this list exactly once, but it
+never contains the @var{echo-area-buffer}.
+@end defvar
+
+@defun[fun {change-to-buffer}, args {@i{buffer}}]
+This switches to @i{buffer} in the @f{current-window} maintaining
+@f{buffer-history}.
+@end defun
+
+@defun[fun {previous-buffer}]
+This returns the first buffer from @var{buffer-history} that is not the
+@f{current-buffer}.  If none can be found, then this returns @nil.
+@end defun
+
+@node Buffer Functions
+@section Buffer Functions
+@defun[fun {make-buffer}, args {@i{name}}, keys {[modes][modeline-fields][delete-hook]}]
+@defhvar1[var {Make Buffer Hook}]
+@defhvar1[var {Default Modeline Fields}]
+@f{make-buffer} creates and returns a buffer with the given @i{name}.  If a
+buffer named @i{name} already exists, @nil is returned.  @i{Modes} is a list of
+modes which should be in effect in the buffer, major mode first, followed by
+any minor modes.  If this is omitted then the buffer is created with the list
+of modes contained in @hvarref{Default Modes}.  @i{Modeline-fields} is a list
+of modeline-field objects (see section @ref{modelines}) which may be @nil.
+@f{delete-hook} is a list of delete hooks specific to this buffer, and
+@f{delete-buffer} invokes these along with @hid[Delete Buffer Hook].
+
+Buffers created with @f{make-buffer} are entered into the list
+@var{buffer-list}, and their names are inserted into the
+string-table @var{buffer-names}.  When a buffer is created the hook
+@hid[Make Buffer Hook] is invoked with the new buffer.
+@end defun
+
+@defun[fun {bufferp}, args {@i{buffer}}]
+Returns @true if @i{buffer} is a @f{buffer} object, otherwise @nil.
+@end defun
+
+@defun[fun {buffer-name}, args {@i{buffer}}]
+@defhvar1[var {Buffer Name Hook}]
+@f{buffer-name} returns the name, which is a string, of the given @i{buffer}.
+The corresponding @f{setf} method invokes @hid[Buffer Name Hook] with
+@i{buffer} and the new name and then sets the buffer's name.  When the user
+supplies a name for which a buffer already exists, the @f{setf} method signals
+an error.
+@end defun
+
+@defun[fun {buffer-region}, args {@i{buffer}}]
+Returns the @i{buffer}'s region.  This can be set with @f{setf}.  Note, this
+returns the region that contains all the text in a buffer, not the
+@funref{current-region}.
+@end defun
+
+@defun[fun {buffer-pathname}, args {@i{buffer}}]
+@defhvar1[var {Buffer Pathname Hook}]
+@f{buffer-pathname} returns the pathname of the file associated with
+the given @i{buffer}, or nil if it has no associated file.  This is
+the truename of the file as of the most recent time it was read or
+written.  There is a @f{setf} form to change the pathname.  When the
+pathname is changed the hook @hid[Buffer Pathname Hook] is invoked
+with the buffer and new value.
+@end defun
+
+@defun[fun {buffer-write-date}, args {@i{buffer}}]
+Returns the write date for the file associated with the buffer in universal
+time format.  When this the @f{buffer-pathname} is set, use @f{setf} to set
+this to the corresponding write date, or to @nil if the date is unknown or
+there is no file.
+@end defun
+
+@defun[fun {buffer-point}, args {@i{buffer}}]
+Returns the mark which is the current location within @i{buffer}.  To
+move the point, use @f{move-mark} or @f{move-to-position} rather
+than setting @f{buffer-point} with @f{setf} @funref{move-to-position}.
+@end defun
+
+@defun[fun {buffer-mark}, args {@i{buffer}}]
+@index(Buffer mark stack)
+@index(Mark stack)
+This function returns the top of @i{buffer}'s mark stack.  There always
+is at least one mark at the beginning of @i{buffer}'s region, and all marks
+returned are right-inserting.
+@end defun
+
+@defun[fun {buffer-start-mark}, args {@i{buffer}}]
+@defun1[fun {buffer-end-mark}, args {@i{buffer}}]
+These functions return the start and end marks of @i{buffer}'s region:
+@Begin[ProgramExample]
+(buffer-start-mark buffer)  <==>
+  (region-start (buffer-region buffer))
+and
+(buffer-end-mark buffer)  <==>
+  (region-end (buffer-region buffer))
+@End[ProgramExample]
+@end defun
+
+@defun[fun {buffer-writable}, args {@i{buffer}}]
+@defhvar1[var "Buffer Writable Hook"]
+This function returns @true if you can modify the @i{buffer}, @nil if you
+cannot.  If a buffer is not writable, then any attempt to alter text in the
+buffer results in an error.  There is a @f{setf} method to change this value.
+
+The @f{setf} method invokes the functions in @hid[Buffer Writable Hook] on the
+buffer and new value before storing the new value.
+@end defun
+
+@defun[fun {buffer-modified}, args {@i{buffer}}]
+@defhvar1[var "Buffer Modified Hook"]
+@f{buffer-modified} returns @true if the @i{buffer} has been modified, @nil if
+it hasn't.  This attribute is set whenever a text-altering operation is
+performed on a buffer.  There is a @f{setf} method to change this value.
+
+The @f{setf} method invokes the functions in @hid[Buffer Modified Hook] with
+the buffer whenever the value of the modified flag changes.
+@end defun
+
+@defmac[fun {with-writable-buffer}, args {(@i{buffer}) @rest @i{forms}}]
+This macro executes @i{forms} with @i{buffer}'s writable status set.  After
+@i{forms} execute, this resets the @i{buffer}'s writable and modified status.
+@end defmac
+
+@defun[fun {buffer-signature}, args {@i{buffer}}]
+This function returns an arbitrary number which reflects the buffer's current
+@i{signature}.  The result is @f{eql} to a previous result if and only if the
+buffer has not been modified between the calls.
+@end defun
+
+@defun[fun {buffer-variables}, args {@i{buffer}}]
+This function returns a string-table containing
+the names of the buffer's local variables @pageref{string-tables}.  See chapter @ref{variables}.
+@end defun
+
+@defun[fun {buffer-modes}, args {@i{buffer}}]
+This function returns the list of the names of the modes active in @i{buffer}.
+The major mode is first, followed by any minor modes.  See chapter @ref{modes}.
+@end defun
+
+@defun[fun {buffer-windows}, args {@i{buffer}}]
+This function returns the list of all the windows in which the buffer may be
+displayed.  This list may include windows which are not currently visible.  See
+page for a discussion of windows @pageref{windows}.
+@end defun
+
+@defun[fun {buffer-delete-hook}, args {@i{buffer}}]
+This function returns the list of buffer specific functions @f{delete-buffer}
+invokes when deleting a buffer.  This is @f{setf}'able.
+@end defun
+
+@defun[fun {delete-buffer}, args {@i{buffer}}]
+@defhvar1[var {Delete Buffer Hook}]
+@f{delete-buffer} removes @i{buffer} from @var{buffer-list} and its name
+from @var{buffer-names} @varref{buffer-list}, @varref{buffer-names}.  Before @i{buffer} is deleted, this invokes the
+functions on @i{buffer} returned by @f{buffer-delete-hook} and those found in
+@hid[Delete Buffer Hook].  If @i{buffer} is the @f{current-buffer}, or if it is
+displayed in any windows, then this function signals an error.
+@end defun
+
+@defun[fun {delete-buffer-if-possible}, args {@i{buffer}}]
+This uses @f{delete-buffer} to delete @i{buffer} if at all possible.  If
+@i{buffer} is the @f{current-buffer}, then this sets the @f{current-buffer} to
+the first distinct buffer in @f{buffer-history}.  If @i{buffer} is displayed in
+any windows, then this makes each window display the same distinct buffer.
+@end defun
+
+
+@node Modelines
+@section Modelines
+@index(Modelines)
+@label(modelines)
+
+A Buffer may specify a modeline, a line of text which is displayed across the
+bottom of a window to indicate status information.  Modelines are described as
+a list of @f{modeline-field} objects which have individual update functions and
+are optionally fixed-width.  These have an @f{eql} name for convenience in
+referencing and updating, but the name must be unique for all created
+modeline-field objects.  When creating a modeline-field with a specified width,
+the result of the update function is either truncated or padded on the right to
+meet the constraint.  All modeline-field functions must return simple strings
+with standard characters, and these take a buffer and a window as arguments.
+Modeline-field objects are typically shared amongst, or aliased by, different
+buffers' modeline fields lists.  These lists are unique allowing fields to
+behave the same wherever they occur, but different buffers may display these
+fields in different arrangements.
+
+Whenever one of the following changes occurs, all of a buffer's modeline fields
+are updated:
+@itemize
+@item
+A buffer's major mode is set.
+
+@item
+One of a buffer's minor modes is turned on or off.
+
+@item
+A buffer is renamed.
+
+@item
+A buffer's pathname changes.
+
+@item
+A buffer's modified status changes.
+
+@item
+A window's buffer is changed.
+@end itemize
+
+The policy is that whenever one of these changes occurs, it is guaranteed that
+the modeline will be updated before the next trip through redisplay.
+Furthermore, since the system cannot know what modeline-field objects the
+user has added whose update functions rely on these values, or how he has
+changed @hid[Default Modeline Fields], we must update all the fields.  When any
+but the last occurs, the modeline-field update function is invoked once for
+each window into the buffer.  When a window's buffer changes, each
+modeline-field update function is invoked once; other windows' modeline
+fields should not be affected due to a given window's buffer changing.
+
+The user should note that modelines can be updated at any time, so update
+functions should be careful to avoid needless delays (for example, waiting for
+a local area network to determine information).
+
+@defun[fun {make-modeline-field}, keys {[name][width][function]}]
+@defun1[fun {modeline-field-p}, args @i{modeline-field}]
+@defun1[fun {modeline-field-name}, args @i{modeline-field}]
+@f{make-modeline-field} returns a modeline-field object with @i{name},
+@i{width}, and @i{function}.  @i{Width} defaults to @nil meaning that the field
+is variable width; otherwise, the programmer must supply this as a positive
+integer.  @i{Function} must take a buffer and window as arguments and return a
+@f{simple-string} containing only standard characters.  If @i{name} already
+names a modeline-field object, then this signals an error.
+
+@f{modeline-field-name} returns the name field of a modeline-field object.  If
+this is set with @f{setf}, and the new name already names a modeline-field,
+then the @f{setf} method signals an error.
+
+@f{modeline-field-p} returns @true or @nil, depending on whether its argument
+is a @f{modeline-field} object.
+@end defun
+
+@defun[fun {modeline-field}, args {@i{name}}]
+This returns the modeline-field object named @i{name}.  If none exists, this
+returns nil.
+@end defun
+
+@defun[fun {modeline-field-function}, args {@i{modeline-field}}]
+Returns the function called when updating the @i{modeline-field}.  When this is
+set with @f{setf}, the @f{setf} method updates @i{modeline-field} for all
+windows on all buffers that contain the given field, so the next trip through
+redisplay will reflect the change.  All modeline-field functions must return
+simple strings with standard characters, and they take a buffer and a window
+as arguments.
+@end defun
+
+@defun[fun {modeline-field-width}, args {@i{modeline-field}}]
+Returns the width to which @i{modeline-field} is constrained, or @nil
+indicating that it is variable width.  When this is set with @f{setf}, the
+@f{setf} method updates all modeline-fields for all windows on all buffers that
+contain the given field, so the next trip through redisplay will reflect the
+change.  All the fields for any such modeline display must be updated, which is
+not the case when setting a modeline-field's function.
+@end defun
+
+@defun[fun {buffer-modeline-fields}, args {@i{buffer}}]
+Returns a copy of the list of @i{buffer}'s modeline-field objects.  This list
+can be destructively modified without affecting display of @i{buffer}'s
+modeline, but modifying any particular field's components (for example, width
+or function) causes the changes to be reflected the next trip through redisplay
+in every modeline display that uses the modified modeline-field.  When this is
+set with @f{setf}, @f{update-modeline-fields} is called for each window into
+@i{buffer}.
+@end defun
+
+@defun[fun {buffer-modeline-field-p}, args {@i{buffer} @i{field}}]
+If @i{field}, a modeline-field or the name of one, is in buffer's list of
+modeline-field objects, it is returned; otherwise, this returns nil.
+@end defun
+
+@defun[fun {update-modeline-fields}, args {@i{buffer} @i{window}}]
+This invokes each modeline-field object's function from @i{buffer}'s list,
+passing @i{buffer} and @i{window}.  The results are collected regarding each
+modeline-field object's width as appropriate, and the window is marked so
+the next trip through redisplay will reflect the changes.  If window does not
+display modelines, then no computation occurs.
+@end defun
+
+@defun[fun {update-modeline-field}, args {@i{buffer} @i{window} @i{field-or-name}}]
+This invokes the modeline-field object's function for @i{field-or-name}, which
+is a modeline-field object or the name of one for @i{buffer}.  This passes
+@i{buffer} and @i{window} to the update function.  The result is applied to the
+@i{window}'s modeline display using the modeline-field object's width, and the
+window is marked so the next trip through redisplay will reflect the changes.
+If the window does not display modelines, then no computation occurs.  If
+@i{field-or-name} is not found in @i{buffer}'s list of modeline-field objects,
+then this signals an error.  See @f{buffer-modeline-field-p} above.
+@end defun

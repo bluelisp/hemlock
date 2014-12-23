@@ -64,6 +64,7 @@ Contract=Basic87-90
 @menu
 * Introduction::
 * Representation of Text::
+* Buffers::
 @end menu
 
 @end ifnottex
@@ -71,5 +72,6 @@ Contract=Basic87-90
 @include dictionary.texinfo
 @include cim/cim-intro.texinfo
 @include cim/representation-of-text.texinfo
+@include cim/buffers.texinfo
 
 @bye
