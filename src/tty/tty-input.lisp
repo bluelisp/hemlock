@@ -79,7 +79,6 @@
     (reg (terminfo:capability :key-dc terminfo) #k"Delete")
     (reg (terminfo:capability :key-ppage terminfo) #k"Pageup")
     (reg (terminfo:capability :key-npage terminfo) #k"Pagedown")
-    (reg (terminfo:capability :key-backspace terminfo) #k"Backspace")
 
     (reg (terminfo:capability :key-sr terminfo) #k"Shift-Uparrow")
     (reg (terminfo:capability :key-sf terminfo) #k"Shift-Downarrow")
@@ -160,6 +159,17 @@
     (reg "[3;8~" #k"Shift-Meta-Control-Delete")
     (reg "[5;8~" #k"Shift-Meta-Control-PageUp")
     (reg "[6;8~" #k"Shift-Meta-Control-PageDown")
+
+    ;; TODO: Figure out some more user friendly mechanism, variable or 
+    ;; otherwise to specify the handling of these characters.  After all, 
+    ;; sometimes terminfo doesn't really know everything such as when 
+    ;; keys are mapped otherwise or when used via PuTTY, etc.
+;    (reg (terminfo:capability :key-backspace terminfo) #k"Backspace")
+    (reg #\Delete #k"backspace")
+    (reg #\Backspace #k"C-h")      ; control character C-h
+
+    ; handled by ti:key-dc
+    ; (reg "[3~" #k"delete")    
 
     ;; Misc.
     ;;
