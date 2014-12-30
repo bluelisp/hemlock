@@ -51,6 +51,7 @@
 (bind-key "Next Line" #k"downarrow")
 (bind-key "Previous Line" #k"control-p")
 (bind-key "Previous Line" #k"uparrow")
+(bind-key "Goto Absolute Line" #k"M-g M-g")
 (bind-key "Query Replace" #k"meta-%")
 (bind-key "Reverse Incremental Search" #k"control-r")
 (bind-key "Incremental Search" #k"control-s")
