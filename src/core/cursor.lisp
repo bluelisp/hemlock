@@ -286,6 +286,26 @@
       (move-mark start mark)
       (update-window-image window))))
 
+(defun make-current-line-top-of-window (window mark)
+  "Adjust the start of Window so that Mark is displayed on the top line."
+  (let ((start (window-display-start window)))
+    (move-mark start mark)
+    (update-window-image window)))
+
+(defun make-current-line-bottom-of-window (window mark)
+  "Adjust the start of Window so that Mark is displayed on the bottom line."
+  (let ((start (window-display-start window))
+        (width (window-width window)))
+    (move-mark start mark)
+    (dis-line-offset-guess start
+                           (- 1 (window-height window))
+                           width)
+    (update-window-image window)
+    ;; If that doesn't work, panic and scroll back down
+    (loop until (%displayed-p mark window)
+      do (progn (dis-line-offset-guess start 1 width)
+                (update-window-image window)))))
+
 
 ;;; %Displayed-P  --  Internal
 ;;;
