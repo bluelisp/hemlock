@@ -347,7 +347,6 @@
 
 
 ;;;; Find file.
-
 (defcommand "Find File" (p &optional pathname)
   "Visit a file in its own buffer.
    If the file is already in some buffer, select that buffer,
@@ -1262,13 +1261,6 @@
     (previous-window-command nil)
     (delete-window window)))
 
-(defcommand "Line to Top of Window" (p)
-  "Move current line to top of window."
-  "Move current line to top of window."
-  (declare (ignore p))
-  (with-mark ((mark (current-point)))
-    (move-mark (window-display-start (current-window)) (line-start mark))))
-
 (defcommand "Delete Next Window" (p)
   "Deletes the next window on display."
   "Deletes then next window on display."
@@ -1297,11 +1289,23 @@
                   (eq w *echo-area-window*))
         (delete-window w)))))
 
+(defcommand "Line to Top of Window" (p)
+  "Move current line to top of window."
+  "Move current line to top of window."
+  (declare (ignore p))
+  (make-current-line-top-of-window (current-window) (current-point)))
+
 (defcommand "Line to Center of Window" (p)
   "Moves current line to the center of the window."
   "Moves current line to the center of the window."
   (declare (ignore p))
   (center-window (current-window) (current-point)))
+
+(defcommand "Line to Bottom of Window" (p)
+  "Moves current line to the bottom of the window."
+  "Moves current line to the bottom of the window."
+  (declare (ignore p))
+  (make-current-line-bottom-of-window (current-window) (current-point)))
 
 (defun quickselect-slave-repl (&optional *)
   (let ((info (variable-value 'current-eval-server :global)))
