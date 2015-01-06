@@ -193,6 +193,8 @@
    #:window-display-recentering
    #:window-point
    #:center-window
+   #:make-current-line-top-of-window
+   #:make-current-line-bottom-of-window
    #:scroll-window
    #:displayed-p
    #:window-height
