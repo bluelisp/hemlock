@@ -51,7 +51,7 @@
                   :prepl
                   :osicat
                   :iolib
-                  :iolib.os
+                  :iolib/os
                   :cl-ppcre
                   #-scl :command-line-arguments)
     :components
