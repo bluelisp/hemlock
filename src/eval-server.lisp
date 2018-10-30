@@ -811,7 +811,9 @@
              slave
              slave-buffer
              background-buffer
-             (backend-type hi::*default-backend*))
+             (backend-type hi::*default-backend*)
+             backend tty clx qt)
+  (declare (ignorable backend tty clx qt))
   (assert slave)
   (let ((hi::*connection-backend*
          (ecase backend-type
