@@ -387,7 +387,8 @@ GB
 (defun hemlock (&optional x
                 &key (load-user-init t)
                      backend-type
-                     (display (isys:getenv "DISPLAY")))
+                     (display (isys:getenv "DISPLAY"))
+                     backend tty clx qt)
   "Invokes the editor, Hemlock.  If X is supplied and is a symbol, the
    definition of X is put into a buffer, and that buffer is selected.  If X is
    a pathname, the file specified by X is visited in a new buffer.  If X is not
@@ -398,6 +399,7 @@ GB
    different name.  Any compiled version of the source is preferred when
    choosing the file to load.  If the argument is non-nil and not t, then it
    should be a pathname that will be merged with the home directory."
+  (declare (ignorable backend tty clx qt))
   (cond
     (*in-the-editor*
      (process-command-line-argument x))
